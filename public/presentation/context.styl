@@ -1,0 +1,65 @@
+.output 
+    
+    pre
+        font-family: "Andale Mono", monospace
+        font-size: 110%
+        margin: 0px !important
+
+    svg
+        background-color: white
+        .correlation-matrix
+            font: 10px sans-serif
+            padding: 10px
+
+            .axis, .frame
+                shape-rendering: crispEdges
+
+            .axis 
+                line
+                    stroke: #ddd
+                path
+                    display: none
+
+            .frame
+                fill: none
+                stroke: #aaa
+
+            circle
+                fill-opacity: .7
+                &.hidden
+                    fill: #ccc !important
+
+            .extent
+                fill: #000
+                fill-opacity: .125
+                stroke: #fff
+
+        .multi-chart
+            .hide-y2 .y2 line, .hide-y1 .y1 line
+                display none
+
+    .d3-tip
+        background: rgba(0, 0, 0, 0.8)
+        border-radius: 2px
+        color: #fff
+        line-height: 1
+        padding: 12px
+    
+    .horizontal, .vertical
+        box-sizing: border-box
+
+    .horizontal
+        border-right: 1px solid #ccc
+
+    .regression
+        .axis line
+            stroke: black
+            stroke-width: 1
+
+        .domain
+            fill: none
+            shape-rendering: inherit
+            stroke: #000
+
+    .vertical
+        border-bottom: 1px solid #ccc

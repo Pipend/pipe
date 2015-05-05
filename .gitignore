@@ -1,0 +1,9 @@
+*.css
+*.js
+*.sublime-workspace
+*.xml
+.DS_Store
+config.ls
+rough
+node_modules/
+public/build/
