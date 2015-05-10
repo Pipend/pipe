@@ -9,28 +9,28 @@ module.exports = React.create-class {
     display-name: \AceEditor
 
     render: ->
-        {id, width, height} = @.props
-        div {id, style: {width, height}}
+        {editor-id, width, height} = @.props
+        div {id: editor-id, style: {width, height}}
 
     component-did-mount: ->
-        editor = ace.edit @.props.id
+        editor = ace.edit @.props.editor-id
             ..on \change, (, editor) ~> @.props?.on-change editor.get-value!
             ..set-options {enable-basic-autocompletion: true}
             ..set-show-print-margin false
-        @.process-props @.props
+        @.process-props {mode: \ace/mode/livescript, theme: \ace/theme/monokai} <<< @.props
 
     component-did-update: (prev-props) ->
-        editor = ace.edit @.props.id
+        editor = ace.edit @.props.editor-id
         editor.resize! if prev-props.width * prev-props.height != @.props.width * @.props.height
 
-    component-will-receive-props: ({id, value}:props) ->
-        editor = ace.edit id        
+    component-will-receive-props: ({editor-id, value}:props) ->
+        editor = ace.edit editor-id        
         @.process-props props
 
-    process-props: ({id, mode, theme, value}:props?) ->
-        editor = ace.edit id
-            ..get-session!.set-mode mode
-            ..set-theme theme
+    process-props: ({editor-id, mode, theme, value}:props?) ->
+        editor = ace.edit editor-id
+            ..get-session!.set-mode mode if !!mode
+            ..set-theme theme if !!theme
         editor.set-value value if value != editor.get-value!
 
 }

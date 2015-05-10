@@ -3,6 +3,11 @@
 * copy the following to ```config.ls``` :
 ```
 server-config = {
+    connections:
+        mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 
+            local:
+                host: \127.0.0.1
+                port: 27017
     http-port: 4081
     mongo-connection-opitons:
         auto_reconnect: true
