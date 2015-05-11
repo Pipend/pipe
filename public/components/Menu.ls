@@ -1,4 +1,5 @@
 {map} = require \prelude-ls
+{key} = require \keymaster
 {DOM:{a, div}}:React = require \react
 
 module.exports = React.create-class {
@@ -8,6 +9,9 @@ module.exports = React.create-class {
             div {class-name: \logo}
             div {class-name: \buttons},
                 @.props.items |> map ({action, hotkey, icon, label, type}) ->
-                    if type == \separator then div {class-name: \separator, key: label} else a {on-click: ~> action!; false}, label
+                    if !!hotkey
+                        key.unbind hotkey
+                        key hotkey, action
+                    a {on-click: ~> action!; false}, label
 
 }

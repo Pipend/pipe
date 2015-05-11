@@ -6,6 +6,7 @@ md5 = require \MD5
 {MongoClient} = require \mongodb
 {any, each, id, map, obj-to-pairs, pairs-to-obj, reject} = require \prelude-ls
 {compile-and-execute-livescript} = require \./utils
+transformation-context = require \./public/transformation/context
 
 query-cache = {}
 
@@ -65,7 +66,7 @@ app.get \/apis/queries, (req, res) ->
     return die res, err if !!err
     res.end JSON.stringify results, null, 4
 
-get-query-by-id = (query-database, query-id, callback) ->
+get-query-by-id = (query-database, query-id, callback) -->
     err, results <- query-database.collection \queries .aggregate do 
         * $match: {query-id}
         * $sort: _id: - 1
@@ -79,10 +80,10 @@ app.get \/apis/queries/:queryId, (req, res) ->
     return die res, err if !!err
     res.end JSON.stringify document
 
-execute = (query-database, {query, parameters}:document, cache, callback) !-->
-    connection-prime = config?.connections?[document?.data-source?.type][document?.data-source?.connection-name]
+execute = (data-source, query, parameters, cache, callback) !-->
+    connection-prime = config?.connections?[data-source?.type][data-source?.connection-name]
 
-    {type}? = data-source = {} <<< (connection-prime or {}) <<< document.data-source
+    {type}? = data-source = {} <<< (connection-prime or {}) <<< data-source
     return callback new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
 
     {execute, get-context} = query-types[type]
@@ -110,19 +111,56 @@ execute = (query-database, {query, parameters}:document, cache, callback) !-->
         query-cache[key] = {result, time: new Date!.value-of!}
 
 app.post \/apis/execute, (req, res) ->
-    err, {result}? <- execute query-database, req.body.document, false
+    {document:{data-source, query, parameters}}? = req.body
+    err, {result}? <- execute data-source, query, parameters, false
     return die res, err if !!err
 
     res.end JSON.stringify result
 
-app.get \/apis/queries/:queryId/execute, (req, res) ->
-    err, document <- get-query-by-id query-database, req.params.query-id
-    return die res, err if !!err
+transform = (query-result, transformation, parameters, callback) !-->
+    [err, func] = compile-and-execute-livescript "(#transformation\n)", (transformation-context! <<< (require \moment) <<< (require \prelude-ls) <<< parameters)
+    return callback err if !!err
 
-    err, {result}? <- execute query-database, document, (req?.parsed-query?.cache or false)
-    return die res, err if !!err
+    try
+        transformed-result = func query-result
+    catch err
+        return callback err, null
 
-    res.end JSON.stringify result
+    callback null, transformed-result
+
+get-latest-query-in-branch = (query-database, branch-id, callback) -->
+    err, results <- query-database.collection \queries .aggregate do 
+        * $match: {branch-id,status: true}
+        * $sort: _id: -1
+    return callback err, null if !!err
+    return callback "unable to find any query in branch: #{branch-id}" if (typeof results == \undefined) or results.length == 0
+    callback null, results.0
+
+<[
+    /apis/queries/:queryId/execute 
+    /apis/branches/:branchId/execute 
+    /apis/branches/:branchId/queries/:queryId/execute
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        {branch-id, query-id}? = req.params
+        {display or \query, cache or false}? = req.parsed-query
+
+        err, {data-source, query, transformation, presentation}? <- do ->
+            return (get-query-by-id query-database, query-id) if !!query-id
+            get-latest-query-in-branch query-database, branch-id
+        return die res, err if !!err
+
+        parameters = {} <<< req.parsed-query
+
+        err, query-result <- execute data-source, query, parameters, cache
+        return die res, err if !!err
+        return res.end JSON.stringify query-result, null, 4 if display == \query
+
+        err, transformed-result <- transform query-result, transformation, parameters
+        return die res, err if !!err
+        return res.end JSON.stringify transformed-result, null, 4 if display == \transformation
+
+        res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters}
 
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
     err, result <- query-types[req.params.query-type].connections req.query

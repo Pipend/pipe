@@ -1,0 +1,31 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="/node_modules/nvd3/nv.d3.css"/>
+        <link rel="stylesheet" href="/public/presentation/presentation.css">
+        <style>
+            body {
+                margin: 0px;
+                padding: 0px;
+            }
+            .presentation {                
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+        <meta charset="utf8"/>
+        <!-- presentation code (LiveScript), safer/easier to store inside script tag rather than a variable like parameters & transformedResult -->
+        <script type="text/plain" id="presentation"><%- presentation %></script>
+        <script type="text/javascript">
+            // obtained from query-string
+            window.parameters = <%- JSON.stringify(parameters) %>
+            // obtained by executing the query server side and "pipe"ing it to the transformation function
+            window.transformedResult = <%- JSON.stringify(transformedResult) %>
+        </script>
+        <!-- executes the presentation code using the parameters & transformedResult -->
+        <script type="text/javascript" src="/public/presentation/presentation.js"></script>
+        <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
+    </head>
+    <body> 
+        <div class="presentation"></div>
+    </body>
+</html>

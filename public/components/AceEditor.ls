@@ -31,6 +31,6 @@ module.exports = React.create-class {
         editor = ace.edit editor-id
             ..get-session!.set-mode mode if !!mode
             ..set-theme theme if !!theme
-        editor.set-value value if value != editor.get-value!
+        editor.set-value value, -1 if value != editor.get-value!
 
 }

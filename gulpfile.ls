@@ -18,14 +18,24 @@ if !!gulp-io-port
 source = require \vinyl-source-stream
 watchify = require \watchify
 
-gulp.task \build:styles, ->
+# COMPONENTS STYLES
+gulp.task \build:components:styles, ->
     gulp.src <[./public/components/*.styl]>
     .pipe stylus {use: nib!, compress: true}
     .pipe gulp.dest './public/components'
     .on \end, -> io.emit \build-complete if !!io
 
-gulp.task \watch:styles, ->
-    gulp.watch <[./public/components/*.styl]>, <[build:styles]>
+gulp.task \watch:components:styles, ->
+    gulp.watch <[./public/components/*.styl]>, <[build:components:styles]>
+
+# PRESENTATION STYLES
+gulp.task \build:presentation:styles, ->
+    gulp.src <[./public/presentation/*.styl]>
+    .pipe stylus {use: nib!, compress: true}
+    .pipe gulp.dest './public/presentation'
+
+gulp.task \watch:presentation:styles, ->
+    gulp.watch <[./public/presentation/*.styl]>, <[build:presentation:styles]>
 
 create-bundler = (entries) ->
     bundler = browserify {} <<< watchify.args <<< {debug: true}
@@ -39,19 +49,31 @@ bundle = (bundler, {file, directory}:output) ->
         .pipe source file
         .pipe gulp.dest directory
 
+# COMPONENTS SCRIPTS
 component-bundler = create-bundler \./public/components/App.ls
 bundle-components = -> bundle component-bundler, {file: "App.js", directory: "./public/components"}
 
-gulp.task \build:scripts, ->
+gulp.task \build:components:scripts, ->
     bundle-components!
 
-gulp.task \watch:scripts, ->
+gulp.task \watch:components:scripts, ->
     component-bundler.on \update, -> 
         io.emit \build-start if !!io
         bundle-components!
     component-bundler.on \time, (time) -> 
         io.emit \build-complete if !!io
         gulp-util.log "App.js built in #{time / 1000} seconds"
+
+# PRESENTATION SCRIPTS
+presentation-bundler = create-bundler \./public/presentation/presentation.ls
+bundle-presentation = -> bundle presentation-bundler, {file: "presentation.js", directory: "./public/presentation"}
+
+gulp.task \build:presentation:scripts, ->
+    bundle-presentation!
+
+gulp.task \watch:presentation:scripts, ->
+    presentation-bundler.on \update, -> bundle-presentation!
+    presentation-bundler.on \time, (time) -> gulp-util.log "presentation.js built in #{time / 1000} seconds"
 
 gulp.task \dev:server, ->
     nodemon {        
@@ -61,6 +83,6 @@ gulp.task \dev:server, ->
         script: \./server.ls
     }
 
-gulp.task \build, <[build:styles build:scripts]>
-gulp.task \watch, <[watch:styles watch:scripts]>
+gulp.task \build, <[build:components:styles build:components:scripts build:presentation:styles build:presentation:scripts]>
+gulp.task \watch, <[watch:components:styles watch:components:scripts watch:presentation:styles watch:presentation:scripts]>
 gulp.task \default, -> run-sequence \build, <[watch dev:server]>
