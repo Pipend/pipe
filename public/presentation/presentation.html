@@ -18,7 +18,7 @@
         <script type="text/javascript">
             // obtained from query-string
             window.parameters = <%- JSON.stringify(parameters) %>
-            // obtained by executing the query server side and "pipe"ing it to the transformation function
+            // obtained by executing the query on server side and "pipe"ing it to the transformation function
             window.transformedResult = <%- JSON.stringify(transformedResult) %>
         </script>
         <!-- executes the presentation code using the parameters & transformedResult -->

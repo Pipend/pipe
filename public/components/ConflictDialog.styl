@@ -1,0 +1,78 @@
+.conflict-dialog    
+    
+    background-color: rgba(0,0,0,0.6)
+    position: absolute
+    left: 0px
+    top: 0px
+    width: 100% 
+    height: 100% 
+
+    > div 
+        position: absolute
+        left: 50%
+        top: 25%
+
+        > div 
+            background: linear-gradient(#454545, #222)
+            border: 1px solid #444
+            box-shadow: 0 2px 12px black
+            border-radius: 5px
+            display: inline-block
+            padding: 10px
+            position: relative
+            left: -50%
+            top: -50%
+
+            .buttons 
+
+                margin-top: 8px
+
+                button
+                    background: linear-gradient(#4d4d4d, #2f2f2f)        
+                    border: 1px solid black
+                    border-radius: 8px
+                    box-sizing: border-box
+                    color: white
+                    cursor: pointer
+                    display: inline-block      
+                    float: right
+                    font-size: 16px
+                    margin-right: 4px
+                    outline: none
+                    text-align: center
+                    text-decoration: none
+                    user-select: none
+                    -webkit-user-select: none
+                    vertical-align: top
+                    width: 120px    
+                    height: 54px
+
+                    &:hover
+                        background: linear-gradient(#5a5a5a, #3c3c3c)
+
+            circle
+                fill: #ff9900
+                stroke: white
+
+                &:first-of-type
+                    fill: #0099ff
+
+                &.dim
+                    fill: rgba(0,0,0,0)
+
+                &.highlight         
+                    fill: rgba(0,255,0,1)
+
+            h1
+                color: white
+                font-size: 16px
+                font-weight: normal
+
+            line    
+                stroke: white
+
+            circle, line
+
+                &.dim           
+                    stroke-dasharray: 6,6
+                stroke-opacity: 0.3

@@ -4,7 +4,7 @@ express = require \express
 {readdir} = require \fs
 md5 = require \MD5
 {MongoClient} = require \mongodb
-{any, each, id, map, obj-to-pairs, pairs-to-obj, reject} = require \prelude-ls
+{any, each, filter, find-index, id, map, obj-to-pairs, pairs-to-obj, reject} = require \prelude-ls
 {compile-and-execute-livescript} = require \./utils
 transformation-context = require \./public/transformation/context
 
@@ -56,8 +56,12 @@ die = (res, err) ->
     console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
     res.status 500 .end err.to-string!
 
-<[\/ \/branches/:branchId/queries/:queryId]> |> each (route) ->
+<[\/ \/branches \/branches/:branchId/queries/:queryId]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
+
+app.get \/apis/defaultDocument, (req, res) ->
+    {type} = config.default-data-source
+    res.end JSON.stringify {} <<< query-types[type].default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
 
 app.get \/apis/queries, (req, res) ->
     err, results <- query-database.collection \queries .aggregate do 
@@ -137,8 +141,8 @@ get-latest-query-in-branch = (query-database, branch-id, callback) -->
     callback null, results.0
 
 <[
-    /apis/queries/:queryId/execute 
     /apis/branches/:branchId/execute 
+    /apis/queries/:queryId/execute 
     /apis/branches/:branchId/queries/:queryId/execute
 ]> |> each (route) ->
     app.get route, (req, res) ->
@@ -161,6 +165,36 @@ get-latest-query-in-branch = (query-database, branch-id, callback) -->
         return res.end JSON.stringify transformed-result, null, 4 if display == \transformation
 
         res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters}
+
+# save the code to mongodb
+app.post \/apis/save, (req, res)->
+
+    err, results <- query-database.collection \queries .aggregate do 
+        * $match:
+            branch-id: req.body.branch-id
+            status: true
+        * $project:
+            query-id: 1
+            parent-id: 1
+        * $sort: _id: -1
+    return die res, err.to-string! if !!err
+
+    if !!results?.0 and results.0.query-id != req.body.parent-id
+
+        index-of-parent-query = results |> find-index (.query-id == req.body.parent-id)
+
+        queries-in-between = [0 til results.length] 
+            |> map -> [it, results[it].query-id]
+            |> filter ([index])-> index < index-of-parent-query
+            |> map (.1)
+
+        return die res, JSON.stringify {queries-in-between}
+    
+    err, records <- query-database.collection \queries .insert req.body <<< {user: req.user, creation-time: new Date!.get-time!, status: true}, {w: 1}
+    return die res, err if !!err
+
+    res.set \Content-Type, \application/json
+    res.status 200 .end JSON.stringify records.0
 
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
     err, result <- query-types[req.params.query-type].connections req.query

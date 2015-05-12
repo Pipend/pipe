@@ -229,4 +229,13 @@ export execute = (data-source, query, parameters, query-id, callback) !->
     #TODO: get timeout from config
     execute-mongo-query data-source, mongo-query, {aggregation-type, timeout: 1200000}, query-id, callback
 
-
+export default-document = -> 
+    {
+        query: """
+        $sort: _id: -1 
+        $limit: 20
+        """
+        transformation: "id"
+        presentation: "json"
+        parameters: ""
+    }

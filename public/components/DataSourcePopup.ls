@@ -7,7 +7,7 @@ ui-protocol =
 module.exports = React.create-class {
 
     render: ->
-        div {class-name: 'data-source-popup popup'},
+        div {class-name: 'data-source-popup popup', style: {left: @.props?.left}},
             div null,
                 label null, 'query type'
                 select do 
