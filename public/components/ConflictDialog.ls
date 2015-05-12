@@ -71,36 +71,34 @@ module.exports = React.create-class do
         ] |> map -> line it
 
         div {class-name: \conflict-dialog}, 
-            div null, 
-                div null, 
-
-                    h1 null, "Unable to save, you are #{@.props.queries-in-between.length} queries behind"
-                    svg {style: {width: svg-size.width, height: svg-size.height}},
-                        g {transform: "translate(#{origin.x} #{origin.y})"}, (lines ++ extra-lines ++ circles ++ extra-circles)
-                    div {class-name: \buttons},
-                        [
-                            {
-                                label: \Reset
-                                value: \reset
-                            }
-                            {
-                                label: 'Fork Query'
-                                value: \fork
-                            }
-                            {
-                                label: 'New Query'
-                                value: \new
-                            }
-                        ] |> map ({label, value}) ~>
-                            button do 
-                                {
-                                    on-click: ~> 
-                                        @.props?.on-resolved value
-                                        @.close!
-                                    on-mouse-over: ~> @.set-state {resolution: value} 
-                                    on-mouse-out: ~> @.set-state {resolution: \none}
-                                }
-                        button {on-click: ~> React.unmount-component-at-node @.get-DOM-node!.parent-element}, \Cancel
+            # div null, 
+            #     div null, 
+            h1 null, "Unable to save, you are #{@.props.queries-in-between.length} querie#{if @.props.queries-in-between.length > 1 then 's' else ''} behind the HEAD"
+            svg {style: {width: svg-size.width, height: svg-size.height}},
+                g {transform: "translate(#{origin.x} #{origin.y})"}, (lines ++ extra-lines ++ circles ++ extra-circles)
+            div {class-name: \buttons},
+                [
+                    {
+                        label: \Reset
+                        value: \reset
+                    }
+                    {
+                        label: 'Fork Query'
+                        value: \fork
+                    }
+                    {
+                        label: 'New Query'
+                        value: \new-commit
+                    }
+                ] |> map ({label, value}) ~>
+                    button do 
+                        {
+                            on-click: ~> @.props?.on-resolution-select value
+                            on-mouse-over: ~> @.set-state {resolution: value} 
+                            on-mouse-out: ~> @.set-state {resolution: \none}
+                        }
+                        label
+                button {on-click: ~> @.props?.on-cancel!}, \Cancel
 
     get-initial-state: -> {resolution: \reset}
 

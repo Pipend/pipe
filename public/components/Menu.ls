@@ -1,6 +1,7 @@
 {map} = require \prelude-ls
 {key} = require \keymaster
 {DOM:{a, div}}:React = require \react
+{cancel-event} = require \../utils.ls
 
 module.exports = React.create-class {
 
@@ -15,7 +16,9 @@ module.exports = React.create-class {
                     
                     if !!hotkey
                         key.unbind hotkey
-                        key hotkey, ~> action @.refs[ref].get-DOM-node!.offset-left
+                        key hotkey, ~> 
+                            action @.refs[ref].get-DOM-node!.offset-left
+                            cancel-event it
 
                     a do 
                         {
@@ -23,8 +26,7 @@ module.exports = React.create-class {
                             ref
                             on-click: (e) ~> 
                                 action @.refs[ref].get-DOM-node!.offset-left
-                                e.prevent-default!
-                                e.stop-propagation!
+                                cancel-event e
                         }
                         label
 
