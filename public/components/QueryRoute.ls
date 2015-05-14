@@ -2,7 +2,7 @@ AceEditor = require \./AceEditor.ls
 DataSourcePopup = require \./DataSourcePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, filter, last, map} = require \prelude-ls
+{any, camelize, concat-map, dasherize, filter, find, keys, last, map} = require \prelude-ls
 {DOM:{div, input}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -17,6 +17,22 @@ SharePopup = require \./SharePopup.ls
 client-storage = require \../client-storage.ls
 ConflictDialog = require \./ConflictDialog.ls
 _ = require \underscore
+ace-language-tools = require \brace/ext/language_tools 
+
+# returns dasherized collection of keywords for auto-completion
+keywords-from-object = (object)->
+    object
+        |> keys 
+        |> map dasherize
+
+# takes a collection of keywords & maps them to {name, value, score, meta}
+convert-to-ace-keywords = (keywords, meta, prefix)->
+    keywords
+        |> map -> {text: it, meta}
+        |> filter -> (it.text.index-of prefix) == 0 
+        |> map ({text, meta}) -> {name: text, value: text, score: 0, meta}
+
+alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
 module.exports = React.create-class {
 
@@ -115,7 +131,7 @@ module.exports = React.create-class {
                             {
                                 queries-in-between
                                 on-cancel: ~> @.set-state {dialog: null, queries-in-between: null}
-                                on-resolution-select: (resolution) ~>                                     
+                                on-resolution-select: (resolution) ~>
                                     uid = generate-uid!
                                     match resolution
                                     | \new-commit =>
@@ -125,14 +141,14 @@ module.exports = React.create-class {
                                             branch-id
                                             tree-id
                                         }
-                                    | \fork =>                                        
+                                    | \fork =>
                                         @.POST-document {} <<< @.document-from-state! <<< {
                                             query-id: uid
                                             parent-id: query-id
                                             branch-id: uid
                                             tree-id
                                         }
-                                    | \reset => @.set-state remote-document                                    
+                                    | \reset => @.set-state remote-document
                                     @.set-state {dialog: null, queries-in-between: null}
                             }
 
@@ -294,16 +310,22 @@ module.exports = React.create-class {
             data: JSON.stringify document-to-save
         }
             ..done ({query-id, branch-id}:saved-document) ~>
+                client-storage.delete-document @.props.params.query-id
                 @.set-state {} <<< saved-document <<< {remote-document: saved-document}
                 @.transition-to "/branches/#{branch-id}/queries/#{query-id}"
             ..fail ({response-text}:err?) ~>
-                {queries-in-between}? = JSON.parse response-text
+                return alert 'SERVER ERROR' if !response-text
+                try
+                    {queries-in-between}? = JSON.parse response-text
+                catch exception
+                    return alert 'SERVER ERROR'
+                return alert 'SERVER ERROR' if !queries-in-between
                 @.set-state {dialog: \save-conflict, queries-in-between}
     
-    has-document-changed: ->
+    changes-made: ->
         unsaved-document = @.document-from-state!
         <[query transformation presentation parameters queryTitle]>
-            |> any ~> unsaved-document[it] != @.state.remote-document[it]
+            |> filter ~> unsaved-document[it] != @.state.remote-document[it]
 
     save: ->
         {
@@ -322,8 +344,7 @@ module.exports = React.create-class {
             dialog
         } = @.state
 
-        # TODO: return if the document has not changed
-        return if !@.has-document-changed!
+        return if @.changes-made!.length == 0
 
         uid = generate-uid! 
         {query-id, tree-id}:document = @.document-from-state!
@@ -351,7 +372,7 @@ module.exports = React.create-class {
                     # state.remote-document is used to check if the client copy has diverged
                     remote-document = @.state-from-document document
                     @.set-state {} <<< (local-document or remote-document) <<< {remote-document}
-        
+
         # :) if branch id & query id are present
         return load-document query-id, "/apis/queries/#{query-id}" if !!query-id and !(branch-id in <[local localFork]>)            
         
@@ -366,12 +387,36 @@ module.exports = React.create-class {
     save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
 
     component-did-mount: ->
+
+        # setup auto-completion
+        transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        d3-keywords = keywords-from-object d3
+        presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        @.default-completers =
+            * protocol: 
+                get-completions: (editor, , , prefix, callback) ->
+                    range = editor.getSelectionRange!.clone!
+                        ..set-start range.start.row, 0
+                    text = editor.session.get-text-range range
+                    [keywords, meta] = match editor.container.id
+                        | \transformation-editor => [transformation-keywords, \transformation]
+                        | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
+                        | _ => [alphabet, editor.container.id]
+                    callback null, (convert-to-ace-keywords keywords, meta, prefix)
+            ...
+        ace-language-tools.set-completers (@.default-completers |> map (.protocol))
+
+        # data loss prevent on crash
         @.save-to-client-storage-debounced = _.debounce @.save-to-client-storage, 350
         window.onbeforeunload = ~>
             @.save-to-client-storage!            
-            return "You have NOT saved your query. Stop and save if your want to keep your query." if @.has-document-changed!
+            return "You have NOT saved your query. Stop and save if your want to keep your query." if @.changes-made!.length > 0
+
+        # update the size of the presentation on resize (based on size of editors)
         $ window .on \resize, ~> @.update-presentation-size!
         @.update-presentation-size!
+
+        # load the document based on the url
         @.load @.props
 
     component-will-receive-props: (props) ->
@@ -382,6 +427,44 @@ module.exports = React.create-class {
         return if props.params.branch-id == @.state.branch-id and props.params.query-id == @.state.query-id
 
         @.load props    
+
+    component-did-update: (prev-props, prev-state) ->
+        {data-source} = @.state
+
+        # return if there is no change in the data-source
+        return if data-source `is-equal-to-object` prev-state.data-source
+        
+        # @.completers is an array that stores a completer for each data-source
+        @.completers = [] if !@.completers
+
+        # tries to find and return an exiting completer for the current data-source iff the completer has a protocol property
+        existing-completer = @.completers |> find -> it.data-source `is-equal-to-object` data-source
+        return ace-language-tools.set-completers [existing-completer.protocol] ++ (@.default-completers |> map (.protocol)) if !!existing-completer?.protocol
+        
+        completer = existing-completer or {data-source}
+
+        # aborts any previous on-going requests for keywords before starting a new one
+        # on success updates the protocol property of the completer
+        @.keywords-request.abort! if !!@.keywords-request
+        @.keywords-request = $.ajax do
+            type: \post
+            url: "/apis/queryTypes/#{@.state.data-source.type}/keywords"
+            content-type: 'application/json; charset=utf-8'
+            data-type: \json
+            data: JSON.stringify data-source
+            success: (keywords) ~>
+                completer.protocol =
+                    get-completions: (editor, , , prefix, callback) ->
+                        range = editor.getSelectionRange!.clone!
+                            ..set-start range.start.row, 0
+                        text = editor.session.get-text-range range
+                        if editor.container.id == \query-editor
+                            callback null, (convert-to-ace-keywords keywords, data-source.type, prefix)    
+                if data-source `is-equal-to-object` @.state.data-source
+                    ace-language-tools.set-completers [completer.protocol] ++ (@.default-completers |> map (.protocol)) 
+
+        # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
+        @.completers.push completer if !existing-completer
 
     get-initial-state: ->
         {

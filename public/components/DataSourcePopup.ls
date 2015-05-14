@@ -1,4 +1,4 @@
-{map} = require \prelude-ls
+{keys, obj-to-pairs, map, pairs-to-obj, reject} = require \prelude-ls
 {DOM:{div, label, option, select}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -15,10 +15,18 @@ module.exports = React.create-class {
                         value: @.props.data-source.type
                         on-change: ({current-target:{value}}) ~> @.props?.on-change ui-protocol[value].get-empty-data-source!
                     }
-                    <[mongodb mssql curl multiquery]>
+                    ui-protocol
+                        |> keys
                         |> map -> option {value: it}, it
             React.create-element do 
                 @.props.data-source-component
-                {} <<< @.props.data-source <<< {on-change: @.props.on-change}
+                {} <<< @.props.data-source <<< {
+                    on-change: (data-source) ~>
+                        @.props.on-change do 
+                            data-source
+                                |> obj-to-pairs
+                                |> reject ([key]) ~> key in <[onChange]>
+                                |> pairs-to-obj
+                }
 
 }

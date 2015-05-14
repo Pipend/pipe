@@ -37,7 +37,7 @@ module.exports = React.create-class {
                     value: collection
                     options: collections
                     disabled: @.state.loading-collections
-                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @.props <<< {collection: value}
+                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @.props <<<< {collection: value}
                 }
             ] |> map ({name, value, options, disabled, on-change}) ~>
                 div {key: name},

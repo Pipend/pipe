@@ -25,9 +25,10 @@ plot = (p, view, result) -->
 
 # Attaches options to a Plottable
 with-options = (p, o) ->
+  debugger
   new Plottable do
     p.plotter
-    {} `rextend` p.options `rextend` o
+    ({} `rextend` p.options) `rextend` o
     p.continuations
     p.projection
   
@@ -136,6 +137,7 @@ plottables = {
     multi-bar-horizontal: (require \./plottables/multi-bar-horizontal.ls) {Plottable, d3, nv, plot-chart, plot}
     heatmap: (require \./plottables/heatmap.ls) {Plottable, d3, plot}
     multi-chart: (require \./plottables/multi-chart.ls) {Plottable, d3, nv, plot-chart, plot}
+    funnel: (require \./plottables/funnel.ls) {Plottable, d3, nv, plot-chart, plot}
 } <<< (require \./plottables/layout.ls) {Plottable, d3, nv, plot-chart, plot}
 
 # all functions defined here are accessibly by the presentation code

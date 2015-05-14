@@ -38,5 +38,5 @@ export rextend = (a, b) -->
     bkeys = Obj.keys b
     return a if bkeys.length == 0
     bkeys |> each (key) ->
-        a[key] = a[key] `rextend` b[key]
-    a
+        a[key] = (if (Obj.keys a[key]).length > 0 then {} <<< a[key] else a[key]) `rextend` b[key]
+    a    

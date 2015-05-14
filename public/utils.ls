@@ -8,7 +8,7 @@ require \LiveScript
 # the first require is used by browserify to import the prelude-ls module
 # the second require is defined in the prelude-ls module and exports the object
 require \prelude-ls
-{keys, is-type, keys, map, Str, floor} = require \prelude-ls
+{all, any, keys, is-type, keys, map, Str, floor} = require \prelude-ls
 
 # this method differs from /utils.ls::compile-and-execute-livescript,
 # it uses the eval function to execute javascript since the "vm" module is unavailable on client-side

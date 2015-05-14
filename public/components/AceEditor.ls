@@ -17,6 +17,11 @@ module.exports = React.create-class {
             ..on \change, (, editor) ~> @.props?.on-change editor.get-value!
             ..set-options {enable-basic-autocompletion: true}
             ..set-show-print-margin false
+            ..commands.on \afterExec ({editor, command, args}) ->
+                range = editor.getSelectionRange!.clone!
+                range.setStart range.start.row, 0
+                line = editor.session.getTextRange range
+                editor.execCommand \startAutocomplete if command.name == "insertstring" and (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line)
         @.process-props {mode: \ace/mode/livescript, theme: \ace/theme/monokai} <<< @.props
 
     component-did-update: (prev-props) ->

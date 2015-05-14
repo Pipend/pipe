@@ -1,12 +1,15 @@
 body-parser = require \body-parser
 {http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
 express = require \express
-{readdir} = require \fs
+{create-read-stream, readdir} = require \fs
 md5 = require \MD5
 {MongoClient} = require \mongodb
 {any, each, filter, find-index, id, map, obj-to-pairs, pairs-to-obj, reject} = require \prelude-ls
 {compile-and-execute-livescript} = require \./utils
 transformation-context = require \./public/transformation/context
+phantom = require \phantom
+url-parser = (require \url).parse
+querystring = require \querystring
 
 query-cache = {}
 
@@ -56,7 +59,11 @@ die = (res, err) ->
     console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
     res.status 500 .end err.to-string!
 
-<[\/ \/branches \/branches/:branchId/queries/:queryId]> |> each (route) ->
+<[
+    \/ 
+    \/branches 
+    \/branches/:branchId/queries/:queryId
+]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
 app.get \/apis/defaultDocument, (req, res) ->
@@ -141,8 +148,8 @@ get-latest-query-in-branch = (query-database, branch-id, callback) -->
     callback null, results.0
 
 <[
-    /apis/branches/:branchId/execute 
-    /apis/queries/:queryId/execute 
+    /apis/branches/:branchId/execute
+    /apis/queries/:queryId/execute
     /apis/branches/:branchId/queries/:queryId/execute
 ]> |> each (route) ->
     app.get route, (req, res) ->
@@ -165,6 +172,71 @@ get-latest-query-in-branch = (query-database, branch-id, callback) -->
         return res.end JSON.stringify transformed-result, null, 4 if display == \transformation
 
         res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters}
+
+<[
+    /apis/branches/:branchId/export
+    /apis/queries/:queryId/export
+    /apis/branches/:branchId/queries/:queryId/export
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        {format or 'png', width or 720, height or 480} = req.query
+
+        # validate format
+        text-formats = <[json text]>
+        valid-formats = <[png]> ++ text-formats
+        return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
+
+        # find the query-id & title
+        err, {data-source, query-id, query-title, query, transformation}? <- do ->
+            return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
+            get-latest-query-in-branch query-database, req.params.branch-id
+
+        filename = query-title.replace /\s/g, '_'
+
+        if format in text-formats
+            parameters = {} <<< req.parsed-query
+                |> obj-to-pairs
+                |> reject ([key]) -> key in <[format width height]>
+                |> pairs-to-obj
+
+            err, query-result <- execute data-source, query, parameters, false
+            return die res, err if !!err
+
+            err, transformed-result <- transform query-result, transformation, parameters
+            return die res, err if !!err
+
+            download = (extension, content-type, content) ->
+                res.set \Content-disposition, "attachment; filename=#{filename}.#{extension}"
+                res.set \Content-type, content-type
+                res.end content
+
+            match format
+            | \json => download \json, \application/json, JSON.stringify transformed-result, null, 4
+            | \text => download \txt, \text/plain, JSON.stringify transformed-result, null, 4
+
+        else
+
+            # use the query-id for naming the file
+            image-file = "public/screenshots/#{query-id}.png"
+            {create-page, exit} <- phantom.create
+            {open, render}:page <- create-page
+            page.set \viewportSize, {width, height}
+            page.set \onLoadFinished, ->
+                <- render image-file
+                res.set \Content-disposition, "attachment; filename=#{filename}.png"
+                res.set \Content-type, \image/png
+                create-read-stream image-file .pipe res
+                exit!
+
+            # compose the url for executing the query
+            base-url = url-parser req.url .pathname .replace \/export, \/execute
+            query-string = req.query
+                |> obj-to-pairs
+                |> reject ([key]) -> key in <[format width height]>
+                |> pairs-to-obj
+                |> -> {} <<< it <<< {display: \presentation, cache: \false}
+            open "http://127.0.0.1:#{http-port}#{base-url}?#{querystring.stringify query-string}"
+
 
 # save the code to mongodb
 app.post \/apis/save, (req, res)->
@@ -198,6 +270,12 @@ app.post \/apis/save, (req, res)->
 
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
     err, result <- query-types[req.params.query-type].connections req.query
+    return die res, err if !!err
+
+    res.end JSON.stringify result
+
+app.post \/apis/queryTypes/:queryType/keywords, (req, res) ->
+    err, result <- query-types[req.params.query-type].keywords {} <<< req.body <<< (config?.connections?[req.body.type]?[req.body.connection-name] or {})
     return die res, err if !!err
 
     res.end JSON.stringify result
