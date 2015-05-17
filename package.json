@@ -23,6 +23,7 @@
     "ejs": "^2.3.1",
     "express": "^4.12.2",
     "jquery-browserify": "^1.8.1",
+    "jsdifflib": "^1.1.0",
     "keymaster": "git+https://github.com/furqanZafar/keymaster",
     "mkdirp": "^0.5.0",
     "moment": "^2.10.0",

@@ -9,7 +9,7 @@ module.exports = React.create-class {
         div {class-name: \menu},
             div {class-name: \logo}
             div {class-name: \buttons},
-                @.props.items |> map ({action, hotkey, icon, label, type}) ~>
+                @.props.items |> map ({action, hotkey, icon, label, type, highlight}) ~>
 
                     # using ref for accessing the anchor tag from hotkey listener
                     ref = label.replace /\s/g, '' .to-lower-case!
@@ -27,6 +27,7 @@ module.exports = React.create-class {
                             on-click: (e) ~> 
                                 action @.refs[ref].get-DOM-node!.offset-left
                                 cancel-event e
+                            style: if !!highlight then {border-top: "1px solid #{highlight}"} else {}
                         }
                         label
 

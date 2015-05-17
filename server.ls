@@ -63,8 +63,23 @@ die = (res, err) ->
     \/ 
     \/branches 
     \/branches/:branchId/queries/:queryId
+    \/branches/:branchId/queries/:queryId/diff
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
+
+# redirects you to the latest query in the branch: /branches/:branchId/queries/queryId
+app.get \/branches/:branchId, (req, res) ->
+    err, {query-id, branch-id}? <- get-latest-query-in-branch query-database, req.params.branch-id
+    return die res, err if !!err
+
+    res.redirect "/branches/#{branch-id}/queries/#{query-id}"
+
+# redirects you to /branches/:branchId/queries/queryId
+app.get \/queries/:queryId, (req, res) ->
+    err, {query-id, branch-id}? <- get-query-by-id query-database, req.params.query-id
+    return die res, err if !!err
+
+    res.redirect "/branches/#{branch-id}/queries/#{query-id}"
 
 app.get \/apis/defaultDocument, (req, res) ->
     {type} = config.default-data-source

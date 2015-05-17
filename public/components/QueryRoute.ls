@@ -34,7 +34,7 @@ convert-to-ace-keywords = (keywords, meta, prefix)->
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
     display-name: \QueryRoute
 
@@ -76,7 +76,15 @@ module.exports = React.create-class {
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
             * icon: \t, label: \Tags, action: ~>
-            * icon: \t, label: \VCS, show: saved-query, action: ~>
+            * icon: \t
+              label: \Diff
+              show: saved-query
+              highlight: do ~>
+                changes = @.changes-made!
+                return null if changes.length == 0
+                return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
+                'rgba(255,255,0,1)'
+              action: ~>
             * icon: \h, label: \Share, show: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
 
         div {class-name: \query-route},
@@ -325,7 +333,7 @@ module.exports = React.create-class {
     changes-made: ->
         unsaved-document = @.document-from-state!
         <[query transformation presentation parameters queryTitle]>
-            |> filter ~> unsaved-document[it] != @.state.remote-document[it]
+            |> filter ~> unsaved-document?[it] != @.state.remote-document?[it]
 
     save: ->
         {
@@ -361,6 +369,8 @@ module.exports = React.create-class {
             tree-id: tree-id or uid
         }
 
+    save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
+
     load: (props) ->
         {branch-id, query-id}? = props.params
 
@@ -383,8 +393,6 @@ module.exports = React.create-class {
 
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
         load-document query-id, \/apis/defaultDocument
-
-    save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
 
     component-did-mount: ->
 
@@ -556,4 +564,3 @@ module.exports = React.create-class {
                     height: presentation-editor-height
         }    
 
-}
