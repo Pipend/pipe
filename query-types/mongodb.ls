@@ -1,3 +1,4 @@
+{promises:{bindP, from-error-value-callback, new-promise, returnP, to-callback}} = require \async-ls
 config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
@@ -38,81 +39,83 @@ export cancel = (query-id, callback) !-->
     return callback (new Error "query not found #{query-id}") if !query
     query.kill callback
 
-export connections = ({connection-name, database}:x, callback) !--> 
+# connections :: (Promise p) => a -> p b
+export connections = ({connection-name, database}) --> 
 
-    # return the list of all connecitons
-    if !connection-name
-        return callback do 
-            null
+    # get-connections :: (Promise p) => a -> p Connections
+    get-connections = ->
+        res <- new-promise
+        res do 
             connections: (config?.connections?.mongodb or {}) 
                 |> obj-to-pairs
                 |> map ([name, value]) -> {label: name, value: name}
 
-    {host, port}:connection? = config?.connections?.mongodb?[connection-name]
-    return callback new Error "connection name: #{connection-name} not found in /config.ls" if !connection
+    # get-databases :: (Promise p) => String -> p Databases
+    get-databases = (connection-name) ->
+        {host, port}:connection? = config?.connections?.mongodb?[connection-name]
+        return (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
 
-    err, result <- switch
+        # return the database in the config, if the connection is a "database-connection"
+        return returnP {connection-name, databases: [connection.database]} if !!connection?.database
 
-        |  !database => (callback) !->
+        # return the list of all databases, if the connection is a "server-connection"
+        databases <- bindP execute-mongo-database-query-function do 
+            (db) ->
+                admin = db.admin!
+                {databases} <- bindP (from-error-value-callback admin.list-databases, admin)!
+                returnP (databases |> map (.name))
+            {host, port, database: \admin}
+            {timeout: 5000}
+            "#{Math.floor Math.random! * 1000000}"
+        returnP {connection-name, databases}
 
-            # return the database in the config, if the connection is a "database-connection"
-            return callback null, {connection-name, databases: [connection.database]} if !!connection?.database
+    # get-collections :: (Promise p) => String -> String -> p Collections
+    get-collections = (connection-name, database) -->
+        {host, port}:connection? = config?.connections?.mongodb?[connection-name]
+        return (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
 
-            # return the list of all databases, if the connection is a "server-connection"
-            err, databases <- execute-mongo-database-query-function do 
-                {host, port, database: \admin}
-                (db, callback) !-->
-                    err, res <- db.admin!.listDatabases
-                    callback do 
-                        err
-                        res.databases |> map (.name)
-                {timeout: 5000}
-                Math.floor Math.random! * 1000000
-            callback err, {connection-name, databases}
+        collections <- bindP execute-mongo-database-query-function do
+            (db) ->
+                results <- bindP (from-error-value-callback db.collection-names, db)!
+                returnP do
+                    results |> map ({name}) ->
+                        return name if (name.index-of \.) == -1
+                        name .split \. .1
+            {host, port, database: connection?.database or database}
+            {timeout: 5000}
+            Math.floor Math.random! * 1000000
+        returnP {connection-name, database, collections}
 
-        | _ => (callback) !->
-            # return the list of all collection for the given connection and database
-            err, collections <- execute-mongo-database-query-function do
-                {host, port, database: connection?.database or database}
-                (db, callback) !-->
-                    err, res <- db.collectionNames
-                    return callback err, null if !!err
-                    callback do 
-                        null
-                        res |> map ({name}) ->
-                            return name if (name.index-of \.) == -1
-                            name .split \. .1
-                {timeout: 5000}
-                Math.floor Math.random! * 1000000
-            callback err, {connection-name, database, collections}
+    switch
+        | !connection-name => get-connections!
+        | !database => get-databases connection-name
+        | _ => get-collections connection-name, database
 
-    callback err, result
-
-export keywords = (data-source, callback) !-->
-
+# keywords :: (Promise p) => DataSource -> p [String]
+export keywords = (data-source) -->
     mongo-query = 
         * $sort: _id: -1
         * $limit: 10
 
-    err, results <- execute-mongo-query do 
+    results <- bindP execute-mongo-query do 
         data-source
         mongo-query 
         {aggregation-type: \pipeline, timeout: 10000}
         Math.floor Math.random! * 1000000
-    return callback err, null if !!err
 
     collection-keywords = results 
         |> concat-map (-> get-all-keys-recursively it, (k, v)-> typeof v != \function)
         |> unique
 
-    callback null, do -> 
+    returnP do 
         collection-keywords ++ (collection-keywords |> map -> "$#{it}") ++
-        # ((get-all-keys-recursively get-context!, -> true) |> map dasherize) ++
+        ((get-all-keys-recursively get-context!, -> true) |> map dasherize) ++
         <[$add $add-to-set $all-elements-true $and $any-element-true $avg $cmp $concat $cond $day-of-month $day-of-week $day-of-year $divide 
           $eq $first $geo-near $group $gt $gte $hour $if-null $last $let $limit $literal $lt $lte $map $match $max $meta $millisecond $min $minute $mod $month 
           $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort 
           $strcasecmp $substr $subtract $sum $to-lower $to-upper $unwind $week $year]>
 
+# convert-query-to-valid-livescript :: String -> String
 convert-query-to-valid-livescript = (query) ->
     lines = query.split (new RegExp "\\r|\\n")
         |> filter -> 
@@ -125,7 +128,7 @@ convert-query-to-valid-livescript = (query) ->
             line
     "[{#{lines.join '\n'}}]"
 
-#
+# get-context :: a -> Context
 export get-context = ->
     bucketize = (bucket-size, field) --> $divide: [$subtract: [field, $mod: [field, bucket-size]], bucket-size]
     # {date-from-object-id, object-id-from-date} = require \./../public/scripts/utils.ls
@@ -142,30 +145,26 @@ export get-context = ->
         # date-from-object-id
     }
 
-execute-mongo-aggregation-pipeline = (collection, query, callback) !-->
-    err, result <-  collection.aggregate query, {allow-disk-use: config.allow-disk-use}
-    callback err, result
+# execute-mongo-aggregation-pipeline :: (Promise p) => MongoDBCollection -> String -> p Result
+execute-mongo-aggregation-pipeline = (collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use: config.allow-disk-use}
 
-execute-mongo-map-reduce = (collection, query, callback) !-->
-    err, result <- collection.map-reduce do
-        query.$map
-        query.$reduce
-        query.$options <<< {finalize: query.$finalize}
-    callback err, result
+# execute-mongo-map-reduce :: (Promise p) => MongoDBCollection -> String -> p Result
+execute-mongo-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
+    (from-error-value-callback collection.map-reduce, collection) do 
+        $map
+        $reduce
+        {} <<< $options <<< {finalize: $finalize}
 
 # utility function for executing a single raw mongodb query
 # mongo-database-query-function :: (db, callback) --> void;
 # can also be used to perform db.****** functions
-export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function, {timeout}:parameters, query-id, callback) !-->
-    
+# execute-mongo-database-query-function :: (Promise p) => (MongoDatabase -> p Result) -> DataSource -> MongoDatabaseQueryParameters -> String -> p Result
+export execute-mongo-database-query-function = (mongo-database-query-function, {host, port, database}, {timeout}:parameters, query-id) -->
     # connect to mongo server
     server = new Server host, port
     mongo-client = new MongoClient server, {native_parser: true}
-    err, mongo-client <- mongo-client.open 
-    return callback err, null if !!err
-
+    mongo-client <- bindP (from-error-value-callback mongo-client.open, mongo-client)!
     db = mongo-client.db database
-
     start-time = new Date!.value-of!
 
     # store a reference to the query (allowing the user to cancel it later on)
@@ -180,54 +179,58 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
         ->  poll[query-id]?.kill (kill-error, kill-result) -> return console.log \kill-error, kill-error if !!kill-error                
         timeout    
 
-    err, result <- mongo-database-query-function db
+    # on execution of the query remove it from the list of running queries
+    result <- bindP (mongo-database-query-function db)
     mongo-client.close!
-    return callback (new Error "query was killed #{query-id}") if !poll[query-id]
+    return (new-promise (, rej) -> rej new Error "query was killed #{query-id}") if !poll[query-id]
     delete poll[query-id]
-    return callback (new Error "mongodb error: #{err.to-string!}"), null if !!err
-    callback null, result    
+    returnP result
 
 # for executing a single mongodb query from pipe
-export execute-mongo-query = ({collection}:data-source, mongo-query, {aggregation-type, timeout}:parameters, query-id, callback) !-->
+# execute-mongo-query :: (Promise p) => DataSource -> String -> MongoQueryParameters -> String -> p Result
+export execute-mongo-query = ({collection}:data-source, mongo-query, {aggregation-type, timeout}:parameters, query-id) -->
 
+    # select the mongo-query-execution function based on aggregation type
     f = switch aggregation-type
         | \pipeline => execute-mongo-aggregation-pipeline
         | \map-reduce => execute-mongo-map-reduce
-        | _ => (..., callback) -> callback (new Error "Unexpected query aggregation-type '#aggregation-type' \nExpected either 'pipeline' or 'map-reduce'."), null
+        | _ => -> new-promise (, rej) -> rej new Error "Unexpected query aggregation-type '#aggregation-type' \nExpected either 'pipeline' or 'map-reduce'."
 
-    err, res <- execute-mongo-database-query-function do 
+    # execute the query & reformat the result for map-reduce queries
+    result <- bindP execute-mongo-database-query-function do 
+        (db) -> f (db.collection collection), mongo-query
         data-source
-        (db, callback) !--> f (db.collection collection), mongo-query, callback
         {timeout}
         query-id
-    return callback err, null if !!err
-
-    if \map-reduce == aggregation-type and !!res.collection-name
-        return callback null, {result: {collection-name: res.collection-name, tag: res.db.tag}}
-
-    callback null, res
+    if \map-reduce == aggregation-type and !!result.collection-name
+        return returnP {result: {collection-name: result.collection-name, tag: result.db.tag}}
+    returnP result
 
 # for executing a single mongodb query POSTed from client
-export execute = (data-source, query, parameters, query-id, callback) !->
-    
-    query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
+# execute :: (Promise p) => DataSource -> String -> CompiledQueryParameters -> String -> p result
+export execute = (data-source, query, parameters, query-id) -->
+    {aggregation-type, mongo-query} <- bindP do ->
+        res, rej <- new-promise
+        
+        query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
 
-    [err, mongo-query] = compile-and-execute-livescript (convert-query-to-valid-livescript query), query-context
-    return callback err, null if !!err
-    
-    # {$map, $reduce, $finalize} are part of one hash
-    # convert-query-to-valid-livescript function puts them in a collection: [{$map}, {$reduce}, {$finalize}]
-    if '$map' in (mongo-query |> concat-map Obj.keys)
-        [err, mongo-query] = compile-and-execute-livescript ("{\n#{query}\n}"), query-context
-        return callback err, null if !!err
-        aggregation-type = \map-reduce
-    
-    else
+        [err, mongo-query] = compile-and-execute-livescript (convert-query-to-valid-livescript query), query-context
+        return rej err if !!err
         aggregation-type = \pipeline
+        
+        # {$map, $reduce, $finalize} must be part of one hash in order to perform map-reduce
+        # convert-query-to-valid-livescript function puts them in a collection: [{$map}, {$reduce}, {$finalize}]
+        if '$map' in (mongo-query |> concat-map Obj.keys)
+            [err, mongo-query] = compile-and-execute-livescript ("{\n#{query}\n}"), query-context
+            return rej err if !!err
+            aggregation-type = \map-reduce
+        
+        res {aggregation-type, mongo-query}
 
     #TODO: get timeout from config
-    execute-mongo-query data-source, mongo-query, {aggregation-type, timeout: 1200000}, query-id, callback
+    execute-mongo-query data-source, mongo-query, {aggregation-type, timeout: 1200000}, query-id
 
+# default-document :: a -> Document
 export default-document = -> 
     {
         query: """

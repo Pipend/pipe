@@ -1,3 +1,4 @@
+{promises:{bindP, from-error-value-callback, new-promise, returnP, to-callback}} = require \async-ls
 body-parser = require \body-parser
 {http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
 express = require \express
@@ -24,7 +25,9 @@ query-types = (files or [])
     |> map -> [(it.replace \.ls, ''), require "./query-types/#{it}"]
     |> pairs-to-obj
 
-# maybe used for parsing parameters in the future
+# query-parser :: String -> a
+# query-parser :: [String] -> [a]
+# query-parser :: Map String, String -> Map String, a
 query-parser = (value) ->
     match typeof! value
     | \Array => value |> map -> query-parser it
@@ -55,7 +58,8 @@ app = express!
     ..use "/public" express.static "#__dirname/public/"
     ..use "/node_modules" express.static "#__dirname/node_modules/"
 
-die = (res, err) ->
+# Res -> Error -> Void
+die = (res, err) !->
     console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
     res.status 500 .end err.to-string!
 
@@ -67,16 +71,35 @@ die = (res, err) ->
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
-# redirects you to the latest query in the branch: /branches/:branchId/queries/queryId
+# DB -> String -> p Query
+get-latest-query-in-branch = (query-database, branch-id) -->
+    collection = query-database.collection \queries
+    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
+        * $match: {branch-id,status: true}
+        * $sort: _id: -1
+    return returnP results.0 if !!results?.0
+    new-promise (, rej) -> rej "unable to find any query in branch: #{branch-id}" 
+
+# redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId
 app.get \/branches/:branchId, (req, res) ->
-    err, {query-id, branch-id}? <- get-latest-query-in-branch query-database, req.params.branch-id
+    err, {query-id, branch-id}? <- to-callback (get-latest-query-in-branch query-database, req.params.branch-id)
     return die res, err if !!err
 
     res.redirect "/branches/#{branch-id}/queries/#{query-id}"
 
+# DB -> String -> p Query
+get-query-by-id = (query-database, query-id) -->
+    collection = query-database.collection \queries
+    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
+        * $match: {query-id}
+        * $sort: _id: - 1
+        * $limit: 1
+    return returnP results.0 if !!results?.0
+    new-promise (, rej) -> rej "query not found #{query-id}"
+
 # redirects you to /branches/:branchId/queries/queryId
 app.get \/queries/:queryId, (req, res) ->
-    err, {query-id, branch-id}? <- get-query-by-id query-database, req.params.query-id
+    err, {query-id, branch-id}? <- to-callback (get-query-by-id query-database, req.params.query-id)
     return die res, err if !!err
 
     res.redirect "/branches/#{branch-id}/queries/#{query-id}"
@@ -92,53 +115,58 @@ app.get \/apis/queries, (req, res) ->
     return die res, err if !!err
     res.end JSON.stringify results, null, 4
 
-get-query-by-id = (query-database, query-id, callback) -->
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match: {query-id}
-        * $sort: _id: - 1
-        * $limit: 1
-    return callback err, null if !!err
-    return callback null, results.0 if !!results?.0
-    callback "query not found #{query-id}", null
-
 app.get \/apis/queries/:queryId, (req, res) ->
-    err, document <- get-query-by-id query-database, req.params.query-id
+    err, document <- to-callback (get-query-by-id query-database, req.params.query-id)
     return die res, err if !!err
     res.end JSON.stringify document
 
-execute = (data-source, query, parameters, cache, callback) !-->
-    connection-prime = config?.connections?[data-source?.type][data-source?.connection-name]
+# fill-data-source :: PartialDataSource -> DataSource
+fill-data-source = (partial-data-source) ->
+    connection-prime = config?.connections?[partial-data-source?.type][partial-data-source?.connection-name]
+    data-source = {} <<< (connection-prime or {}) <<< partial-data-source
 
-    {type}? = data-source = {} <<< (connection-prime or {}) <<< data-source
-    return callback new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
+# execute :: PartialDataSource -> String -> QueryParameters -> Cache -> p Result
+execute = (partial-data-source, query, parameters, cache) -->
 
-    {execute, get-context} = query-types[type]
+    # compile-parameters :: (Promise p) => DataSource -> QueryParameters -> p CompiledQueryParameters
+    compile-parameters = (data-source, paramaters) ->
+        res, rej <- new-promise
 
-    # parameters is String if coming from the single query interface; 
-    # it is an empty object if coming from multi query interface
-    if \String == typeof! parameters
-        [err, parameters] = compile-and-execute-livescript parameters, get-context!
-        return callback err, null if !!err
+        {type}? = data-source
+        return rej new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
 
-    # return cached result if any
-    key = md5 JSON.stringify {data-source, type, query, parameters}
+        # parameters is String if coming from the single query interface; 
+        # it is an empty object if coming from multi query interface
+        if \String == typeof! parameters
+            [err, parameters] = compile-and-execute-livescript parameters, query-types[type].get-context!
+            return rej err if !!err
 
-    read-from-cache = [
-        typeof cache == \boolean and cache === true
-        typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
-    ] |> any id
-    return callback null, query-cache[key].result if !!query-cache[key] and read-from-cache
+        res (parameters or {})
 
-    error, result <- execute data-source, query, parameters, cache
-    return callback error if !!error
-    
-    callback do 
-        null
-        query-cache[key] = {result, time: new Date!.value-of!}
+    # get-result :: (Promise p) => DataSource -> String -> QueryParameters -> p result
+    get-result = ({type}:data-source, query, parameters, cache) ->
+        
+        compiled-query-parameters <- bindP (compile-parameters data-source, parameters)
+
+        # return the cached result if any
+        read-from-cache = [
+            typeof cache == \boolean and cache === true
+            typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
+        ] |> any id        
+        key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
+        return returnP query-cache[key] if read-from-cache and !!query-cache[key]
+        
+        # execute the query and return the result wrapped in a promise
+        query-types[type].execute data-source, query, parameters, cache
+
+    result <- bindP do 
+        get-result (fill-data-source partial-data-source), query, parameters, cache
+    # query-cache[key] := {result, time: new Date!.value-of!}
+    returnP result
 
 app.post \/apis/execute, (req, res) ->
     {document:{data-source, query, parameters}}? = req.body
-    err, {result}? <- execute data-source, query, parameters, false
+    err, result <- to-callback (execute data-source, query, parameters, false)
     return die res, err if !!err
 
     res.end JSON.stringify result
@@ -153,14 +181,6 @@ transform = (query-result, transformation, parameters, callback) !-->
         return callback err, null
 
     callback null, transformed-result
-
-get-latest-query-in-branch = (query-database, branch-id, callback) -->
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match: {branch-id,status: true}
-        * $sort: _id: -1
-    return callback err, null if !!err
-    return callback "unable to find any query in branch: #{branch-id}" if (typeof results == \undefined) or results.length == 0
-    callback null, results.0
 
 <[
     /apis/branches/:branchId/execute
@@ -284,13 +304,13 @@ app.post \/apis/save, (req, res)->
     res.status 200 .end JSON.stringify records.0
 
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
-    err, result <- query-types[req.params.query-type].connections req.query
+    err, result <- to-callback (query-types[req.params.query-type].connections req.query)
     return die res, err if !!err
 
     res.end JSON.stringify result
 
 app.post \/apis/queryTypes/:queryType/keywords, (req, res) ->
-    err, result <- query-types[req.params.query-type].keywords {} <<< req.body <<< (config?.connections?[req.body.type]?[req.body.connection-name] or {})
+    err, result <- to-callback (query-types[req.params.query-type].keywords fill-data-source req.body)
     return die res, err if !!err
 
     res.end JSON.stringify result
