@@ -75,7 +75,7 @@ module.exports = React.create-class do
             * hotkey: "command + enter", icon: \e, label: \Execute, action: @.execute
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
-            * icon: \t, label: \Tags, action: ~>
+            * icon: \t, label: \Tags, action: ~>            
             * icon: \t
               label: \Diff
               show: saved-query
@@ -86,7 +86,8 @@ module.exports = React.create-class do
                 'rgba(255,255,0,1)'
               action: ~>
             * icon: \h, label: \Share, show: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
-
+            * icon: \s, label: \Snapshot, show:saved-query, action: @.save-snapshot
+            
         div {class-name: \query-route},
 
             # MENU 
@@ -309,7 +310,7 @@ module.exports = React.create-class do
 
         }
 
-    POST-document: (document-to-save) ->
+    POST-document: (document-to-save, callback) ->
         $.ajax {
             type: \post
             url: \/apis/save
@@ -321,6 +322,7 @@ module.exports = React.create-class do
                 client-storage.delete-document @.props.params.query-id
                 @.set-state {} <<< saved-document <<< {remote-document: saved-document}
                 @.transition-to "/branches/#{branch-id}/queries/#{query-id}"
+                callback saved-document if !!callback
             ..fail ({response-text}:err?) ~>
                 return alert 'SERVER ERROR' if !response-text
                 try
@@ -335,7 +337,7 @@ module.exports = React.create-class do
         <[query transformation presentation parameters queryTitle]>
             |> filter ~> unsaved-document?[it] != @.state.remote-document?[it]
 
-    save: ->
+    save: (callback) ->
         {
             query-id
             branch-id
@@ -352,22 +354,28 @@ module.exports = React.create-class do
             dialog
         } = @.state
 
-        return if @.changes-made!.length == 0
+        return callback @.document-from-state! if @.changes-made!.length == 0
 
         uid = generate-uid! 
         {query-id, tree-id}:document = @.document-from-state!
 
         # a new query-id is generate at the time of save, parent-id is set to the old query-id
         # expect in the case of a forked-query (whose parent-id is saved in the local-storage at the time of fork)
-        @.POST-document {} <<< document <<< {
-            query-id: uid
-            parent-id: switch @.props.params.branch-id
-                | \local => null
-                | \local-fork => parent-id
-                | _ => query-id
-            branch-id: if (@.props.params.branch-id.index-of \local) == 0 then uid else @.props.params.branch-id
-            tree-id: tree-id or uid
-        }
+        @.POST-document do 
+            {} <<< document <<< {
+                query-id: uid
+                parent-id: switch @.props.params.branch-id
+                    | \local => null
+                    | \local-fork => parent-id
+                    | _ => query-id
+                branch-id: if (@.props.params.branch-id.index-of \local) == 0 then uid else @.props.params.branch-id
+                tree-id: tree-id or uid
+            }
+            callback
+
+    save-snapshot: ->
+        {branch-id, query-id}:saved-document <- @.save
+        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export?width=320&height=240&snapshot=true"
 
     save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
 

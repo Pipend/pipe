@@ -7,4 +7,5 @@ config.ls
 rough
 migrations/
 node_modules/
-public/screenshots/
+public/snapshots/
+tmp/

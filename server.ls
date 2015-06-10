@@ -221,7 +221,7 @@ transform = (query-result, transformation, parameters) -->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source, query-id, query-title, query, transformation}? <- to-callback do ->
+        err, {data-source, branch-id, query-id, query-title, query, transformation}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
@@ -241,6 +241,7 @@ transform = (query-result, transformation, parameters) -->
             return die res, err if !!err
 
             download = (extension, content-type, content) ->
+                return res.end! if req.query.snapshot
                 res.set \Content-disposition, "attachment; filename=#{filename}.#{extension}"
                 res.set \Content-type, content-type
                 res.end content
@@ -251,16 +252,25 @@ transform = (query-result, transformation, parameters) -->
 
         else
             # use the query-id for naming the file
-            image-file = "public/screenshots/#{query-id}.png"
+            image-file = "#{if req.query.snapshot then 'public/snapshots' else 'tmp'}/#{branch-id}_#{query-id}_#{Date.now!}_#{Math.floor Math.random! * 1000}.png"
             {create-page, exit} <- phantom.create
             {open, render}:page <- create-page
             page.set \viewportSize, {width, height}
             page.set \onLoadFinished, ->
-                <- render image-file
-                res.set \Content-disposition, "attachment; filename=#{filename}.png"
-                res.set \Content-type, \image/png
-                create-read-stream image-file .pipe res
-                exit!
+                page.evaluate do 
+                    ->
+                        # crop the result
+                        document.body.children.0.style <<< {
+                            width: "#{window.inner-width}px"
+                            height: "#{window.inner-height}px"
+                            overflow: \hidden
+                        }
+                    ->
+                        <- render image-file
+                        res.set \Content-disposition, "attachment; filename=#{filename}.png"
+                        res.set \Content-type, \image/png
+                        if req.query.snapshot then res.end! else (create-read-stream image-file .pipe res)
+                        exit!
 
             # compose the url for executing the query
             base-url = url-parser req.url .pathname .replace \/export, \/execute
