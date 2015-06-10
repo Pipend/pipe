@@ -129,11 +129,8 @@ fill-data-source = (partial-data-source) ->
 execute = (partial-data-source, query, parameters, cache) -->
 
     # compile-parameters :: (Promise p) => DataSource -> QueryParameters -> p CompiledQueryParameters
-    compile-parameters = (data-source, paramaters) ->
+    compile-parameters = (type, paramaters) ->
         res, rej <- new-promise
-
-        {type}? = data-source
-        return rej new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
 
         # parameters is String if coming from the single query interface; 
         # it is an empty object if coming from multi query interface
@@ -143,27 +140,25 @@ execute = (partial-data-source, query, parameters, cache) -->
 
         res (parameters or {})
 
-    # get-result :: (Promise p) => DataSource -> String -> QueryParameters -> p result
-    get-result = ({type}:data-source, query, parameters, cache) ->
-        
-        compiled-query-parameters <- bindP (compile-parameters data-source, parameters)
+    # get the complete data-source which includes the query-type
+    {type}:data-source <- bindP do ->
+        res, rej <- new-promise
+        {type}:data-source? = fill-data-source partial-data-source
+        return rej new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
+        res data-source
 
-        # return the cached result if any
-        read-from-cache = [
-            typeof cache == \boolean and cache === true
-            typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
-        ] |> any id        
-        key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
-        return returnP query-cache[key] if read-from-cache and !!query-cache[key]
-        
-        # execute the query and return the result wrapped in a promise
-        query-types[type].execute data-source, query, parameters, cache
-
-    result <- bindP do 
-        get-result (fill-data-source partial-data-source), query, parameters, cache
-    # query-cache[key] := {result, time: new Date!.value-of!}
+    # return cached-result (if any) otherwise execute the query and cache the result
+    compiled-query-parameters <- bindP (compile-parameters type, parameters)
+    read-from-cache = [
+        typeof cache == \boolean and cache === true
+        typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
+    ] |> any id        
+    key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
+    return returnP query-cache[key] if read-from-cache and !!query-cache[key]
+    result <- bindP (query-types[type].execute data-source, query, parameters, cache)
+    query-cache[key] := {result, time: new Date!.value-of!}
     returnP result
-
+    
 app.post \/apis/execute, (req, res) ->
     {document:{data-source, query, parameters}}? = req.body
     err, result <- to-callback (execute data-source, query, parameters, false)
@@ -171,17 +166,17 @@ app.post \/apis/execute, (req, res) ->
 
     res.end JSON.stringify result
 
-transform = (query-result, transformation, parameters, callback) !-->
+# result -> String -> CompiledQueryParameters -> p transformed-result
+transform = (query-result, transformation, parameters) -->
+    res, rej <- new-promise 
     [err, func] = compile-and-execute-livescript "(#transformation\n)", (transformation-context! <<< (require \moment) <<< (require \prelude-ls) <<< parameters)
-    return callback err if !!err
+    return rej err if !!err
 
     try
-        transformed-result = func query-result
+        res (func query-result)
     catch err
-        return callback err, null
-
-    callback null, transformed-result
-
+        return rej err
+    
 <[
     /apis/branches/:branchId/execute
     /apis/queries/:queryId/execute
@@ -191,22 +186,26 @@ transform = (query-result, transformation, parameters, callback) !-->
         {branch-id, query-id}? = req.params
         {display or \query, cache or false}? = req.parsed-query
 
-        err, {data-source, query, transformation, presentation}? <- do ->
-            return (get-query-by-id query-database, query-id) if !!query-id
-            get-latest-query-in-branch query-database, branch-id
-        return die res, err if !!err
+        pretty = -> JSON.stringify it, null, 4
 
-        parameters = {} <<< req.parsed-query
+        err, f <- to-callback do ->
 
-        err, query-result <- execute data-source, query, parameters, cache
-        return die res, err if !!err
-        return res.end JSON.stringify query-result, null, 4 if display == \query
+            # get the query from query-id (if present) otherwise get the latest query in the branch-id
+            {data-source, query, transformation, presentation} <- bindP do ->
+                return (get-query-by-id query-database, query-id) if !!query-id
+                get-latest-query-in-branch query-database, branch-id
 
-        err, transformed-result <- transform query-result, transformation, parameters
-        return die res, err if !!err
-        return res.end JSON.stringify transformed-result, null, 4 if display == \transformation
+            parameters = {} <<< req.parsed-query
 
-        res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters}
+            query-result <- bindP (execute data-source, query, parameters, cache)
+            return returnP ((res) -> res.end pretty query-result) if display == \query
+
+            transformed-result <- bindP (transform query-result, transformation, parameters)
+            return returnP ((res) -> res.end pretty transformed-result) if display == \transformation
+
+            returnP ((res) -> res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters})
+
+        if !!err then die res, err else f res
 
 <[
     /apis/branches/:branchId/export
@@ -222,9 +221,10 @@ transform = (query-result, transformation, parameters, callback) !-->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source, query-id, query-title, query, transformation}? <- do ->
+        err, {data-source, query-id, query-title, query, transformation}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
+        return die res, err if !!err
 
         filename = query-title.replace /\s/g, '_'
 
@@ -233,11 +233,11 @@ transform = (query-result, transformation, parameters, callback) !-->
                 |> obj-to-pairs
                 |> reject ([key]) -> key in <[format width height]>
                 |> pairs-to-obj
-
-            err, query-result <- execute data-source, query, parameters, false
-            return die res, err if !!err
-
-            err, transformed-result <- transform query-result, transformation, parameters
+            
+            err, transformed-result <- to-callback do ->
+                query-result <- bindP (execute data-source, query, parameters, false)
+                transformed-result <- bindP (transform query-result, transformation, parameters)
+                returnP transformed-result
             return die res, err if !!err
 
             download = (extension, content-type, content) ->
@@ -250,7 +250,6 @@ transform = (query-result, transformation, parameters, callback) !-->
             | \text => download \txt, \text/plain, JSON.stringify transformed-result, null, 4
 
         else
-
             # use the query-id for naming the file
             image-file = "public/screenshots/#{query-id}.png"
             {create-page, exit} <- phantom.create

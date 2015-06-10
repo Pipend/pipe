@@ -7,37 +7,34 @@ config = require \./../config
 
 poll = {}
 
-# delegate
-kill = (db, client, start-time, callback) ->
-    return callback new Error "_server-state is not connected", null if 'connected' != db.server-config?._server-state
+# kill :: (Promise p) => DB -> MongoClient -> StartTime -> p String
+kill = (db, client, start-time) ->
+    return (new-promise (, rej) -> rej new Error "_server-state is not connected") if 'connected' != db.server-config?._server-state
     
-    err, data <- db.collection '$cmd.sys.inprog' .find-one 
-    return callback err, null if !!err
+    in-prog-collection = db.collection '$cmd.sys.inprog'
+    data <- bindP (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
 
     try
         delta = new Date!.value-of! - start-time
         op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
 
         if !!op
-            console.log "cancelling op: #{op.opid}"
-
-            err, data <- db.collection '$cmd.sys.killop' .find-one {op : op.opid}
-            return callback err, null if !!err
-
+            kill-op-collection = db.collection '$cmd.sys.killop'
+            data <- bindP ((from-error-value-callback kill-op-collection.find-one, kill-op-collection) {op : op.opid})
             db.close!
             client.close!
-            callback null, \killed
+            returnP \killed
 
         else
-            callback (new Error "query could not be found #{query}\nStarted at: #{start-time}"), null
+            new-promise (, rej) -> rej new Error "query could not be found #{query}\nStarted at: #{start-time}"
 
     catch error
-        callback (new Error "uncaught error"), null
+        new-promise (, rej) -> rej new Error "uncaught error"
 
-export cancel = (query-id, callback) !-->
+# cancel :: (Promise p) => String -> p String
+export cancel = (query-id) ->
     query = poll[query-id]
-    return callback (new Error "query not found #{query-id}") if !query
-    query.kill callback
+    if !!query then query.kill! else (new-promise (, rej) -> rej new Error "query not found #{query-id}")
 
 # connections :: (Promise p) => a -> p b
 export connections = ({connection-name, database}) --> 
@@ -145,10 +142,10 @@ export get-context = ->
         # date-from-object-id
     }
 
-# execute-mongo-aggregation-pipeline :: (Promise p) => MongoDBCollection -> String -> p Result
+# execute-mongo-aggregation-pipeline :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
 execute-mongo-aggregation-pipeline = (collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use: config.allow-disk-use}
 
-# execute-mongo-map-reduce :: (Promise p) => MongoDBCollection -> String -> p Result
+# execute-mongo-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
 execute-mongo-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
     (from-error-value-callback collection.map-reduce, collection) do 
         $map
@@ -158,7 +155,7 @@ execute-mongo-map-reduce = (collection, {$map, $reduce, $options, $finalize}:que
 # utility function for executing a single raw mongodb query
 # mongo-database-query-function :: (db, callback) --> void;
 # can also be used to perform db.****** functions
-# execute-mongo-database-query-function :: (Promise p) => (MongoDatabase -> p Result) -> DataSource -> MongoDatabaseQueryParameters -> String -> p Result
+# execute-mongo-database-query-function :: (Promise p) => (MongoDatabase -> p result) -> DataSource -> MongoDatabaseQueryParameters -> String -> p result
 export execute-mongo-database-query-function = (mongo-database-query-function, {host, port, database}, {timeout}:parameters, query-id) -->
     # connect to mongo server
     server = new Server host, port
@@ -169,14 +166,19 @@ export execute-mongo-database-query-function = (mongo-database-query-function, {
 
     # store a reference to the query (allowing the user to cancel it later on)
     poll[query-id] =
-        kill: (kill-callback) ->
-            err, result <- kill db, mongo-client, start-time
+
+        # a -> p String
+        kill: ->
+            result <- bindP (kill db, mongo-client, start-time)
             delete poll[query-id]
-            kill-callback err, result
+            returnP result
 
     # kill the query on timeout
     set-timeout do
-        ->  poll[query-id]?.kill (kill-error, kill-result) -> return console.log \kill-error, kill-error if !!kill-error                
+        ->  
+            return if !poll?[query-id]?.kill
+            err <- to-callback poll[query-id].kill!
+            console.log \kill-error, err if !!err
         timeout    
 
     # on execution of the query remove it from the list of running queries
@@ -187,7 +189,7 @@ export execute-mongo-database-query-function = (mongo-database-query-function, {
     returnP result
 
 # for executing a single mongodb query from pipe
-# execute-mongo-query :: (Promise p) => DataSource -> String -> MongoQueryParameters -> String -> p Result
+# execute-mongo-query :: (Promise p) => DataSource -> AggregateQuery -> MongoQueryParameters -> String -> p result
 export execute-mongo-query = ({collection}:data-source, mongo-query, {aggregation-type, timeout}:parameters, query-id) -->
 
     # select the mongo-query-execution function based on aggregation type
