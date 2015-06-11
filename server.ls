@@ -5,7 +5,7 @@ express = require \express
 {create-read-stream, readdir} = require \fs
 md5 = require \MD5
 {MongoClient} = require \mongodb
-{any, each, filter, find, find-index, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
+{any, difference, each, filter, find, find-index, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
 {compile-and-execute-livescript} = require \./utils
 transformation-context = require \./public/transformation/context
 phantom = require \phantom
@@ -91,7 +91,9 @@ app.get \/branches/:branchId, (req, res) ->
 get-query-by-id = (query-database, query-id) -->
     collection = query-database.collection \queries
     results <- bindP (from-error-value-callback collection.aggregate, collection) do 
-        * $match: {query-id}
+        * $match: 
+            query-id: query-id
+            status: true
         * $sort: _id: - 1
         * $limit: 1
     return returnP results.0 if !!results?.0
@@ -154,6 +156,54 @@ app.get \/apis/queries/:queryId, (req, res) ->
     return die res, err if !!err
     res.end JSON.stringify document
 
+# set the status property of all the queries in the branch to false
+app.get "/apis/branches/:branchId/delete", (req, res)->
+
+    (err, results) <- query-database.collection \queries .aggregate do 
+        * $match: 
+            branch-id: req.params.branch-id
+        * $project:
+            query-id: 1
+            parent-id: 1
+    return die res, err if !!err
+    
+    parent-id = difference do
+        results |> map (.parent-id)
+        results |> map (.query-id)
+
+    # set the status of all queries in the branch to false i.e delete 'em all
+    (err) <- query-database.collection \queries .update {branch-id: req.params.branch-id}, {$set: {status: false}}, {multi: true}
+    return die res, err if !!err
+
+    # reconnect the children to the parent of the branch
+    criterion =
+        $and: 
+            * branch-id: $ne: req.params.branch-id
+            * parent-id: $in: results |> map (.query-id)
+    (err, queries-updated) <- query-database.collection \queries .update criterion, {$set: {parent-id: parent-id.0}}, {multi:true}
+    return die res, err if !!err
+
+    res.end parent-id.0
+
+# set the status property of the query to false
+<[
+    /apis/queries/:queryId/delete
+    /apis/branches/:branchId/queries/:queryId/delete
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        err, results <- query-database.collection \queries .aggregate do 
+            * $match:
+                query-id: req.params.query-id
+        return die res, err if !!err
+        
+        err <- query-database.collection \queries .update {query-id: req.params.query-id}, {$set: {status: false}}
+        return die res err if !!err
+
+        err, queries-updated <- query-database.collection \queries .update {parent-id: req.params.query-id}, {$set: {parent-id: results.0.parent-id}}, {multi:true}
+        return die res err if !!err    
+
+        res.end results.0.parent-id
+
 # fill-data-source :: PartialDataSource -> DataSource
 fill-data-source = (partial-data-source) ->
     connection-prime = config?.connections?[partial-data-source?.type][partial-data-source?.connection-name]
@@ -168,7 +218,7 @@ compile-parameters = (type, parameters) ->
     else
         res parameters
 
-# execute :: PartialDataSource -> String -> QueryParameters -> Cache -> p Result
+# execute :: PartialDataSource -> String -> QueryParameters -> Cache -> p result
 execute = (partial-data-source, query, parameters, cache) -->
 
     # get the complete data-source which includes the query-type
@@ -208,7 +258,7 @@ transform = (query-result, transformation, parameters) -->
         res (func query-result)
     catch err
         return rej err
-    
+
 <[
     /apis/branches/:branchId/execute
     /apis/queries/:queryId/execute

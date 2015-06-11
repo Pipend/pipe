@@ -335,6 +335,10 @@ module.exports = React.create-class do
                 @.set-state {dialog: \save-conflict, queries-in-between}
     
     changes-made: ->
+
+        # there are no changes made if the query does not exist on the server 
+        return [] if !@.state.remote-document
+
         unsaved-document = @.document-from-state!
         <[query transformation presentation parameters queryTitle dataSource]>
             |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @.state.remote-document?[it])
@@ -394,6 +398,9 @@ module.exports = React.create-class do
                     # state.remote-document is used to check if the client copy has diverged
                     remote-document = @.state-from-document document
                     @.set-state {} <<< (local-document or remote-document) <<< {remote-document}
+                ..fail ({response-text}?) ~> 
+                    alert "unable to load query: #{response-text}"
+                    window.location.href = \/
 
         # :) if branch id & query id are present
         return load-document query-id, "/apis/queries/#{query-id}" if !!query-id and !(branch-id in <[local localFork]>)            
@@ -503,7 +510,7 @@ module.exports = React.create-class do
             transformation-editor-height: 324
             presentation-editor-height: 240
             dialog: false
-            popup: null            
+            popup: null
         } 
 
     # converting the document to a flat object makes it easy to work with 
