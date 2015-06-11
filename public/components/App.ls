@@ -36,7 +36,7 @@ App = React.create-class {
 }
 
 handler <- Router.run do  
-    React.create-element Route, {name: \app, path: \/, handler: App},                
+    React.create-element Route, {name: \app, path: \/, handler: App},
         React.create-element Route, {name: \new-query, path: "/branches" handler: QueryRoute}
         React.create-element Route, {name: \existing-query, path: "/branches/:branchId/queries/:queryId" handler: QueryRoute}
         React.create-element Route, {name: \diff, path: "/branches/:branchId/queries/:queryId/diff", handler: DiffRoute}

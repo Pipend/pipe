@@ -25,7 +25,6 @@ plot = (p, view, result) -->
 
 # Attaches options to a Plottable
 with-options = (p, o) ->
-  debugger
   new Plottable do
     p.plotter
     ({} `rextend` p.options) `rextend` o

@@ -68,14 +68,14 @@ module.exports = React.create-class do
 
         menu-items = 
             * icon: \n, label: \New, action: ~> window.open "/branches", \_blank
-            * icon: \f, label: \Fork, show: saved-query, action: @.fork
-            * hotkey: "command + s", icon: \s, label: \Save, action: @.save
+            * icon: \f, label: \Fork, show: saved-query, action: ~> @.fork!
+            * hotkey: "command + s", icon: \s, label: \Save, action: ~> @.save!
             * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
             * icon: \c, label: \Cache, action: ~>
-            * hotkey: "command + enter", icon: \e, label: \Execute, action: @.execute
+            * hotkey: "command + enter", icon: \e, label: \Execute, action: ~> @.execute!
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
-            * icon: \t, label: \Tags, action: ~>            
+            * icon: \t, label: \Tags, action: ~>
             * icon: \t
               label: \Diff
               show: saved-query
@@ -84,7 +84,7 @@ module.exports = React.create-class do
                 return null if changes.length == 0
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
                 'rgba(255,255,0,1)'
-              action: ~>
+              action: ~> window.open "#{window.location.href}/diff", \_blank
             * icon: \h, label: \Share, show: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
             * icon: \s, label: \Snapshot, show:saved-query, action: @.save-snapshot
             
@@ -308,6 +308,8 @@ module.exports = React.create-class do
                 catch ex
                     return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
+            error: ({response-text}?) ->
+                display-error response-text
         }
 
     POST-document: (document-to-save, callback) ->
@@ -334,8 +336,8 @@ module.exports = React.create-class do
     
     changes-made: ->
         unsaved-document = @.document-from-state!
-        <[query transformation presentation parameters queryTitle]>
-            |> filter ~> unsaved-document?[it] != @.state.remote-document?[it]
+        <[query transformation presentation parameters queryTitle dataSource]>
+            |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @.state.remote-document?[it])
 
     save: (callback) ->
         {
@@ -354,7 +356,9 @@ module.exports = React.create-class do
             dialog
         } = @.state
 
-        return callback @.document-from-state! if @.changes-made!.length == 0
+        if @.changes-made!.length == 0
+            callback @.document-from-state! if !!callback
+            return
 
         uid = generate-uid! 
         {query-id, tree-id}:document = @.document-from-state!

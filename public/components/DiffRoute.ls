@@ -12,13 +12,21 @@ module.exports = React.create-class {
 
     render: ->
         {local-document, remote-document} = @.state
+
+        # (Show a) => a -> String
+        show = -> 
+            match typeof! it
+            | \String => it
+            | \Object => JSON.stringify it, null, 4
+            | _ => typeof! it
+
         div {class-name: \diff-route},
             <[query transformation presentation parameters dataSource]>
                 |> filter ~> !!local-document?[it] or !!remote-document?[it]
                 |> filter ~> !(local-document?[it] `is-equal-to-object` remote-document?[it])
                 |> map ~>
-                    base-text-lines = string-as-lines remote-document[it]
-                    new-text-lines = string-as-lines local-document[it]
+                    base-text-lines = string-as-lines show remote-document[it]
+                    new-text-lines = string-as-lines show local-document[it]
                     opcodes = (new SequenceMatcher base-text-lines, new-text-lines) .get_opcodes!
                     view = build-view {
                         base-text-lines

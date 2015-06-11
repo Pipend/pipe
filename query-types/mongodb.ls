@@ -4,6 +4,7 @@ config = require \./../config
 {MongoClient, ObjectID, Server} = require \mongodb
 {id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, sort-by, floor} = require \prelude-ls
 {compile-and-execute-livescript, get-all-keys-recursively} = require \./../utils
+{date-from-object-id, object-id-from-date} = require \../public/utils
 
 poll = {}
 
@@ -45,12 +46,12 @@ export connections = ({connection-name, database}) -->
         res do 
             connections: (config?.connections?.mongodb or {}) 
                 |> obj-to-pairs
-                |> map ([name, value]) -> {label: name, value: name}
+                |> map ([name, value]) -> {label: (value.label or name), value: name}
 
     # get-databases :: (Promise p) => String -> p Databases
     get-databases = (connection-name) ->
         {host, port}:connection? = config?.connections?.mongodb?[connection-name]
-        return (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
+        return (new-promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
 
         # return the database in the config, if the connection is a "database-connection"
         return returnP {connection-name, databases: [connection.database]} if !!connection?.database
@@ -136,10 +137,10 @@ export get-context = ->
         timestamp-to-day: bucketize 86400000
         bucketize: bucketize
         object-id: ObjectID
-        # object-id-from-date: ObjectID . object-id-from-date 
+        object-id-from-date: ObjectID . object-id-from-date 
         
         # independent of any mongo operations
-        # date-from-object-id
+        date-from-object-id
     }
 
 # execute-mongo-aggregation-pipeline :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result

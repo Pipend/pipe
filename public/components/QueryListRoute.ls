@@ -1,12 +1,25 @@
 AceEditor = require \./AceEditor.ls
+$ = require \jquery-browserify
 {map} = require \prelude-ls
-{DOM:{div}}:React = require \react
+{DOM:{a, div, img}}:React = require \react
 
 module.exports = React.create-class {
 
     display-name: \QueryListRoute
 
     render: ->
-        div null
-        
+        div {class-name: \query-list-route},
+            @.state.branches |> map ({branch-id, latest-query:{query-id, query-title}, snapshot}?) ->
+                div {class-name: \query},
+                    img {src: snapshot}
+                    a {href: "branches/#{branch-id}/queries/#{query-id}"}, query-title
+
+    
+    get-initial-state: -> {branches: []}
+
+    component-did-mount: ->
+        self = @
+        branches <- $.get \/apis/branches
+        self.set-state {branches}
+
 }

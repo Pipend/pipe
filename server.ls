@@ -5,7 +5,7 @@ express = require \express
 {create-read-stream, readdir} = require \fs
 md5 = require \MD5
 {MongoClient} = require \mongodb
-{any, each, filter, find-index, id, map, obj-to-pairs, pairs-to-obj, reject} = require \prelude-ls
+{any, each, filter, find, find-index, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
 {compile-and-execute-livescript} = require \./utils
 transformation-context = require \./public/transformation/context
 phantom = require \phantom
@@ -108,10 +108,44 @@ app.get \/apis/defaultDocument, (req, res) ->
     {type} = config.default-data-source
     res.end JSON.stringify {} <<< query-types[type].default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
 
-app.get \/apis/queries, (req, res) ->
+app.get \/apis/branches, (req, res) ->
+    err, files <- readdir \public/snapshots
+    return die res, err if !!err
+
     err, results <- query-database.collection \queries .aggregate do 
-        * $limit: (req.parsed-query?.limit) or 100
+        * $match: status: true
+        * $sort: _id : -1
+        * $project:
+            _id: 1
+            query-id: 1
+            query-title: 1
+            data-source: 1
+            user: 1
+            branch-id: 1
+            creation-time: 1
+    return die res, err if !!err
+
+    res.set \Content-type, \application/json
+    res.end JSON.stringify do 
+        results
+            |> group-by (.branch-id)
+            |> Obj.map maximum-by (.creation-time) 
+            |> obj-to-pairs
+            |> map ([branch-id, latest-query]) -> 
+                {
+                    branch-id
+                    latest-query
+                    snapshot: files 
+                        |> find -> (it.index-of branch-id) == 0
+                        |> -> if !it then null else "public/snapshots/#{it}"
+                }
+        null
+        4
+
+app.get \/apis/queries, (req, res) ->
+    err, results <- query-database.collection \queries .aggregate do
         * $sort: _id: (req.parsed-query?.sort-order or 1)
+        * $limit: (req.parsed-query?.limit) or 100
     return die res, err if !!err
     res.end JSON.stringify results, null, 4
 
@@ -125,20 +159,17 @@ fill-data-source = (partial-data-source) ->
     connection-prime = config?.connections?[partial-data-source?.type][partial-data-source?.connection-name]
     data-source = {} <<< (connection-prime or {}) <<< partial-data-source
 
+# compile-parameters :: String -> QueryParameters -> CompiledQueryParameters
+compile-parameters = (type, parameters) ->
+    res, rej <- new-promise
+    if \String == typeof! parameters
+        [err, compiled-query-parameters] = compile-and-execute-livescript parameters, query-types[type].get-context!
+        if !!err then return rej err else res compiled-query-parameters
+    else
+        res parameters
+
 # execute :: PartialDataSource -> String -> QueryParameters -> Cache -> p Result
 execute = (partial-data-source, query, parameters, cache) -->
-
-    # compile-parameters :: (Promise p) => DataSource -> QueryParameters -> p CompiledQueryParameters
-    compile-parameters = (type, paramaters) ->
-        res, rej <- new-promise
-
-        # parameters is String if coming from the single query interface; 
-        # it is an empty object if coming from multi query interface
-        if \String == typeof! parameters
-            [err, parameters] = compile-and-execute-livescript parameters, query-types[type].get-context!
-            return rej err if !!err
-
-        res (parameters or {})
 
     # get the complete data-source which includes the query-type
     {type}:data-source <- bindP do ->
@@ -155,7 +186,8 @@ execute = (partial-data-source, query, parameters, cache) -->
     ] |> any id        
     key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
     return returnP query-cache[key] if read-from-cache and !!query-cache[key]
-    result <- bindP (query-types[type].execute data-source, query, parameters, cache)
+
+    result <- bindP (query-types[type].execute data-source, query, compiled-query-parameters, cache)
     query-cache[key] := {result, time: new Date!.value-of!}
     returnP result
     
@@ -191,7 +223,7 @@ transform = (query-result, transformation, parameters) -->
         err, f <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
-            {data-source, query, transformation, presentation} <- bindP do ->
+            {query-id, data-source, query, transformation, presentation} <- bindP do ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
@@ -221,7 +253,7 @@ transform = (query-result, transformation, parameters) -->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source, branch-id, query-id, query-title, query, transformation}? <- to-callback do ->
+        err, {data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
@@ -252,7 +284,7 @@ transform = (query-result, transformation, parameters) -->
 
         else
             # use the query-id for naming the file
-            image-file = "#{if req.query.snapshot then 'public/snapshots' else 'tmp'}/#{branch-id}_#{query-id}_#{Date.now!}_#{Math.floor Math.random! * 1000}.png"
+            image-file = if req.query.snapshot then "public/snapshots/#{branch-id}.png" else "tmp/#{branch-id}_#{query-id}_#{Date.now!}.png"
             {create-page, exit} <- phantom.create
             {open, render}:page <- create-page
             page.set \viewportSize, {width, height}
@@ -274,12 +306,16 @@ transform = (query-result, transformation, parameters) -->
 
             # compose the url for executing the query
             base-url = url-parser req.url .pathname .replace \/export, \/execute
-            query-string = req.query
-                |> obj-to-pairs
-                |> reject ([key]) -> key in <[format width height]>
-                |> pairs-to-obj
-                |> -> {} <<< it <<< {display: \presentation, cache: \false}
-            open "http://127.0.0.1:#{http-port}#{base-url}?#{querystring.stringify query-string}"
+            err, query-params <- to-callback do ->
+                if req.query.snapshot
+                    compile-parameters data-source.type, parameters
+                else
+                    returnP req.query
+                        |> obj-to-pairs
+                        |> reject ([key]) -> key in <[format width height]>
+                        |> pairs-to-obj
+            qs = querystring.stringify {} <<< query-params <<< {display: \presentation, cache: \false}
+            open "http://127.0.0.1:#{http-port}#{base-url}?#{qs}"
 
 
 # save the code to mongodb
