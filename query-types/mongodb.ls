@@ -1,4 +1,4 @@
-{promises:{bindP, from-error-value-callback, new-promise, returnP, to-callback}} = require \async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel} = require \../async-ls
 config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
@@ -6,41 +6,10 @@ config = require \./../config
 {compile-and-execute-livescript, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 
-poll = {}
-
-# kill :: (Promise p) => DB -> MongoClient -> StartTime -> p String
-kill = (db, client, start-time) ->
-    return (new-promise (, rej) -> rej new Error "_server-state is not connected") if 'connected' != db.server-config?._server-state
-    
-    in-prog-collection = db.collection '$cmd.sys.inprog'
-    data <- bindP (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
-
-    try
-        delta = new Date!.value-of! - start-time
-        op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
-
-        if !!op
-            kill-op-collection = db.collection '$cmd.sys.killop'
-            data <- bindP ((from-error-value-callback kill-op-collection.find-one, kill-op-collection) {op : op.opid})
-            db.close!
-            client.close!
-            returnP \killed
-
-        else
-            new-promise (, rej) -> rej new Error "query could not be found #{query}\nStarted at: #{start-time}"
-
-    catch error
-        new-promise (, rej) -> rej new Error "uncaught error"
-
-# cancel :: (Promise p) => String -> p String
-export cancel = (query-id) ->
-    query = poll[query-id]
-    if !!query then query.kill! else (new-promise (, rej) -> rej new Error "query not found #{query-id}")
-
-# connections :: (Promise p) => a -> p b
+# connections :: (CancellablePromise cp) => a -> cp b
 export connections = ({connection-name, database}) --> 
 
-    # get-connections :: (Promise p) => a -> p Connections
+    # get-connections :: (CancellablePromise cp) => a -> cp Connections
     get-connections = ->
         res <- new-promise
         res do 
@@ -48,7 +17,7 @@ export connections = ({connection-name, database}) -->
                 |> obj-to-pairs
                 |> map ([name, value]) -> {label: (value.label or name), value: name}
 
-    # get-databases :: (Promise p) => String -> p Databases
+    # get-databases :: (Promise p) => String -> k p Databases
     get-databases = (connection-name) ->
         {host, port}:connection? = config?.connections?.mongodb?[connection-name]
         return (new-promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
@@ -63,14 +32,13 @@ export connections = ({connection-name, database}) -->
                 {databases} <- bindP (from-error-value-callback admin.list-databases, admin)!
                 returnP (databases |> map (.name))
             {host, port, database: \admin}
-            {timeout: 5000}
-            "#{Math.floor Math.random! * 1000000}"
+            5000            
         returnP {connection-name, databases}
 
-    # get-collections :: (Promise p) => String -> String -> p Collections
+    # get-collections :: (CancellablePromise cp) => String -> String -> cp Collections
     get-collections = (connection-name, database) -->
         {host, port}:connection? = config?.connections?.mongodb?[connection-name]
-        return (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
+        return returnK (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
 
         collections <- bindP execute-mongo-database-query-function do
             (db) ->
@@ -80,7 +48,6 @@ export connections = ({connection-name, database}) -->
                         return name if (name.index-of \.) == -1
                         name .split \. .1
             {host, port, database: connection?.database or database}
-            {timeout: 5000}
             Math.floor Math.random! * 1000000
         returnP {connection-name, database, collections}
 
@@ -89,22 +56,19 @@ export connections = ({connection-name, database}) -->
         | !database => get-databases connection-name
         | _ => get-collections connection-name, database
 
-# keywords :: (Promise p) => DataSource -> p [String]
+# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) -->
-    mongo-query = 
+    pipeline = 
         * $sort: _id: -1
         * $limit: 10
-
-    results <- bindP execute-mongo-query do 
+    results <- bindP execute-mongo-aggregation-query do 
         data-source
-        mongo-query 
-        {aggregation-type: \pipeline, timeout: 10000}
-        Math.floor Math.random! * 1000000
-
-    collection-keywords = results 
+        \pipeline
+        pipeline
+        10000
+    collection-keywords = ([])
         |> concat-map (-> get-all-keys-recursively it, (k, v)-> typeof v != \function)
         |> unique
-
     returnP do 
         collection-keywords ++ (collection-keywords |> map -> "$#{it}") ++
         ((get-all-keys-recursively get-context!, -> true) |> map dasherize) ++
@@ -143,11 +107,11 @@ export get-context = ->
         date-from-object-id
     }
 
-# execute-mongo-aggregation-pipeline :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
-execute-mongo-aggregation-pipeline = (collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use: config.allow-disk-use}
+# execute-aggregation-pipeline :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
+execute-aggregation-pipeline = (collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use: config.allow-disk-use}
 
-# execute-mongo-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
-execute-mongo-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
+# execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
+execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
     (from-error-value-callback collection.map-reduce, collection) do 
         $map
         $reduce
@@ -156,82 +120,91 @@ execute-mongo-map-reduce = (collection, {$map, $reduce, $options, $finalize}:que
 # utility function for executing a single raw mongodb query
 # mongo-database-query-function :: (db, callback) --> void;
 # can also be used to perform db.****** functions
-# execute-mongo-database-query-function :: (Promise p) => (MongoDatabase -> p result) -> DataSource -> MongoDatabaseQueryParameters -> String -> p result
-export execute-mongo-database-query-function = (mongo-database-query-function, {host, port, database}, {timeout}:parameters, query-id) -->
-    # connect to mongo server
+# execute-mongo-database-query-function :: (CancellablePromise cp) => (MongoDatabase -> p result) -> DataSource -> cp result
+export execute-mongo-database-query-function = (mongo-database-query-function, {host, port, database}) -->
+
+    # establish a connection to the server
     server = new Server host, port
     mongo-client = new MongoClient server, {native_parser: true}
-    mongo-client <- bindP (from-error-value-callback mongo-client.open, mongo-client)!
-    db = mongo-client.db database
-    start-time = new Date!.value-of!
+    mongo-client <- bindP with-cancel do 
+        (from-error-value-callback mongo-client.open, mongo-client)!
+        -> mongo-client.close!; returnP \killed-early
 
-    # store a reference to the query (allowing the user to cancel it later on)
-    poll[query-id] =
+    # execute the query
+    db = null
+    start-time = null
 
-        # a -> p String
-        kill: ->
-            result <- bindP (kill db, mongo-client, start-time)
-            delete poll[query-id]
-            returnP result
+    # dispose :: () -> Void
+    dispose = !->
+        db.close!
+        mongo-client.close!
+    
+    # kill :: () -> p kil-result
+    cancel = ->
+        if \connected != db.server-config?._server-state
+            return new-promise (rej) -> rej new Error "_server-state is not connected"
 
-    # kill the query on timeout
-    set-timeout do
-        ->  
-            return if !poll?[query-id]?.kill
-            err <- to-callback poll[query-id].kill!
-            console.log \kill-error, err if !!err
-        timeout    
+        in-prog-collection = db.collection \$cmd.sys.inprog
+        data <- bindP (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
+        delta = new Date!.value-of! - start-time
+        op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
+        if !op
+            return new-promise (rej) -> new Error "query could not be found\nStarted at: #{start-time}"
+            
+        killop-collection = db.collection \$cmd.sys.killop
+        data <- bindP ((from-error-value-callback killop-collection.find-one, killop-collection) {op : op.opid})
+        dispose!
+        returnP \killed
+    
+    # execute-query-function :: () -> p result
+    execute-query-function = do ->
+        db := mongo-client.db database
+        start-time := new Date!.value-of!
+        result <- bindP mongo-database-query-function db
+        dispose!
+        returnP result
 
-    # on execution of the query remove it from the list of running queries
-    result <- bindP (mongo-database-query-function db)
-    mongo-client.close!
-    return (new-promise (, rej) -> rej new Error "query was killed #{query-id}") if !poll[query-id]
-    delete poll[query-id]
-    returnP result
+    execute-query-function `with-cancel` cancel
 
 # for executing a single mongodb query from pipe
-# execute-mongo-query :: (Promise p) => DataSource -> AggregateQuery -> MongoQueryParameters -> String -> p result
-export execute-mongo-query = ({collection}:data-source, mongo-query, {aggregation-type, timeout}:parameters, query-id) -->
-
+# execute-mongo-aggregation-query :: (CancellablePromise cp) => DataSource -> String -> String -> Int -> cp result
+export execute-mongo-aggregation-query = ({collection}:data-source, aggregation-type, aggregation-query) -->
     # select the mongo-query-execution function based on aggregation type
     f = switch aggregation-type
-        | \pipeline => execute-mongo-aggregation-pipeline
-        | \map-reduce => execute-mongo-map-reduce
+        | \pipeline => execute-aggregation-pipeline
+        | \map-reduce => execute-aggregation-map-reduce
         | _ => -> new-promise (, rej) -> rej new Error "Unexpected query aggregation-type '#aggregation-type' \nExpected either 'pipeline' or 'map-reduce'."
 
     # execute the query & reformat the result for map-reduce queries
     result <- bindP execute-mongo-database-query-function do 
-        (db) -> f (db.collection collection), mongo-query
+        (db) -> f (db.collection collection), aggregation-query
         data-source
-        {timeout}
-        query-id
     if \map-reduce == aggregation-type and !!result.collection-name
         return returnP {result: {collection-name: result.collection-name, tag: result.db.tag}}
     returnP result
 
 # for executing a single mongodb query POSTed from client
-# execute :: (Promise p) => DataSource -> String -> CompiledQueryParameters -> String -> p result
-export execute = (data-source, query, parameters, query-id) -->
-    {aggregation-type, mongo-query} <- bindP do ->
+# execute :: (Killable k, CancellablePromise cp) => DataSource -> String -> CompiledQueryParameters -> cp result
+export execute = (data-source, query, parameters) -->
+    [aggregation-type, aggregation-query] <- bindP do ->
         res, rej <- new-promise
-        
+
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
 
-        [err, mongo-query] = compile-and-execute-livescript (convert-query-to-valid-livescript query), query-context
+        [err, aggregation-query] = compile-and-execute-livescript (convert-query-to-valid-livescript query), query-context
         return rej err if !!err
         aggregation-type = \pipeline
-        
+
         # {$map, $reduce, $finalize} must be part of one hash in order to perform map-reduce
         # convert-query-to-valid-livescript function puts them in a collection: [{$map}, {$reduce}, {$finalize}]
-        if '$map' in (mongo-query |> concat-map Obj.keys)
-            [err, mongo-query] = compile-and-execute-livescript ("{\n#{query}\n}"), query-context
+        if '$map' in (aggregation-query |> concat-map Obj.keys)
+            [err, aggregation-query] = compile-and-execute-livescript ("{\n#{query}\n}"), query-context
             return rej err if !!err
             aggregation-type = \map-reduce
-        
-        res {aggregation-type, mongo-query}
 
-    #TODO: get timeout from config
-    execute-mongo-query data-source, mongo-query, {aggregation-type, timeout: 1200000}, query-id
+        res [aggregation-type, aggregation-query]
+    
+    execute-mongo-aggregation-query data-source, aggregation-type, aggregation-query, 1200000
 
 # default-document :: a -> Document
 export default-document = -> 

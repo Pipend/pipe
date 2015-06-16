@@ -1,4 +1,4 @@
-{map} = require \prelude-ls
+{difference, each, filter, map, unique, sort} = require \prelude-ls
 {key} = require \keymaster
 {DOM:{a, div}}:React = require \react
 {cancel-event} = require \../utils.ls
@@ -30,5 +30,16 @@ module.exports = React.create-class {
                             style: if !!highlight then {border-top: "1px solid #{highlight}"} else {}
                         }
                         label
+                        
+    component-will-receive-props: (props) ->
+        # remove key listener for deleted menu items
+        get-hotkeys = ({items}) -> 
+            (items or [])
+                |> filter -> !!it?.hotkey
+                |> map (.hotkey)
+                |> unique
+                |> sort
+        (get-hotkeys @.props) `difference` get-hotkeys props
+            |> each key.unbind
 
 }

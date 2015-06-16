@@ -20,13 +20,13 @@ _ = require \underscore
 ace-language-tools = require \brace/ext/language_tools 
 
 # returns dasherized collection of keywords for auto-completion
-keywords-from-object = (object)->
+keywords-from-object = (object) ->
     object
         |> keys 
         |> map dasherize
 
 # takes a collection of keywords & maps them to {name, value, score, meta}
-convert-to-ace-keywords = (keywords, meta, prefix)->
+convert-to-ace-keywords = (keywords, meta, prefix) ->
     keywords
         |> map -> {text: it, meta}
         |> filter -> (it.text.index-of prefix) == 0 
@@ -57,6 +57,7 @@ module.exports = React.create-class do
             queries-in-between
             dialog
             remote-document
+            executing-op
         } = @.state
 
         # MENU ITEMS
@@ -72,7 +73,17 @@ module.exports = React.create-class do
             * hotkey: "command + s", icon: \s, label: \Save, action: ~> @.save!
             * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
             * icon: \c, label: \Cache, action: ~>
-            * hotkey: "command + enter", icon: \e, label: \Execute, action: ~> @.execute!
+            * hotkey: "command + enter"
+              icon: \e
+              label: \Execute
+              show: !executing-op
+              action: ~> @.set-state {executing-op: @.execute!}
+            * icon: \ca
+              label: \Cancel
+              show: !!executing-op
+              action: ~> 
+                  $.get "/apis/ops/#{executing-op}/cancel"
+                      ..done ~> @.set-state {executing-op: 0}
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
             * icon: \t, label: \Tags, action: ~>
@@ -269,19 +280,20 @@ module.exports = React.create-class do
         } = @.state
 
         # clean existing presentation
-        $ @.refs.presentation.get-DOM-node! .empty!
+        $ @.refs.presentation.get-DOM-node! .empty!        
 
         display-error = (err) ~>
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @.refs.presentation.get-DOM-node! .empty! .append pre
 
+        op-id = generate-uid!
         $.ajax {
             type: \post
             url: \/apis/execute
             content-type: 'application/json; charset=utf-8'
             data-type: \json
-            data: JSON.stringify {document: @.document-from-state!}
+            data: JSON.stringify {op-id, document: @.document-from-state!}
             success: (query-result) ~>
 
                 if !!parameters and parameters.trim!.length > 0
@@ -310,7 +322,12 @@ module.exports = React.create-class do
 
             error: ({response-text}?) ->
                 display-error response-text
+
+            complete: ~>
+                @.set-state {executing-op: 0}
+
         }
+        op-id
 
     POST-document: (document-to-save, callback) ->
         $.ajax {
@@ -511,6 +528,7 @@ module.exports = React.create-class do
             presentation-editor-height: 240
             dialog: false
             popup: null
+            executing-op: 0
         } 
 
     # converting the document to a flat object makes it easy to work with 

@@ -1,4 +1,4 @@
-{promises:{bindP, from-error-value-callback, new-promise, returnP, to-callback}} = require \async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 body-parser = require \body-parser
 {http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
 express = require \express
@@ -13,6 +13,7 @@ url-parser = (require \url).parse
 querystring = require \querystring
 
 query-cache = {}
+running-ops = {}
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -218,8 +219,8 @@ compile-parameters = (type, parameters) ->
     else
         res parameters
 
-# execute :: PartialDataSource -> String -> QueryParameters -> Cache -> p result
-execute = (partial-data-source, query, parameters, cache) -->
+# execute :: (CancellablePromise cp) PartialDataSource -> String -> QueryParameters -> Cache -> String -> cp result
+execute = (partial-data-source, query, parameters, cache, op-id) -->
 
     # get the complete data-source which includes the query-type
     {type}:data-source <- bindP do ->
@@ -237,16 +238,21 @@ execute = (partial-data-source, query, parameters, cache) -->
     key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
     return returnP query-cache[key] if read-from-cache and !!query-cache[key]
 
-    result <- bindP (query-types[type].execute data-source, query, compiled-query-parameters, cache)
-    query-cache[key] := {result, time: new Date!.value-of!}
-    returnP result
+    running-ops[op-id] = (query-types[type].execute data-source, query, compiled-query-parameters)
+    cancel-timer = set-timeout (-> running-ops[op-id].cancel!), 12000
+
+    running-ops[op-id].then do
+        (result) ->
+            clear-timeout cancel-timer
+            query-cache[key] := {result, time: new Date!.value-of!}
+            returnP result
+        -> clear-timeout cancel-timer
     
 app.post \/apis/execute, (req, res) ->
-    {document:{data-source, query, parameters}}? = req.body
-    err, result <- to-callback (execute data-source, query, parameters, false)
-    return die res, err if !!err
-
-    res.end JSON.stringify result
+    {op-id, document:{data-source, query, parameters}}? = req.body
+    err, result <- to-callback (execute data-source, query, parameters, false, op-id)
+    console.log \err, err, \result, result
+    if !!err then die res, err else res.end JSON.stringify result
 
 # result -> String -> CompiledQueryParameters -> p transformed-result
 transform = (query-result, transformation, parameters) -->
@@ -279,7 +285,7 @@ transform = (query-result, transformation, parameters) -->
 
             parameters = {} <<< req.parsed-query
 
-            query-result <- bindP (execute data-source, query, parameters, cache)
+            query-result <- bindP (execute data-source, query, parameters, cache, query-id)
             return returnP ((res) -> res.end pretty query-result) if display == \query
 
             transformed-result <- bindP (transform query-result, transformation, parameters)
@@ -288,6 +294,10 @@ transform = (query-result, transformation, parameters) -->
             returnP ((res) -> res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters})
 
         if !!err then die res, err else f res
+
+app.get \/apis/ops/:opId/cancel, (req, res) ->
+    running-ops[req.params.op-id]?.cancel!
+    res.end!
 
 <[
     /apis/branches/:branchId/export
@@ -317,7 +327,7 @@ transform = (query-result, transformation, parameters) -->
                 |> pairs-to-obj
             
             err, transformed-result <- to-callback do ->
-                query-result <- bindP (execute data-source, query, parameters, false)
+                query-result <- bindP (execute data-source, query, parameters, false, query-id)
                 transformed-result <- bindP (transform query-result, transformation, parameters)
                 returnP transformed-result
             return die res, err if !!err
@@ -366,7 +376,6 @@ transform = (query-result, transformation, parameters) -->
                         |> pairs-to-obj
             qs = querystring.stringify {} <<< query-params <<< {display: \presentation, cache: \false}
             open "http://127.0.0.1:#{http-port}#{base-url}?#{qs}"
-
 
 # save the code to mongodb
 app.post \/apis/save, (req, res)->
