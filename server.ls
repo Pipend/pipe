@@ -251,7 +251,6 @@ execute = (partial-data-source, query, parameters, cache, op-id) -->
 app.post \/apis/execute, (req, res) ->
     {op-id, document:{data-source, query, parameters}}? = req.body
     err, result <- to-callback (execute data-source, query, parameters, false, op-id)
-    console.log \err, err, \result, result
     if !!err then die res, err else res.end JSON.stringify result
 
 # result -> String -> CompiledQueryParameters -> p transformed-result

@@ -1,20 +1,35 @@
 .query-list-route
-    display flex
-    flex-direction row
-    flex-wrap wrap
+    .menu
+        background white
+        border-bottom 1px solid #ccc
+        box-shadow 0px 1px 2px rgba(0,0,0,0.2)
+        padding 10px
+        position fixed
+        left 0px
+        top 0px
+        width 100%
 
-    .query 
+        a
+            color #0099ff
+
+    .queries
         display flex
-        flex-direction column
-        margin 10px
-        width 320px
+        flex-direction row
+        flex-wrap wrap
+        margin-top 40px
 
-        img 
-            border 1px solid #ccc
+        .query 
+            display flex
+            flex-direction column
+            margin 10px
             width 320px
-            height 240px
 
-        a 
-            color #0099ff            
-            font-size 14px
-            text-transform lowercase
+            img 
+                border 1px solid #ccc
+                width 320px
+                height 240px
+
+            a 
+                color #0099ff            
+                font-size 14px
+                text-transform lowercase
