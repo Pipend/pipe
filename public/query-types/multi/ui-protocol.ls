@@ -8,8 +8,7 @@ editor-settings =
 
 get-empty-data-source = ->
     {
-        type: \mssql
-        connection-name: 'mobitrans'
+        type: \multi
     }
 
 module.exports = {

@@ -6,14 +6,10 @@ express = require \express
 md5 = require \MD5
 {MongoClient} = require \mongodb
 {any, difference, each, filter, find, find-index, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
-{compile-and-execute-livescript} = require \./utils
-transformation-context = require \./public/transformation/context
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
-
-query-cache = {}
-running-ops = {}
+{execute, transform, fill-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, cancel-op, running-ops} = require \./utils
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -64,6 +60,7 @@ die = (res, err) !->
     console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
     res.status 500 .end err.to-string!
 
+# render index.html
 <[
     \/ 
     \/branches 
@@ -72,33 +69,12 @@ die = (res, err) !->
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
-# DB -> String -> p Query
-get-latest-query-in-branch = (query-database, branch-id) -->
-    collection = query-database.collection \queries
-    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
-        * $match: {branch-id,status: true}
-        * $sort: _id: -1
-    return returnP results.0 if !!results?.0
-    new-promise (, rej) -> rej "unable to find any query in branch: #{branch-id}" 
-
 # redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId
 app.get \/branches/:branchId, (req, res) ->
     err, {query-id, branch-id}? <- to-callback (get-latest-query-in-branch query-database, req.params.branch-id)
     return die res, err if !!err
 
     res.redirect "/branches/#{branch-id}/queries/#{query-id}"
-
-# DB -> String -> p Query
-get-query-by-id = (query-database, query-id) -->
-    collection = query-database.collection \queries
-    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
-        * $match: 
-            query-id: query-id
-            status: true
-        * $sort: _id: - 1
-        * $limit: 1
-    return returnP results.0 if !!results?.0
-    new-promise (, rej) -> rej "query not found #{query-id}"
 
 # redirects you to /branches/:branchId/queries/queryId
 app.get \/queries/:queryId, (req, res) ->
@@ -113,18 +89,17 @@ app.get \/apis/defaultDocument, (req, res) ->
 
 app.get \/apis/branches, (req, res) ->
     err, files <- readdir \public/snapshots
-    return die res, err if !!err
-
+    
     err, results <- query-database.collection \queries .aggregate do 
         * $match: status: true
-        * $sort: _id : -1
+        * $sort: _id : 1
         * $project:
             _id: 1
+            branch-id: 1
             query-id: 1
             query-title: 1
             data-source: 1
             user: 1
-            branch-id: 1
             creation-time: 1
     return die res, err if !!err
 
@@ -138,10 +113,11 @@ app.get \/apis/branches, (req, res) ->
                 {
                     branch-id
                     latest-query
-                    snapshot: files 
+                    snapshot: (files or [])
                         |> find -> (it.index-of branch-id) == 0
                         |> -> if !it then null else "public/snapshots/#{it}"
                 }
+            |> sort-by (.latest-query.creation-time * -1)
         null
         4
 
@@ -186,7 +162,7 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 
     res.end parent-id.0
 
-# set the status property of the query to false
+# api :: delete query (by setting status prop to false)
 <[
     /apis/queries/:queryId/delete
     /apis/branches/:branchId/queries/:queryId/delete
@@ -205,65 +181,12 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 
         res.end results.0.parent-id
 
-# fill-data-source :: PartialDataSource -> DataSource
-fill-data-source = (partial-data-source) ->
-    connection-prime = config?.connections?[partial-data-source?.type][partial-data-source?.connection-name]
-    data-source = {} <<< (connection-prime or {}) <<< partial-data-source
-
-# compile-parameters :: String -> QueryParameters -> CompiledQueryParameters
-compile-parameters = (type, parameters) ->
-    res, rej <- new-promise
-    if \String == typeof! parameters
-        [err, compiled-query-parameters] = compile-and-execute-livescript parameters, query-types[type].get-context!
-        if !!err then return rej err else res compiled-query-parameters
-    else
-        res parameters
-
-# execute :: (CancellablePromise cp) PartialDataSource -> String -> QueryParameters -> Cache -> String -> cp result
-execute = (partial-data-source, query, parameters, cache, op-id) -->
-
-    # get the complete data-source which includes the query-type
-    {type}:data-source <- bindP do ->
-        res, rej <- new-promise
-        {type}:data-source? = fill-data-source partial-data-source
-        return rej new Error "query type: #{type} not found" if typeof query-types[type] == \undefined
-        res data-source
-
-    # return cached-result (if any) otherwise execute the query and cache the result
-    compiled-query-parameters <- bindP (compile-parameters type, parameters)
-    read-from-cache = [
-        typeof cache == \boolean and cache === true
-        typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
-    ] |> any id        
-    key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
-    return returnP query-cache[key] if read-from-cache and !!query-cache[key]
-
-    running-ops[op-id] = (query-types[type].execute data-source, query, compiled-query-parameters)
-    cancel-timer = set-timeout (-> running-ops[op-id].cancel!), 12000
-
-    running-ops[op-id].then do
-        (result) ->
-            clear-timeout cancel-timer
-            query-cache[key] := {result, time: new Date!.value-of!}
-            returnP result
-        -> clear-timeout cancel-timer
-    
 app.post \/apis/execute, (req, res) ->
     {op-id, document:{data-source, query, parameters}}? = req.body
-    err, result <- to-callback (execute data-source, query, parameters, false, op-id)
+    err, result <- to-callback (execute query-database, data-source, query, parameters, false, op-id)
     if !!err then die res, err else res.end JSON.stringify result
 
-# result -> String -> CompiledQueryParameters -> p transformed-result
-transform = (query-result, transformation, parameters) -->
-    res, rej <- new-promise 
-    [err, func] = compile-and-execute-livescript "(#transformation\n)", (transformation-context! <<< (require \moment) <<< (require \prelude-ls) <<< parameters)
-    return rej err if !!err
-
-    try
-        res (func query-result)
-    catch err
-        return rej err
-
+# api :: execute query
 <[
     /apis/branches/:branchId/execute
     /apis/queries/:queryId/execute
@@ -284,7 +207,7 @@ transform = (query-result, transformation, parameters) -->
 
             parameters = {} <<< req.parsed-query
 
-            query-result <- bindP (execute data-source, query, parameters, cache, query-id)
+            query-result <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
             return returnP ((res) -> res.end pretty query-result) if display == \query
 
             transformed-result <- bindP (transform query-result, transformation, parameters)
@@ -294,10 +217,15 @@ transform = (query-result, transformation, parameters) -->
 
         if !!err then die res, err else f res
 
+app.get \/apis/ops, (req, res) ->
+    res.end JSON.stringify running-ops!
+
 app.get \/apis/ops/:opId/cancel, (req, res) ->
-    running-ops[req.params.op-id]?.cancel!
+    console.log \op-to-cancel, req.params.op-id
+    cancel-op req.params.op-id
     res.end!
 
+# api :: export query
 <[
     /apis/branches/:branchId/export
     /apis/queries/:queryId/export
@@ -326,7 +254,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                 |> pairs-to-obj
             
             err, transformed-result <- to-callback do ->
-                query-result <- bindP (execute data-source, query, parameters, false, query-id)
+                query-result <- bindP (execute query-database, data-source, query, parameters, false, query-id)
                 transformed-result <- bindP (transform query-result, transformation, parameters)
                 returnP transformed-result
             return die res, err if !!err
@@ -361,7 +289,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                         res.set \Content-disposition, "attachment; filename=#{filename}.png"
                         res.set \Content-type, \image/png
                         if req.query.snapshot then res.end! else (create-read-stream image-file .pipe res)
-                        exit!
+                        exit!   
 
             # compose the url for executing the query
             base-url = url-parser req.url .pathname .replace \/export, \/execute

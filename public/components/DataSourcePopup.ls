@@ -3,6 +3,7 @@
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
+    multi: require \../query-types/multi/ui-protocol.ls
 
 module.exports = React.create-class {
 
@@ -19,14 +20,7 @@ module.exports = React.create-class {
                         |> keys
                         |> map -> option {value: it}, it
             React.create-element do 
-                @.props.data-source-component
-                {} <<< @.props.data-source <<< {
-                    on-change: (data-source) ~>
-                        @.props.on-change do 
-                            data-source
-                                |> obj-to-pairs
-                                |> reject ([key]) ~> key in <[onChange]>
-                                |> pairs-to-obj
-                }
+                ui-protocol[@.props.data-source.type].data-source-component
+                {} <<< {data-source: @.props.data-source} <<< {on-change: @.props.on-change}
 
 }

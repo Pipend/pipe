@@ -27,12 +27,11 @@ export connections = ({connection-name, database}) -->
 
         # return the list of all databases, if the connection is a "server-connection"
         databases <- bindP execute-mongo-database-query-function do 
+            {host, port, database: \admin}
             (db) ->
                 admin = db.admin!
                 {databases} <- bindP (from-error-value-callback admin.list-databases, admin)!
                 returnP (databases |> map (.name))
-            {host, port, database: \admin}
-            5000            
         returnP {connection-name, databases}
 
     # get-collections :: (CancellablePromise cp) => String -> String -> cp Collections
@@ -41,13 +40,13 @@ export connections = ({connection-name, database}) -->
         return returnK (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
 
         collections <- bindP execute-mongo-database-query-function do
+            {host, port, database: connection?.database or database}
             (db) ->
                 results <- bindP (from-error-value-callback db.collection-names, db)!
                 returnP do
                     results |> map ({name}) ->
                         return name if (name.index-of \.) == -1
                         name .split \. .1
-            {host, port, database: connection?.database or database}
             Math.floor Math.random! * 1000000
         returnP {connection-name, database, collections}
 
@@ -57,7 +56,7 @@ export connections = ({connection-name, database}) -->
         | _ => get-collections connection-name, database
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) -->
+export keywords = (data-source) ->
     pipeline = 
         * $sort: _id: -1
         * $limit: 10
@@ -120,8 +119,8 @@ execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finaliz
 # utility function for executing a single raw mongodb query
 # mongo-database-query-function :: (db, callback) --> void;
 # can also be used to perform db.****** functions
-# execute-mongo-database-query-function :: (CancellablePromise cp) => (MongoDatabase -> p result) -> DataSource -> cp result
-export execute-mongo-database-query-function = (mongo-database-query-function, {host, port, database}) -->
+# execute-mongo-database-query-function :: (CancellablePromise cp) => DataSource -> (MongoDatabase -> p result) -> cp result
+export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function) -->
 
     # establish a connection to the server
     server = new Server host, port
@@ -139,7 +138,7 @@ export execute-mongo-database-query-function = (mongo-database-query-function, {
         db.close!
         mongo-client.close!
     
-    # kill :: () -> p kil-result
+    # kill :: (CancellablePromise cp) => () -> cp kill-result
     cancel = ->
         if \connected != db.server-config?._server-state
             return new-promise (rej) -> rej new Error "_server-state is not connected"
@@ -177,15 +176,15 @@ export execute-mongo-aggregation-query = ({collection}:data-source, aggregation-
 
     # execute the query & reformat the result for map-reduce queries
     result <- bindP execute-mongo-database-query-function do 
-        (db) -> f (db.collection collection), aggregation-query
         data-source
+        (db) -> f (db.collection collection), aggregation-query
     if \map-reduce == aggregation-type and !!result.collection-name
         return returnP {result: {collection-name: result.collection-name, tag: result.db.tag}}
     returnP result
 
 # for executing a single mongodb query POSTed from client
-# execute :: (Killable k, CancellablePromise cp) => DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (data-source, query, parameters) -->
+# execute :: (Killable k, CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
+export execute = (query-database, data-source, query, parameters) -->
     [aggregation-type, aggregation-query] <- bindP do ->
         res, rej <- new-promise
 
@@ -206,7 +205,7 @@ export execute = (data-source, query, parameters) -->
     
     execute-mongo-aggregation-query data-source, aggregation-type, aggregation-query, 1200000
 
-# default-document :: a -> Document
+# default-document :: () -> Document
 export default-document = -> 
     {
         query: """

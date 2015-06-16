@@ -7,6 +7,7 @@ Menu = require \./Menu.ls
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
+    multi: require \../query-types/multi/ui-protocol.ls
 $ = require \jquery-browserify
 window.d3 = require \d3-browserify
 {compile-and-execute-livescript, generate-uid, is-equal-to-object} = require \../utils.ls
@@ -113,8 +114,7 @@ module.exports = React.create-class do
                 React.create-element do
                     DataSourcePopup
                     left: popup-left
-                    data-source: data-source
-                    data-source-component: ui-protocol[data-source.type].data-source-component
+                    data-source: data-source                    
                     on-change: (data-source) ~> @.set-state {data-source}
 
             | \parameters-popup =>
