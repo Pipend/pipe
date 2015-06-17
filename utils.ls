@@ -97,7 +97,7 @@ export execute = (query-database, partial-data-source, query, parameters, cache,
         }
         ((require "./query-types/#{type}").execute query-database, data-source, query, compiled-query-parameters)
         
-    cancel-timer = set-timeout (-> cancellable-promise.cancel!), 12000
+    cancel-timer = set-timeout (-> cancellable-promise.cancel!), 90000 #TODO: should come fron config
 
     cancellable-promise.then do
         (result) ->

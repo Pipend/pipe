@@ -106,8 +106,8 @@ export get-context = ->
         date-from-object-id
     }
 
-# execute-aggregation-pipeline :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
-execute-aggregation-pipeline = (collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use: config.allow-disk-use}
+# execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
+execute-aggregation-pipeline = (allow-disk-use, collection, query) --> (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use}
 
 # execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
@@ -167,10 +167,10 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
 
 # for executing a single mongodb query from pipe
 # execute-mongo-aggregation-query :: (CancellablePromise cp) => DataSource -> String -> String -> Int -> cp result
-export execute-mongo-aggregation-query = ({collection}:data-source, aggregation-type, aggregation-query) -->
+export execute-mongo-aggregation-query = ({collection, allow-disk-use}:data-source, aggregation-type, aggregation-query) -->
     # select the mongo-query-execution function based on aggregation type
     f = switch aggregation-type
-        | \pipeline => execute-aggregation-pipeline
+        | \pipeline => execute-aggregation-pipeline allow-disk-use
         | \map-reduce => execute-aggregation-map-reduce
         | _ => -> new-promise (, rej) -> rej new Error "Unexpected query aggregation-type '#aggregation-type' \nExpected either 'pipeline' or 'map-reduce'."
 
@@ -203,7 +203,7 @@ export execute = (query-database, data-source, query, parameters) -->
 
         res [aggregation-type, aggregation-query]
     
-    execute-mongo-aggregation-query data-source, aggregation-type, aggregation-query, 1200000
+    execute-mongo-aggregation-query data-source, aggregation-type, aggregation-query
 
 # default-document :: () -> Document
 export default-document = -> 
