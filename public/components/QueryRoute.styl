@@ -74,3 +74,16 @@
             background rgba(29, 30, 25, 0)
             color rgb(196, 197, 180)
             overflow auto
+            &.executing:after
+                content 'Executing ...'
+                position absolute
+                top 0
+                left 0
+                right 0
+                bottom 0
+                display flex
+                background-color rgba(0,0,0,0.6)
+                justify-content center
+                align-items center
+                font-size 5em
+                color white

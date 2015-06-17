@@ -243,7 +243,7 @@ module.exports = React.create-class do
                         $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
                 
                 # PRESENTATION: operations on this div are not controlled by react
-                div {ref: \presentation, class-name: \presentation}
+                div {ref: \presentation, class-name: "presentation #{if !!executing-op then 'executing' else ''}"}
         
     update-presentation-size: ->
         left = @.state.editor-width + 10
