@@ -3,7 +3,7 @@ DataSourcePopup = require \./DataSourcePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
 {any, camelize, concat-map, dasherize, filter, find, keys, last, map} = require \prelude-ls
-{DOM:{div, input}}:React = require \react
+{DOM:{div, input, label, span}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -59,7 +59,13 @@ module.exports = React.create-class do
             queries-in-between
             dialog
             remote-document
+            cache
+            from-cache
             executing-op
+            displayed-on
+            execution-error
+            execution-end-time
+            execution-duration
         } = @.state
 
         # MENU ITEMS
@@ -74,7 +80,12 @@ module.exports = React.create-class do
             * icon: \f, label: \Fork, show: saved-query, action: ~> @.fork!
             * hotkey: "command + s", icon: \s, label: \Save, action: ~> @.save!
             * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
-            * icon: \c, label: \Cache, action: ~>
+            * type: \toggle
+              icon: \c
+              label: \Cache
+              highlight: if from-cache then 'rgba(0,255,0,1)' else null
+              toggled: cache
+              action: ~> @.set-state {cache: !cache}
             * hotkey: "command + enter"
               icon: \e
               label: \Execute
@@ -242,12 +253,35 @@ module.exports = React.create-class do
                             @.update-presentation-size!
                         $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
                 
-                # PRESENTATION: operations on this div are not controlled by react
-                div {ref: \presentation, class-name: \presentation}
+                div {ref: \presentationContainer, class-name: \presentation-container},
+
+                    # PRESENTATION: operations on this div are not controlled by react
+                    div {ref: \presentation, class-name: \presentation}
+
+                    # STATUS BAR
+                    if !!displayed-on
+                        time-formatter = d3.time.format("%d %b %I:%M %p")
+                        items = 
+                            * title: 'Displayed on'
+                              value: time-formatter new Date displayed-on
+                            * title: 'From cache'
+                              value: if from-cache then \Yes else \No
+                            * title: 'Cached on'
+                              value: time-formatter new Date execution-end-time
+                              show: from-cache
+                            * title: 'Execution time'
+                              value: "#{execution-duration / 1000} seconds"
+                        div {class-name: \status-bar},
+                            items 
+                                |> filter -> (typeof it.show == \undefined) or !!it.show
+                                |> map ({title, value}) ->
+                                    div null,
+                                        label null, title
+                                        span null, value
         
     update-presentation-size: ->
         left = @.state.editor-width + 10
-        @.refs.presentation.get-DOM-node!.style <<< {
+        @.refs.presentation-container.get-DOM-node!.style <<< {
             left
             width: window.inner-width - left
             height: window.inner-height - @.refs.menu.get-DOM-node!.offset-height
@@ -271,6 +305,7 @@ module.exports = React.create-class do
         # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
         window.open "/branches/localFork/queries/#{query-id}", \_blank    
 
+    # execute :: () -> String
     execute: ->
         {
             data-source
@@ -278,15 +313,17 @@ module.exports = React.create-class do
             transformation
             presentation
             parameters
+            cache
+            executing-op
         } = @.state
 
-        # clean existing presentation
-        $ @.refs.presentation.get-DOM-node! .empty!        
+        return executing-op if !!executing-op        
 
-        display-error = (err) ~>
+        display-error = (err) !~>
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @.refs.presentation.get-DOM-node! .empty! .append pre
+            @.set-state {from-cache: false, execution-error: true}
 
         op-id = generate-uid!
         $.ajax {
@@ -294,8 +331,11 @@ module.exports = React.create-class do
             url: \/apis/execute
             content-type: 'application/json; charset=utf-8'
             data-type: \json
-            data: JSON.stringify {op-id, document: @.document-from-state!}
-            success: (query-result) ~>
+            data: JSON.stringify {op-id, document: @.document-from-state!, cache}
+            success: ({result, from-cache, execution-end-time, execution-duration}) ~>
+
+                # clean existing presentation
+                $ @.refs.presentation.get-DOM-node! .empty!
 
                 if !!parameters and parameters.trim!.length > 0
                     [err, parameters-object] = compile-and-execute-livescript parameters, {}
@@ -307,7 +347,7 @@ module.exports = React.create-class do
                 return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
                 
                 try
-                    transformed-result = func query-result
+                    transformed-result = func result
                 catch ex
                     return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
@@ -321,11 +361,19 @@ module.exports = React.create-class do
                 catch ex
                     return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
+                @.set-state {
+                    displayed-on: Date.now!
+                    from-cache
+                    execution-end-time
+                    execution-duration
+                    execution-error: false
+                }
+
             error: ({response-text}?) ->
                 display-error response-text
 
             complete: ~>
-                @.set-state {executing-op: 0}
+                @.set-state {executing-op: ""}
 
         }
         op-id
@@ -529,6 +577,8 @@ module.exports = React.create-class do
             presentation-editor-height: 240
             dialog: false
             popup: null
+            cache: true
+            from-cache: false
             executing-op: 0
         } 
 

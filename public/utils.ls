@@ -17,7 +17,7 @@ module.exports =
     cancel-event: (e) ->
         e.prevent-default!
         e.stop-propagation!
-        false
+        # false
 
     compile-and-execute-livescript: (livescript-code, context) ->
 

@@ -175,8 +175,8 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
         res.end results.0.parent-id
 
 app.post \/apis/execute, (req, res) ->
-    {op-id, document:{data-source, query, parameters}}? = req.body
-    err, result <- to-callback (execute query-database, data-source, query, parameters, false, op-id)
+    {op-id, document:{data-source, query, parameters}, cache}? = req.body
+    err, result <- to-callback (execute query-database, data-source, query, parameters, cache, op-id)
     if !!err then die res, err else res.end JSON.stringify result
 
 # api :: execute query

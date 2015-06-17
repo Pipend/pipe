@@ -1,0 +1,29 @@
+.checkbox    
+    background linear-gradient(to bottom, #222222 0%, #45484d 100%)
+    border-radius 4px
+    box-sizing border-box
+    box-shadow inset 0px 1px 1px rgba(0, 0, 0, 0.5), 0px 1px 0px rgba(255, 255, 255, 0.4)
+    display inline-block 
+    margin 4px
+    transform scale(0.9)
+    position relative
+    width 20px
+    height 20px
+    
+    &:after
+      background transparent
+      border 3px solid #fcfff4
+      border-top none
+      border-right none
+      content ''
+      opacity 0.1
+      transform rotate(-45deg)
+      position absolute
+      left 4px
+      top 4px
+      width 9px
+      height 5px
+
+    &.checked:after
+        opacity 1
+

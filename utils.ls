@@ -83,10 +83,10 @@ export execute = (query-database, partial-data-source, query, parameters, cache,
     compiled-query-parameters <- bindP (compile-parameters type, parameters)
     read-from-cache = [
         typeof cache == \boolean and cache === true
-        typeof cache == \number and (new Date.value-of! - query-cache[key]?.time) / 1000 < cache
+        typeof cache == \number and (new Date.value-of! - query-cache[key]?.cached-on) / 1000 < cache
     ] |> any id        
-    key = md5 JSON.stringify {data-source, type, query, compiled-query-parameters}
-    return returnP query-cache[key] if read-from-cache and !!query-cache[key]
+    key = md5 JSON.stringify {data-source, query, compiled-query-parameters}
+    return returnP {} <<< query-cache[key] <<< {from-cache: true, execution-duration: 0} if read-from-cache and !!query-cache[key]
 
     cancellable-promise = add-op do
         op-id
@@ -98,12 +98,18 @@ export execute = (query-database, partial-data-source, query, parameters, cache,
         ((require "./query-types/#{type}").execute query-database, data-source, query, compiled-query-parameters)
         
     cancel-timer = set-timeout (-> cancellable-promise.cancel!), 12000
+    execution-start-time = Date.now!
 
     cancellable-promise.then do
-        (result) ->
+        (result) ->            
             clear-timeout cancel-timer
-            query-cache[key] := {result, time: new Date!.value-of!}
-            returnP result
+            execution-end-time = Date.now!
+            query-cache[key] := {
+                result
+                execution-start-time
+                execution-end-time                
+            }
+            returnP {} <<< query-cache[key] <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
         (err) -> 
             clear-timeout cancel-timer
             throw err
