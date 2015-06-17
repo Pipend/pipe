@@ -193,7 +193,7 @@ module.exports = React.create-class do
                             editor-id: \presentation
                             title: \Presentation
                             editable-title: false
-                            resizable: false
+                            resizable: true
                         }
                     ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
                         div {class-name: \editor, key: editor-id},
