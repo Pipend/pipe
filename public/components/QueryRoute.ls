@@ -266,11 +266,13 @@ module.exports = React.create-class do
                               value: time-formatter new Date displayed-on
                             * title: 'From cache'
                               value: if from-cache then \Yes else \No
+                              show: !execution-error
                             * title: 'Cached on'
                               value: time-formatter new Date execution-end-time
-                              show: from-cache
+                              show: !execution-error and from-cache
                             * title: 'Execution time'
                               value: "#{execution-duration / 1000} seconds"
+                              show: !execution-error
                         div {class-name: \status-bar},
                             items 
                                 |> filter -> (typeof it.show == \undefined) or !!it.show
@@ -362,7 +364,6 @@ module.exports = React.create-class do
                     return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
                 @.set-state {
-                    displayed-on: Date.now!
                     from-cache
                     execution-end-time
                     execution-duration
@@ -373,7 +374,7 @@ module.exports = React.create-class do
                 display-error response-text
 
             complete: ~>
-                @.set-state {executing-op: ""}
+                @.set-state {displayed-on: Date.now!, executing-op: ""}
 
         }
         op-id
