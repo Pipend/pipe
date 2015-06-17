@@ -15,13 +15,6 @@ err, query-database <- MongoClient.connect query-database-connection-string, mon
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
 console.log "successfully connected to #{query-database-connection-string}"
 
-err, files <- readdir \./query-types
-console.log err.to-string! if !!err
-query-types = (files or [])
-    |> reject -> it in <[default-query-context.ls]>
-    |> map -> [(it.replace \.ls, ''), require "./query-types/#{it}"]
-    |> pairs-to-obj
-
 # query-parser :: String -> a
 # query-parser :: [String] -> [a]
 # query-parser :: Map String, String -> Map String, a
@@ -85,7 +78,7 @@ app.get \/queries/:queryId, (req, res) ->
 
 app.get \/apis/defaultDocument, (req, res) ->
     {type} = config.default-data-source
-    res.end JSON.stringify {} <<< query-types[type].default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
+    res.end JSON.stringify {} <<< (require "./query-types/#{type}").default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
 
 app.get \/apis/branches, (req, res) ->
     err, files <- readdir \public/snapshots
@@ -335,13 +328,13 @@ app.post \/apis/save, (req, res)->
     res.status 200 .end JSON.stringify records.0
 
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
-    err, result <- to-callback (query-types[req.params.query-type].connections req.query)
+    err, result <- to-callback ((require "./query-types/#{req.params.query-type}").connections req.query)
     return die res, err if !!err
 
     res.end JSON.stringify result
 
 app.post \/apis/queryTypes/:queryType/keywords, (req, res) ->
-    err, result <- to-callback (query-types[req.params.query-type].keywords fill-data-source req.body)
+    err, result <- to-callback ((require "./query-types/#{req.params.query-type}").keywords fill-data-source req.body)
     return die res, err if !!err
 
     res.end JSON.stringify result

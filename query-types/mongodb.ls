@@ -183,7 +183,7 @@ export execute-mongo-aggregation-query = ({collection}:data-source, aggregation-
     returnP result
 
 # for executing a single mongodb query POSTed from client
-# execute :: (Killable k, CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
+# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
 export execute = (query-database, data-source, query, parameters) -->
     [aggregation-type, aggregation-query] <- bindP do ->
         res, rej <- new-promise

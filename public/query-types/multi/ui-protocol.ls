@@ -4,7 +4,7 @@ DataSource = require \./DataSource.ls
 
 editor-settings =
     mode: \ace/mode/livescript
-    theme: \ace/theme/twilight
+    theme: \ace/theme/monokai
 
 get-empty-data-source = ->
     {

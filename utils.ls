@@ -1,3 +1,5 @@
+# all functions in this file are for use on server-side only (either by server.ls or query-types)
+
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 config = require \./config
 transformation-context = require \./public/transformation/context
@@ -6,7 +8,6 @@ transformation-context = require \./public/transformation/context
 md5 = require \MD5
 {any, concat-map, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
 vm = require \vm
-# all functions in this file are for use on server-side only (either by server.ls or query-types)
 
 query-cache = {}
 ops = []
@@ -119,7 +120,7 @@ export transform = (query-result, transformation, parameters) -->
         return rej err
 
 # add-op :: (CancellablePromise cp) => String -> cp result -> Extras -> cp result
-export add-op = (op-id, op-info, cancellable-promise) -->
+add-op = (op-id, op-info, cancellable-promise) -->
     ops.push {op-id, op-info, cancellable-promise}
     cancellable-promise
 

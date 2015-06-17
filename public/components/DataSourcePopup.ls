@@ -4,7 +4,8 @@ ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
     multi: require \../query-types/multi/ui-protocol.ls
-
+    curl: require \../query-types/curl/ui-protocol.ls
+    
 module.exports = React.create-class {
 
     render: ->
