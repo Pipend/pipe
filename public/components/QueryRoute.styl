@@ -73,13 +73,27 @@
         .presentation-container
             position absolute
 
+            &.executing:after
+                align-items center
+                background-color rgba(0,0,0,0.6)
+                color white
+                content 'Executing ...'
+                display flex
+                font-size 5em
+                justify-content center
+                position absolute
+                top 0
+                left 0
+                right 0
+                bottom 0
+
             .presentation
                 background rgba(29, 30, 25, 0)
                 color rgb(196, 197, 180)
                 overflow auto
                 width 100%
                 height 100%
-
+            
             .status-bar
                 background #1d1f20
                 border-top 1px solid rgba(255,255,255,0.1)
@@ -99,6 +113,4 @@
                         content ": "
                     span
                         color #0099ff
-
-
 

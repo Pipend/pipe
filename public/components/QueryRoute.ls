@@ -204,7 +204,7 @@ module.exports = React.create-class do
                             editor-id: \presentation
                             title: \Presentation
                             editable-title: false
-                            resizable: false
+                            resizable: true
                         }
                     ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
                         div {class-name: \editor, key: editor-id},
@@ -253,7 +253,10 @@ module.exports = React.create-class do
                             @.update-presentation-size!
                         $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
                 
-                div {ref: \presentationContainer, class-name: \presentation-container},
+                div {
+                    ref: camelize \presentation-container
+                    class-name: "presentation-container #{if !!executing-op then 'executing' else ''}"
+                },
 
                     # PRESENTATION: operations on this div are not controlled by react
                     div {ref: \presentation, class-name: \presentation}
