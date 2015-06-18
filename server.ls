@@ -80,51 +80,66 @@ app.get \/apis/defaultDocument, (req, res) ->
     {type} = config.default-data-source
     res.end JSON.stringify {} <<< (require "./query-types/#{type}").default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
 
-app.get \/apis/branches, (req, res) ->
-    err, files <- readdir \public/snapshots
-    
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match: status: true
-        * $sort: _id : 1
-        * $project:
-            _id: 1
-            branch-id: 1
-            query-id: 1
-            query-title: 1
-            data-source: 1
-            user: 1
-            creation-time: 1
-    return die res, err if !!err
+# list of branches
+<[
+    /apis/branches
+    /apis/branches/:branchId
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        err, files <- readdir \public/snapshots
+        err, results <- query-database.collection \queries .aggregate do 
+            * $match: {status: true} <<< (if !!req.params.branch-id  then {branch-id: req.params.branch-id} else {})
+            * $sort: _id : 1
+            * $project:
+                _id: 1
+                branch-id: 1
+                query-id: 1
+                query-title: 1
+                data-source: 1
+                user: 1
+                creation-time: 1
+        return die res, err if !!err
+        res.set \Content-type, \application/json
+        res.end JSON.stringify do 
+            results
+                |> group-by (.branch-id)
+                |> Obj.map maximum-by (.creation-time) 
+                |> obj-to-pairs
+                |> map ([branch-id, latest-query]) -> 
+                    {
+                        branch-id
+                        latest-query
+                        snapshot: (files or [])
+                            |> find -> (it.index-of branch-id) == 0
+                            |> -> if !it then null else "public/snapshots/#{it}"
+                    }
+                |> sort-by (.latest-query.creation-time * -1)
+            null
+            4
 
-    res.set \Content-type, \application/json
-    res.end JSON.stringify do 
-        results
-            |> group-by (.branch-id)
-            |> Obj.map maximum-by (.creation-time) 
-            |> obj-to-pairs
-            |> map ([branch-id, latest-query]) -> 
-                {
-                    branch-id
-                    latest-query
-                    snapshot: (files or [])
-                        |> find -> (it.index-of branch-id) == 0
-                        |> -> if !it then null else "public/snapshots/#{it}"
-                }
-            |> sort-by (.latest-query.creation-time * -1)
-        null
-        4
+# list of queries
+<[
+    /apis/queries
+    /apis/branches/:branchId/queries
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        pipeline =             
+            * $sort: _id: (req.parsed-query?.sort-order or 1)
+            * $limit: (req.parsed-query?.limit) or 100
+        err, results <- query-database.collection \queries .aggregate do
+            (if !!req.params.branch-id then [$match: branch-id: req.params.branch-id] else []) ++ pipeline
+        return die res, err if !!err
+        res.end JSON.stringify results, null, 4
 
-app.get \/apis/queries, (req, res) ->
-    err, results <- query-database.collection \queries .aggregate do
-        * $sort: _id: (req.parsed-query?.sort-order or 1)
-        * $limit: (req.parsed-query?.limit) or 100
-    return die res, err if !!err
-    res.end JSON.stringify results, null, 4
-
-app.get \/apis/queries/:queryId, (req, res) ->
-    err, document <- to-callback (get-query-by-id query-database, req.params.query-id)
-    return die res, err if !!err
-    res.end JSON.stringify document
+# query details
+<[
+    /apis/queries/:queryId
+    /apis/branches/:branchId/queries/:queryId
+]> |> each (route) ->
+    app.get route, (req, res) ->
+        err, document <- to-callback (get-query-by-id query-database, req.params.query-id)
+        return die res, err if !!err
+        res.end JSON.stringify document
 
 # set the status property of all the queries in the branch to false
 app.get "/apis/branches/:branchId/delete", (req, res)->
