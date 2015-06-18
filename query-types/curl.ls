@@ -6,7 +6,7 @@ config = require \./../config
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
-    returnP <[curl, -H, -d, -X, POST, GET, --user, http://, https://]>
+    returnP <[curl -H -d -X POST GET --user http:// https://]>
 
 # get-context :: a -> Context
 export get-context = ->
