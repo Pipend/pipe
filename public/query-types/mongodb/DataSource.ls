@@ -16,10 +16,10 @@ module.exports = React.create-class {
             |> map ([value, options]) ->
                 (if typeof (options |> find (.value == value)) == \undefined then [{label: "- (#{value})", value}] else []) ++ (options |> sort-by (.label))
 
-        div {class-name: \mongodb-data-source}, 
+        div {class-name: 'data-source mongodb-data-source'}, 
             [
                 {
-                    name: \server
+                    name: 'connection'
                     value: connection-name
                     options: connections
                     disabled: false
