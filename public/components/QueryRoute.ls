@@ -20,6 +20,7 @@ client-storage = require \../client-storage.ls
 ConflictDialog = require \./ConflictDialog.ls
 _ = require \underscore
 ace-language-tools = require \brace/ext/language_tools 
+notify = require \notifyjs
 
 # returns dasherized collection of keywords for auto-completion
 keywords-from-object = (object) ->
@@ -366,18 +367,24 @@ module.exports = React.create-class do
                 catch ex
                     return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
-                @.set-state {
+                <~ @.set-state {
                     from-cache
                     execution-end-time
                     execution-duration
                     execution-error: false
                 }
+                if document[\webkitHidden]
+                    notification = new notify do 
+                        'Pipe: query execution complete'
+                        body: "Completed execution of (#{@.state.query-title}) in #{@.state.execution-duration / 1000} seconds"
+                        notify-click: -> window.focus!
+                    notification.show!
 
             error: ({response-text}?) ->
                 display-error response-text
 
             complete: ~>
-                @.set-state {displayed-on: Date.now!, executing-op: ""}
+                @.set-state {displayed-on: Date.now!, executing-op: ""}                
 
         }
         op-id
@@ -515,6 +522,7 @@ module.exports = React.create-class do
 
         # load the document based on the url
         @.load @.props
+        notify.request-permission! if notify.needs-permission
 
     component-will-receive-props: (props) ->
         # return if branch & query id did not change
@@ -581,7 +589,7 @@ module.exports = React.create-class do
             presentation-editor-height: 240
             dialog: false
             popup: null
-            cache: true
+            cache: false
             from-cache: false
             executing-op: 0
         } 
