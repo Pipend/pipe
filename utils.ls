@@ -107,7 +107,7 @@ export execute = (query-database, partial-data-source, query, parameters, cache,
             query-cache[key] := {
                 result
                 execution-start-time
-                execution-end-time                
+                execution-end-time
             }
             returnP {} <<< query-cache[key] <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
         (err) -> 

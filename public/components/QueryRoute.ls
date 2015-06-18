@@ -79,8 +79,7 @@ module.exports = React.create-class do
         menu-items = 
             * icon: \n, label: \New, action: ~> window.open "/branches", \_blank
             * icon: \f, label: \Fork, show: saved-query, action: ~> @.fork!
-            * hotkey: "command + s", icon: \s, label: \Save, action: ~> @.save!
-            * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
+            * hotkey: "command + s", icon: \s, label: \Save, action: ~> @.save!            
             * type: \toggle
               icon: \c
               label: \Cache
@@ -101,6 +100,7 @@ module.exports = React.create-class do
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
             * icon: \t, label: \Tags, action: ~>
+            * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
             * icon: \t
               label: \Diff
               show: saved-query
@@ -127,16 +127,18 @@ module.exports = React.create-class do
                 React.create-element do
                     DataSourcePopup
                     left: popup-left
-                    data-source: data-source                    
-                    on-change: (data-source) ~> @.set-state {data-source}
+                    data-source: data-source
+                    on-change: (data-source) ~> 
+                        <~ @.set-state {data-source}
+                        @.save-to-client-storage-debounced!
 
             | \parameters-popup =>
                 div {class-name: 'parameters-popup popup', style: {left: popup-left}},
                     React.create-element AceEditor, do
-                        editor-id: "parameters-editor"                            
+                        editor-id: "parameters-editor"
                         value: @.state.parameters
                         width: 400
-                        height: 300                            
+                        height: 300
                         on-change: (value) ~> 
                             <~ @.set-state {parameters : value}
                             @.save-to-client-storage-debounced!
