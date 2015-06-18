@@ -27,14 +27,14 @@ export execute = (query-database, data-source, query, parameters) -->
             # run-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
             run-query: (query-id, parameters) -->
                 {data-source, query, transformation}:result <- bindP (get-query-by-id query-database, query-id)
-                query-result <- bindP utils.execute query-database, data-source, query, parameters, false, generate-op-id!
-                transform query-result, transformation, parameters
+                {result} <- bindP utils.execute query-database, data-source, query, parameters, false, generate-op-id!
+                transform result, transformation, parameters
 
             # run-latest-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
             run-latest-query: (branch-id, parameters) -->
                 {data-source, query, transformation}:result <- bindP (get-latest-query-in-branch query-database, branch-id)
-                query-result <- bindP (utils.execute query-database, data-source, query, parameters, false, generate-op-id!)
-                transform query-result, transformation, parameters
+                {result} <- bindP (utils.execute query-database, data-source, query, parameters, false, generate-op-id!)
+                transform result, transformation, parameters
                 
         }
     return (new-promise (, rej) -> rej err) if !!err
