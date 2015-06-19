@@ -6,8 +6,10 @@ server-config = {
     connections:
         mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 
             local:
+                label: \local
                 host: \127.0.0.1
                 port: 27017            
+                allow-disk-use: true
     default-data-source:
         type: \mongodb
         connection-name: \local
