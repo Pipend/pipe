@@ -5,12 +5,10 @@ querystring = require \querystring
 module.exports = React.create-class {
 
     render: ->
-        dynamic-segments = if @.state.use-latest-query then "branches/#{@.props.branch-id}" else "queries/#{@.props.query-id}"
-        query-string = querystring.stringify {} <<< {
-            cache: if @.state.cache == \sliding then @.state.cache-expiry else @.state.cache
-            display: @.state.display
-        } <<< @.props.parameters
-        href = decode-URI-component "http://#{@.props.host}/apis/#{dynamic-segments}/execute?#{query-string}"
+        latest-query-segment = if @.state.use-latest-query then "" else "/queries/#{@.props.query-id}"        
+        cache-segment = if @.state.cache == \sliding then @.state.cache-expiry else @.state.cache        
+        href = decode-URI-component do 
+            "http://#{@.props.host}/apis/branches/#{@.props.branch-id}#{latest-query-segment}/execute/#{cache-segment}/#{@.state.display}?#{querystring.stringify @.props.parameters}"
         div {class-name: 'share-popup popup', style: {left: @.props?.left}},
             div null,
                 label null, \display

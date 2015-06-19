@@ -461,8 +461,8 @@ module.exports = React.create-class do
             callback
 
     save-snapshot: ->
-        {branch-id, query-id}:saved-document <- @.save
-        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export?width=320&height=240&snapshot=true"
+        {branch-id, query-id}:saved-document <~ @.save
+        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@.state.cache}/png/320/240?snapshot=true"
 
     save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
 

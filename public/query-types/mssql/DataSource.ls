@@ -16,10 +16,9 @@ module.exports = React.create-class {
                     on-change: ({current-target:{value}}) ~>
                         new-data-source = {connection-name: value}
                         <[server user password database]> |> each (key) ~> 
-                            if value == \custom
-                                new-data-source[key] = @.props.data-source?[key] or ""
-                            else
-                                new-data-source[key] = undefined
+                            new-data-source[key] = 
+                                | value == \custom => @.props.data-source?[key] or "" 
+                                | _ => undefined
                         @.props.on-change {} <<< @.props.data-source <<< new-data-source
                 },
                     [{label: \custom, value: \custom}] ++ connections |> map -> option {key: it.value, value: it.value}, it.label
