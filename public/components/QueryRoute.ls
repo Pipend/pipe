@@ -2,7 +2,7 @@ AceEditor = require \./AceEditor.ls
 DataSourcePopup = require \./DataSourcePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, concat-map, dasherize, filter, find, keys, last, map} = require \prelude-ls
+{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, pairs-to-obj} = require \prelude-ls
 {DOM:{div, input, label, span}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -240,8 +240,22 @@ module.exports = React.create-class do
                                     class-name: \resize-handle
                                     on-mouse-down: (e) ~>
                                         initialY = e.pageY
-                                        initial-height = @.state["#{editor-id}EditorHeight"]
-                                        $ window .on \mousemove, ({pageY}) ~> @.set-state {"#{editor-id}EditorHeight": initial-height + (pageY - initialY)}
+                                        initial-heights = ["transformation", "presentation", "query"]
+                                            |> map (p) ~> [p, @.state[camelize "#{p}-editor-height"]]
+                                            |> pairs-to-obj
+                                        $ window .on \mousemove, ({pageY}) ~> 
+                                            diff = pageY - initialY
+                                            match editor-id 
+                                                | "query" =>
+                                                    transformation-editor-height = initial-heights.transformation - diff
+                                                    query-editor-height = initial-heights.query + diff
+                                                    if transformation-editor-height > 0 and query-editor-height > 0
+                                                        @.set-state {transformation-editor-height, query-editor-height}
+                                                | "transformation" =>
+                                                    transformation-editor-height = initial-heights.transformation + diff
+                                                    presentation-editor-height = initial-heights.presentation - diff
+                                                    if transformation-editor-height > 0 and presentation-editor-height > 0
+                                                        @.set-state {transformation-editor-height, presentation-editor-height}
                                         $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
 
                 # RESIZE HANDLE
@@ -574,6 +588,10 @@ module.exports = React.create-class do
         @.completers.push completer if !existing-completer
 
     get-initial-state: ->
+        viewport-height = window.inner-height - 50 - 3 * (40 + 5) # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+        editor-heights = [300, 324, 240] |> (ds) ->
+            s = sum ds
+            ds |> map round . (viewport-height *) . (/s)
         {
             query-id: null
             parent-id: null
@@ -586,9 +604,10 @@ module.exports = React.create-class do
             presentation: ""
             parameters: ""
             editor-width: 550
-            query-editor-height: 300
-            transformation-editor-height: 324
-            presentation-editor-height: 240
+            editor-heights: sum editor-heights
+            query-editor-height: editor-heights.0
+            transformation-editor-height: editor-heights.1
+            presentation-editor-height: editor-heights.2
             dialog: false
             popup: null
             cache: false
