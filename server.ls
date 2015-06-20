@@ -68,6 +68,7 @@ with-optional-params = (routes, params) -->
             []
 
 pretty = -> JSON.stringify it, null, 4
+json = -> JSON.stringify it
 
 # render index.html
 <[
@@ -218,7 +219,7 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 app.post \/apis/execute, (req, res) ->
     {op-id, document:{data-source, query, parameters}, cache}? = req.body
     err, result <- to-callback (execute query-database, data-source, query, parameters, cache, op-id)
-    if !!err then die res, err else res.end pretty result
+    if !!err then die res, err else res.end json result
 
 # api :: execute query
 # retrieves the query from query-id or branch-id and returns the execution result
@@ -243,10 +244,10 @@ app.post \/apis/execute, (req, res) ->
             parameters = {} <<< req.parsed-query
 
             {result} <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
-            return returnP ((res) -> res.end pretty result) if display == \query
+            return returnP ((res) -> res.end json result) if display == \query
 
             transformed-result <- bindP (transform result, transformation, parameters)
-            return returnP ((res) -> res.end pretty transformed-result) if display == \transformation
+            return returnP ((res) -> res.end json transformed-result) if display == \transformation
 
             returnP ((res) -> res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters})
 
@@ -262,6 +263,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
     res.end!
 
 # api :: export query
+# export a screenshot of the result
 # /apis/branches/:branchId/export
 # /apis/branches/:branchId/export/:cache
 # /apis/branches/:branchId/export/:cache/:format
