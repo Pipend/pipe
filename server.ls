@@ -5,7 +5,7 @@ express = require \express
 {create-read-stream, readdir} = require \fs
 md5 = require \MD5
 {MongoClient} = require \mongodb
-{any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values} = require \prelude-ls
+{any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values, partition, camelize} = require \prelude-ls
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
@@ -241,7 +241,11 @@ app.post \/apis/execute, (req, res) ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
-            parameters = {} <<< req.parsed-query
+
+            # user can override PartialDataSource properties by providing ds- parameters in the query string
+            [data-source-params, parameters] = req.parsed-query |> obj-to-pairs |> partition (0 ==) . (.0.index-of 'ds-') |> ([ds, qs]) -> [(ds |> map ([k,v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] |> map pairs-to-obj
+
+            data-source = {} <<< data-source <<< data-source-params
 
             {result} <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
             return returnP ((res) -> res.end json result) if display == \query

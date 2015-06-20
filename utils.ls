@@ -66,7 +66,7 @@ export compile-parameters = (type, parameters) -->
     else
         res parameters
 
-# execute :: (CancellablePromise cp) PartialDataSource -> String -> QueryParameters -> Cache -> String -> cp result
+# execute :: (CancellablePromise cp) => DB -> PartialDataSource -> String -> QueryParameters -> Cache -> String -> cp result
 export execute = (query-database, partial-data-source, query, parameters, cache, op-id) -->
 
     # get the complete data-source which includes the query-type
