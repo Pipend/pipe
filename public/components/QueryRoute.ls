@@ -129,11 +129,16 @@ module.exports = React.create-class do
             | \data-source-popup =>
                 React.create-element do
                     DataSourcePopup
-                    left: popup-left
-                    data-source: data-source
-                    on-change: (data-source) ~> 
-                        <~ @.set-state {data-source}
-                        @.save-to-client-storage-debounced!
+                    {
+                        left: (width) ~>
+                            viewport-width = @get-DOM-node!.offset-width
+                            diff = viewport-width - popup-left
+                            if diff < width then (viewport-width - width - 10) else popup-left
+                        data-source: data-source
+                        on-change: (data-source) ~> 
+                            <~ @.set-state {data-source}
+                            @.save-to-client-storage-debounced!
+                    }
 
             | \parameters-popup =>
                 div {class-name: 'parameters-popup popup', style: {left: popup-left}},
@@ -152,11 +157,14 @@ module.exports = React.create-class do
                     SharePopup
                     {
                         host: window.location.host
-                        left: popup-left
-                        base-url: "http://localhost:4081"
+                        left: (width) ~>
+                            viewport-width = @get-DOM-node!.offset-width
+                            diff = viewport-width - popup-left
+                            if diff < width then (viewport-width - width - 10) else popup-left
                         query-id
                         branch-id
                         parameters: if !!err then {} else parameters-object
+                        data-source
                     }
 
             # DIALOGS
