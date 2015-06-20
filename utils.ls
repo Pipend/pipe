@@ -27,12 +27,9 @@ export compile-and-execute-livescript = (livescript-code, context) -->
         return die "javascript runtime error: #{err.to-string!}"
     [null, result]
 
-# get-all-keys-recursively :: Map k, v -> (k -> v -> Bool) -> [String]
-export get-all-keys-recursively = (object, filter-function) -->
-    keys object |> concat-map (key) -> 
-        return [] if !filter-function key, object[key]
-        return [key] ++ (get-all-keys-recursively object[key], filter-function)  if typeof object[key] == \object
-        [key]
+
+{get-all-keys-recursively} = require \./public/utils.ls
+export get-all-keys-recursively
 
 # DB -> String -> p Query
 export get-latest-query-in-branch = (query-database, branch-id) -->

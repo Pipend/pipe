@@ -65,12 +65,12 @@ export keywords = (data-source) ->
         \pipeline
         pipeline
         10000
-    collection-keywords = ([])
-        |> concat-map (-> get-all-keys-recursively it, (k, v)-> typeof v != \function)
+    collection-keywords = results
+        |> concat-map (-> get-all-keys-recursively ((k, v)-> typeof v != \function), it)
         |> unique
     returnP do 
         collection-keywords ++ (collection-keywords |> map -> "$#{it}") ++
-        ((get-all-keys-recursively get-context!, -> true) |> map dasherize) ++
+        ((get-all-keys-recursively (-> true), get-context!) |> map dasherize) ++
         <[$add $add-to-set $all-elements-true $and $any-element-true $avg $cmp $concat $cond $day-of-month $day-of-week $day-of-year $divide 
           $eq $first $geo-near $group $gt $gte $hour $if-null $last $let $limit $literal $lt $lte $map $match $max $meta $millisecond $min $minute $mod $month 
           $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort 

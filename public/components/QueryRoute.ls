@@ -2,7 +2,7 @@ AceEditor = require \./AceEditor.ls
 DataSourcePopup = require \./DataSourcePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, pairs-to-obj} = require \prelude-ls
+{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take} = require \prelude-ls
 {DOM:{div, input, label, span}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -11,7 +11,7 @@ ui-protocol =
     curl: require \../query-types/curl/ui-protocol.ls
 $ = require \jquery-browserify
 window.d3 = require \d3-browserify
-{compile-and-execute-livescript, generate-uid, is-equal-to-object} = require \../utils.ls
+{compile-and-execute-livescript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 transformation-context = require \../transformation/context.ls
 presentation-context = require \../presentation/context.ls
 SharePopup = require \./SharePopup.ls
@@ -356,6 +356,8 @@ module.exports = React.create-class do
             data: JSON.stringify {op-id, document: @.document-from-state!, cache}
             success: ({result, from-cache, execution-end-time, execution-duration}) ~>
 
+                keywords-from-query-result = result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+
                 # clean existing presentation
                 $ @.refs.presentation.get-DOM-node! .empty!
 
@@ -387,6 +389,7 @@ module.exports = React.create-class do
                     from-cache
                     execution-end-time
                     execution-duration
+                    keywords-from-query-result
                     execution-error: false
                 }
                 if document[\webkitHidden]
@@ -514,12 +517,13 @@ module.exports = React.create-class do
         presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
         @.default-completers =
             * protocol: 
-                get-completions: (editor, , , prefix, callback) ->
+                get-completions: (editor, , , prefix, callback) ~>
+                    keywords-from-query-result = @.state[camelize \keywords-from-query-result]
                     range = editor.getSelectionRange!.clone!
                         ..set-start range.start.row, 0
                     text = editor.session.get-text-range range
                     [keywords, meta] = match editor.container.id
-                        | \transformation-editor => [transformation-keywords, \transformation]
+                        | \transformation-editor => [transformation-keywords ++ keywords-from-query-result, \transformation]
                         | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
                         | _ => [alphabet, editor.container.id]
                     callback null, (convert-to-ace-keywords keywords, meta, prefix)
@@ -604,15 +608,15 @@ module.exports = React.create-class do
             presentation: ""
             parameters: ""
             editor-width: 550
-            editor-heights: sum editor-heights
             query-editor-height: editor-heights.0
             transformation-editor-height: editor-heights.1
             presentation-editor-height: editor-heights.2
             dialog: false
             popup: null
-            cache: false
-            from-cache: false
+            cache: true # user checked the cache checkbox
+            from-cache: false # latest result is from-cache (it is returned by the server on execution)
             executing-op: 0
+            keywords-from-query-result: []
         } 
 
     # converting the document to a flat object makes it easy to work with 
