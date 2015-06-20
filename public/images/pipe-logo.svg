@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<svg width="560" height="560" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <defs>
+  <clipPath id="clip1">
+   <path d="m0,340.15625l481.890625,0l0,-340.15625l-481.890625,0l0,340.15625zm0,0" id="svg_1"/>
+  </clipPath>
+ </defs>
+ <g>
+  <title>Layer 1</title>
+  <path stroke-linejoin="null" stroke-linecap="null" stroke-dasharray="null" stroke-width="null" d="m132.8974,452.920715l113.386719,-170.078125l-113.386719,-170.07811l85.039063,0l113.386719,170.07811l-113.386719,170.078125l-85.039063,0zm0,0" fill="rgb(60%,60%,60%)" fill-rule="nonzero" id="svg_7"/>
+  <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="394.335363" y="191.342608" width="69.047292" height="180.999991" id="svg_17" transform="rotate(90 428.8590087890625,281.8425903320313) "/>
+  <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="394.335378" y="56.740191" width="69.047292" height="180.999991" id="svg_15" transform="rotate(90 428.8590393066406,147.24018859863287) "/>
+  <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="394.335409" y="326.34261" width="69.047292" height="180.999991" id="svg_18" transform="rotate(90 428.85906982421875,416.84262084960943) "/>
+  <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="46.110291" y="112.342599" width="80.000001" height="341.000003" id="svg_19"/>
+ </g>
+</svg>

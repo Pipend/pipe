@@ -113,13 +113,16 @@ module.exports = React.create-class do
             * icon: \h, label: \Share, show: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
             * icon: \s, label: \Snapshot, show:saved-query, action: @.save-snapshot
             
-        div {class-name: \query-route},
+        div {class-name: \query-route},            
 
-            # MENU 
+            # MENU
             React.create-element do 
                 Menu
-                ref: \menu
-                items: menu-items |> filter ({show}) -> (typeof show == \undefined) or show
+                {
+                    ref: \menu
+                    items: menu-items |> filter ({show}) -> (typeof show == \undefined) or show
+                }
+                div {class-name: \logo, on-click: ~> @.transition-to "/"}
 
             # POPUPS 
             match popup

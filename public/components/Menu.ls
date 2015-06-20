@@ -7,8 +7,8 @@ Checkbox = require \./Checkbox.ls
 module.exports = React.create-class {
 
     render: ->
-        div {class-name: \menu},
-            div {class-name: \logo}
+        div {class-name: \menu},            
+            @.props.children
             div {class-name: \buttons},
                 @.props.items |> map ({action, hotkey, icon, label, highlight, type}:item) ~>
 
