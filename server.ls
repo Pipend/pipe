@@ -243,7 +243,7 @@ app.post \/apis/execute, (req, res) ->
 
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [data-source-params, parameters] = req.parsed-query |> obj-to-pairs |> partition (0 ==) . (.0.index-of 'ds-') |> ([ds, qs]) -> [(ds |> map ([k,v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] |> map pairs-to-obj
+            [data-source-params, parameters] = req.parsed-query |> obj-to-pairs |> partition (0 ==) . (.0.index-of 'ds-') |> ([ds, qs]) -> [(ds |> map ([k, v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] |> map pairs-to-obj
 
             data-source = {} <<< data-source <<< data-source-params
 
