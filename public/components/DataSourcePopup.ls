@@ -10,6 +10,8 @@ module.exports = React.create-class {
 
     render: ->
         div {class-name: 'data-source-popup popup', style: {left: @.props?.left 360}},
+
+            # lists all the available query types (like mongodb, mssql, multi, curl, ...)
             div null,
                 label null, 'query type'
                 select do 
@@ -20,6 +22,8 @@ module.exports = React.create-class {
                     ui-protocol
                         |> keys
                         |> map -> option {value: it}, it
+
+            # renders a new data-source component based on the value of the "query-type" dropdown
             React.create-element do 
                 ui-protocol[@.props.data-source.type].data-source-component
                 {} <<< {data-source: @.props.data-source} <<< {on-change: @.props.on-change}

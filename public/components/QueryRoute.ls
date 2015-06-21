@@ -100,7 +100,9 @@ module.exports = React.create-class do
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
             * icon: \t, label: \Tags, action: ~>
-            * icon: \r, label: \Reset, show: saved-query, action: ~> @.set-state remote-document
+            * icon: \r, label: \Reset, show: saved-query, action: ~> 
+                <~ @.set-state remote-document
+                @.save-to-client-storage!
             * icon: \t
               label: \Diff
               show: saved-query
@@ -571,6 +573,8 @@ module.exports = React.create-class do
 
         @.load props    
 
+    # updates the list of auto-completers if the data-source has changed
+    # component-did-update :: Props -> State -> ()
     component-did-update: (prev-props, prev-state) ->
         {data-source} = @.state
 
