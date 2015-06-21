@@ -37,6 +37,19 @@ convert-to-ace-keywords = (keywords, meta, prefix) ->
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
+# returns a hash of editor-heights used in get-initial-state and state-from-document
+# Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
+editor-heights = (query-editor-height = 300, transformation-editor-height = 324, presentation-editor-height = 240) ->
+    viewport-height = window.inner-height - 50 - 3 * (40 + 5) # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+    editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
+        s = sum ds
+        ds |> map round . (viewport-height *) . (/s)
+    {
+        query-editor-height: editor-heights.0
+        transformation-editor-height: editor-heights.1
+        presentation-editor-height: editor-heights.2
+    }
+
 module.exports = React.create-class do
 
     display-name: \QueryRoute
@@ -614,10 +627,6 @@ module.exports = React.create-class do
         @.completers.push completer if !existing-completer
 
     get-initial-state: ->
-        viewport-height = window.inner-height - 50 - 3 * (40 + 5) # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
-        editor-heights = [300, 324, 240] |> (ds) ->
-            s = sum ds
-            ds |> map round . (viewport-height *) . (/s)
         {
             query-id: null
             parent-id: null
@@ -630,16 +639,13 @@ module.exports = React.create-class do
             presentation: ""
             parameters: ""
             editor-width: 550
-            query-editor-height: editor-heights.0
-            transformation-editor-height: editor-heights.1
-            presentation-editor-height: editor-heights.2
             dialog: false
             popup: null
             cache: true # user checked the cache checkbox
             from-cache: false # latest result is from-cache (it is returned by the server on execution)
             executing-op: 0
             keywords-from-query-result: []
-        } 
+        } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
     state-from-document: ({
@@ -667,10 +673,7 @@ module.exports = React.create-class do
             presentation
             parameters
             editor-width: ui?.editor?.width or @.state.editor-width
-            query-editor-height: ui?.query-editor?.height or @.state.query-editor-height
-            transformation-editor-height: ui?.transformation-editor?.height or @.state.transformation-editor-height
-            presentation-editor-height: ui?.presentation-editor?.height or @.state.presentation-editor-height
-        }
+        } <<< editor-heights (ui?.query-editor?.height or @.state.query-editor-height), (ui?.transformation-editor?.height or @.state.transformation-editor-height), (ui?.presentation-editor?.height or @.state.presentation-editor-height)
 
     document-from-state: ->
         {
