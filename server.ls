@@ -174,8 +174,9 @@ app.get \/apis/queries/:queryId/tree, (req, res) ->
             creation-time: 1
             selected: $eq: [\$queryId, req.params.query-id]
     return die res, err if !!err
-    res.end pretty results 
-        |> map ({creation-time}: query)-> {} <<< query <<< {creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"}
+    res.end pretty do 
+        results 
+            |> map ({creation-time}: query)-> {} <<< query <<< {creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"}
 
 # api :: query details
 # returns all the data about a query 

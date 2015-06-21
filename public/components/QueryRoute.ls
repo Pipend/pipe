@@ -112,8 +112,9 @@ module.exports = React.create-class do
               action: ~> window.open "#{window.location.href}/diff", \_blank
             * icon: \h, label: \Share, show: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
             * icon: \s, label: \Snapshot, show:saved-query, action: @.save-snapshot
-            
-        div {class-name: \query-route},            
+            * icon: \v, label: \VCS, show: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
+
+        div {class-name: \query-route},
 
             # MENU
             React.create-element do 
@@ -492,7 +493,11 @@ module.exports = React.create-class do
         {branch-id, query-id}:saved-document <~ @.save
         $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@.state.cache}/png/320/240?snapshot=true"
 
-    save-to-client-storage: -> client-storage.save-document @.props.params.query-id, @.document-from-state!
+    # save to client storage only if the document has loaded
+    # save-to-client-storage :: () -> Void
+    save-to-client-storage: !-> 
+        if !!@.state.remote-document
+            client-storage.save-document @.props.params.query-id, @.document-from-state!
 
     load: (props) ->
         {branch-id, query-id}? = props.params
@@ -503,8 +508,9 @@ module.exports = React.create-class do
                 ..done (document) ~>
                     # gets the state from the document, and stores a copy of it under the key "remote-document"
                     # state.remote-document is used to check if the client copy has diverged
-                    remote-document = @.state-from-document document
-                    @.set-state {} <<< (local-document or remote-document) <<< {remote-document}
+                    remote-document = @.state-from-document document                    
+                    <~ @.set-state {} <<< (if !!local-document then @.state-from-document local-document else remote-document) <<< {remote-document}
+                    @.update-presentation-size!
                 ..fail ({response-text}?) ~> 
                     alert "unable to load query: #{response-text}"
                     window.location.href = \/
@@ -544,8 +550,9 @@ module.exports = React.create-class do
         # data loss prevent on crash
         @.save-to-client-storage-debounced = _.debounce @.save-to-client-storage, 350
         window.onbeforeunload = ~>
-            @.save-to-client-storage!            
-            return "You have NOT saved your query. Stop and save if your want to keep your query." if @.changes-made!.length > 0
+            if @.changes-made!.length > 0
+                @.save-to-client-storage!
+                return "You have NOT saved your query. Stop and save if your want to keep your query."
 
         # update the size of the presentation on resize (based on size of editors)
         $ window .on \resize, ~> @.update-presentation-size!

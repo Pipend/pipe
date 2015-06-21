@@ -11,8 +11,8 @@ module.exports = React.create-class {
         div {class-name: \tree-route},
             React.create-element do 
                 CommitTree
-                width: 400
-                height: 400
+                width: window.inner-width
+                height: window.inner-height
                 queries: @.state.queries
                 tooltip-keys: 
                     * key: \queryId

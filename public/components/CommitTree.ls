@@ -57,6 +57,7 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
             ..exit!.remove!
 
     # plot the tree
+    get-radius = (selected) -> if !!selected then 16 else 8
     svg = d3-element .select \svg
     svg = d3-element.append \svg if !!svg.empty! 
     svg .attr \width, width .attr \height, height 
@@ -69,12 +70,12 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
             ..exit!.remove!
         ..select-all \circle .data nodes
             ..enter!.append \circle
-            ..attr \r, ({selected}) -> if !!selected then 16 else 8
+            ..attr \r, ({selected}) -> get-radius selected
             .attr \opacity, ({children}) -> if !!children then 1 else 0            
             .attr \fill, \white
             .attr \stroke, ({branch-id}) -> branch-colors[branch-id]
-            .attr \transform, ({x, y}, i) -> "translate(#{(if i == 0 then 8 else 0) + x}, #y)"
-            .on \click, ({branch-id, query-id}) -> window.open "/branch/#{branch-id}/#{query-id}", \_blank            
+            .attr \transform, ({x, y, selected}, i) -> "translate(#{(if i == 0 then (get-radius selected) else 0) + x}, #y)"
+            .on \click, ({branch-id, query-id}) -> window.open "/branches/#{branch-id}/queries/#{query-id}", \_blank            
             .on \mouseover, ({x, y, branch-id, query-id}:query) ->                
 
                 # update the tooltip data
@@ -131,7 +132,6 @@ module.exports = React.create-class {
 
     component-did-update: ->
         {width, height, queries or [], tooltip-keys or [], tooltip-actions or []}? = @.props
-        console.log @.refs.commit-tree.get-DOM-node!
         draw-commit-tree @.refs.commit-tree.get-DOM-node!, width, height, queries, tooltip-keys, tooltip-actions
 
 }
