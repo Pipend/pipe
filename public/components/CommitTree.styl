@@ -1,0 +1,62 @@
+.commit-tree
+
+    .tooltip    
+        display: inline-block
+        position: absolute    
+        white-space: nowrap
+        
+        .handle 
+            cursor: pointer
+            position: relative
+            width: 32px
+            height: 8px
+
+        .container
+            background: white
+            border: 1px solid #ccc
+            border-radius: 4px    
+            padding: 10px
+            .rows            
+                > div
+                    margin-bottom: 12px
+                    label         
+                        display: inline-block
+                        min-width: 55px
+                        text-align: right
+                        user-select: none
+                        -webkit-user-select: none
+                        &:after
+                            content: ":"
+                    span
+                        font-weight: bold
+                        margin-left: 4px
+            .controls
+                &:after
+                    clear: both
+                    content: ""
+                    display: block
+
+                button
+                    background: white
+                    border: 1px solid #ccc
+                    border-bottom: 2px solid rgba(0,0,0,0.3)
+                    border-radius: 4px
+                    cursor: pointer
+                    float: right
+                    font-size: 14px
+                    outline: none
+                    padding: 8px
+                    &:not(:first-child)
+                        margin-right: 8px
+
+    svg
+        path
+            fill: none
+            stroke-width: 1px
+
+            &.highlight
+                stroke-width: 3px
+
+        circle
+            cursor: pointer    
+            stroke-width: 1px

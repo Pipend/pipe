@@ -4,6 +4,7 @@ body-parser = require \body-parser
 express = require \express
 {create-read-stream, readdir} = require \fs
 md5 = require \MD5
+moment = require \moment
 {MongoClient} = require \mongodb
 {any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values, partition, camelize} = require \prelude-ls
 phantom = require \phantom
@@ -76,6 +77,7 @@ json = -> JSON.stringify it
     \/branches 
     \/branches/:branchId/queries/:queryId
     \/branches/:branchId/queries/:queryId/diff
+    \/branches/:branchId/queries/:queryId/tree
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
@@ -149,6 +151,31 @@ app.get \/apis/defaultDocument, (req, res) ->
         err, results <- query-database.collection \queries .aggregate do
             (if !!req.params.branch-id then [$match: branch-id: req.params.branch-id] else []) ++ pipeline
         if !!err then die res, err else res.end pretty results
+
+app.get \/apis/queries/:queryId/tree, (req, res) ->
+    err, results <- query-database.collection \queries .aggregate do 
+        * $match:
+            query-id: req.params.query-id
+            status: true
+        * $project:
+            tree-id: 1
+    return die res, err if !!err
+    return die res, "unable to find query #{req.params.query-id}" if results.length == 0
+    err, results <- query-database.collection \queries .aggregate do 
+        * $match:
+            tree-id: results.0.tree-id
+            status: true
+        * $sort: _id: 1
+        * $project:
+            parent-id: 1
+            branch-id: 1
+            query-id: 1
+            query-title: 1
+            creation-time: 1
+            selected: $eq: [\$queryId, req.params.query-id]
+    return die res, err if !!err
+    res.end pretty results 
+        |> map ({creation-time}: query)-> {} <<< query <<< {creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"}
 
 # api :: query details
 # returns all the data about a query 
@@ -241,9 +268,13 @@ app.post \/apis/execute, (req, res) ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
-
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [data-source-params, parameters] = req.parsed-query |> obj-to-pairs |> partition (0 ==) . (.0.index-of 'ds-') |> ([ds, qs]) -> [(ds |> map ([k, v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] |> map pairs-to-obj
+            [data-source-params, parameters] = req.parsed-query 
+                |> obj-to-pairs 
+                |> partition (0 ==) . (.0.index-of 'ds-') 
+                |> ([ds, qs]) -> 
+                    [(ds |> map ([k,v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] 
+                        |> map pairs-to-obj
 
             data-source = {} <<< data-source <<< data-source-params
 
