@@ -19,7 +19,6 @@
     "cheerio": "^0.18.0",
     "cookie-parser": "^1.3.4",
     "cors": "^2.5.3",
-    "d3-browserify": "git+https://github.com/furqanZafar/d3-browserify.git",
     "d3-funnel": "git+https://github.com/furqanZafar/d3-funnel.git",
     "d3-tip": "^0.6.7",
     "ejs": "^2.3.1",
@@ -48,6 +47,7 @@
   },
   "devDependencies": {
     "browserify": "^9.0.3",
+    "browserify-shim": "^3.8.9",
     "gulp": "^3.8.11",
     "gulp-browserify": "^0.5.1",
     "gulp-livescript": "^2.3.0",
@@ -61,5 +61,12 @@
     "nib": "^1.1.0",
     "run-sequence": "^1.0.2",
     "watchify": "^2.6.0"
+  },
+  "browserify": {
+    "transform": [ "browserify-shim" ]
+  },
+  "browserify-shim": {
+    "d3": "global:d3",
+    "nvd3": "global:nvd3"
   }
 }

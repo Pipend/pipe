@@ -4,7 +4,7 @@ require \prelude-ls
 {Obj, Str, id, any, average, concat-map, drop, each, filter, find, foldr1, foldl, map, maximum, minimum, obj-to-pairs, pairs-to-obj, sort, sum, tail, take, unique} = require \prelude-ls
 
 # nvd3 requires d3 to be in global space
-window.d3 = require \d3-browserify
+window.d3 = require \d3
 require \nvd3 
 
 d3-tip = require \d3-tip

@@ -38,8 +38,9 @@ gulp.task \watch:presentation:styles, ->
     gulp.watch <[./public/presentation/*.styl]>, <[build:presentation:styles]>
 
 create-bundler = (entries) ->
-    bundler = browserify {} <<< watchify.args <<< {debug: true}
+    bundler = browserify {} <<< watchify.args <<< {debug: true} 
         ..add entries
+        ..transform {global: false}, 'browserify-shim'
         ..transform \liveify
     watchify bundler    
 

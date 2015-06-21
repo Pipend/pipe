@@ -1,5 +1,5 @@
 $ = require \jquery-browserify
-d3 = require \d3-browserify
+d3 = require \d3
 {camelize, dasherize, filter, find, fold, group-by, map, Obj, obj-to-pairs, pairs-to-obj, sort-by, unique, unique-by, values} = require \prelude-ls
 {DOM:{div}}:React = require \react
 

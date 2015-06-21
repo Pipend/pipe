@@ -1,7 +1,7 @@
 $ = require \jquery-browserify
 
 # nvd3 requires d3 to be in global space
-window.d3 = require \d3-browserify
+window.d3 = require \d3
 require \nvd3 
 
 # the first require is used by browserify to import the LiveScript module
