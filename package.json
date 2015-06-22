@@ -32,7 +32,7 @@
     "mongodb": "^1.4.34",
     "mssql": "^2.1.5",
     "notifyjs": "^1.2.5",
-    "nvd3": "^1.1.15",
+    "nvd3": "git+https://github.com/novus/nvd3.git#v1.8.1",
     "phantom": "^0.7.2",
     "prelude-ls": "^1.1.1",
     "react": "^0.13.1",
