@@ -1,4 +1,4 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel} = require \../async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
 {concat-map, each, find, filter, group-by, id, Obj, keys, map, obj-to-pairs, Str} = require \prelude-ls
 {exec} = require \shelljs
@@ -30,8 +30,10 @@ export execute = (query-database, data-source, query, parameters) -->
     [err, url] = compile-and-execute-livescript url, parameters
     return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") if !!err
 
+    curl-process = null
+
     execute-curl = new-promise (res, rej) ->
-        process = exec "curl -s #url #{options}", silent: true, (code, output) ->
+        curl-process := exec "curl -s #url #{options}", silent: true, (code, output) ->
             return rej Error "Error in curl #code #output", null if code != 0
             try
                 json = JSON.parse output
@@ -39,9 +41,11 @@ export execute = (query-database, data-source, query, parameters) -->
                 return rej error
             res json
 
-    execute-curl `with-cancel` -> 
-        process.kill!
-        returnP \killed
+    with-cancel-and-dispose do 
+        execute-curl
+        -> 
+            curl-process.kill! if !!curl-process
+            returnP \killed
 
 # default-document :: () -> Document
 export default-document = -> 

@@ -1,4 +1,4 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel} = require \../async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
 sql = require \mssql
@@ -10,13 +10,12 @@ execute-sql = (data-source, query) -->
         connection := new sql.Connection data-source, (err) ->
             return rej err  if !!err 
             err, records <- (new sql.Request connection).query query
-            connection.close!
             if !!err then rej err else res records
 
-    execute-sql-promise `with-cancel` ->
-        res, rej <- new-promise
-        connection.close! if !!connection
-        res \killed
+    with-cancel-and-dispose do 
+        execute-sql-promise
+        -> returnP \killed
+        -> if !!connection then connection.close!
 
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = ->

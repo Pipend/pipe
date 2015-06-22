@@ -10,7 +10,7 @@ moment = require \moment
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
-{execute, transform, fill-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, cancel-op, running-ops} = require \./utils
+{execute, transform, fill-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -295,8 +295,8 @@ app.get \/apis/ops, (req, res) ->
 
 # api :: cancel op
 app.get \/apis/ops/:opId/cancel, (req, res) ->
-    cancel-op req.params.op-id
-    res.end!
+    [status, err] = cancel-op req.params.op-id
+    if status then res.end \cancelled else die res, err
 
 # api :: export query
 # export a screenshot of the result

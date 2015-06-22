@@ -1,4 +1,4 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel} = require \../async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \../async-ls
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
 {map} = require \prelude-ls

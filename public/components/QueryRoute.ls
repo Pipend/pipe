@@ -107,9 +107,7 @@ module.exports = React.create-class do
             * icon: \ca
               label: \Cancel
               show: !!executing-op
-              action: ~> 
-                  $.get "/apis/ops/#{executing-op}/cancel"
-                      ..done ~> @.set-state {executing-op: ""}
+              action: ~> $.get "/apis/ops/#{executing-op}/cancel"
             * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-popup
             * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
             * icon: \t, label: \Tags, action: ~>

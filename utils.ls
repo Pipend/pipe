@@ -122,16 +122,18 @@ export transform = (query-result, transformation, parameters) -->
     catch err
         return rej err
 
-# add-op :: (CancellablePromise cp) => String -> cp result -> Extras -> cp result
+# add-op :: (CancellablePromise cp) => String -> OpInfo -> cp result -> cp result
 add-op = (op-id, op-info, cancellable-promise) -->
     ops.push {op-id, op-info, cancellable-promise}
     cancellable-promise
 
-# cancel-op :: String -> Void
-export cancel-op = (op-id) !->
-    ops 
-        |> find -> it.op-id == op-id
-        |> -> it?.cancellable-promise.cancel!
+# cancel-op :: String -> Status
+export cancel-op = (op-id) ->
+    op = ops |> find -> it.op-id == op-id
+    return [false, Error "no op with #{op-id} found"] if !op
+    return [false, Error "no running op with #{op-id} found"] if !op.cancellable-promise.is-pending!
+    op.cancellable-promise.cancel!
+    [true, null]
 
 # running-ops :: () -> [String]
 export running-ops = ->

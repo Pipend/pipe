@@ -1,4 +1,4 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel} = require \../async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
@@ -125,7 +125,7 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     # establish a connection to the server
     server = new Server host, port
     mongo-client = new MongoClient server, {native_parser: true}
-    mongo-client <- bindP with-cancel do 
+    mongo-client <- bindP with-cancel-and-dispose do 
         (from-error-value-callback mongo-client.open, mongo-client)!
         -> mongo-client.close!; returnP \killed-early
 
@@ -137,33 +137,30 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     dispose = !->
         db.close!
         mongo-client.close!
-    
+
     # kill :: (CancellablePromise cp) => () -> cp kill-result
     cancel = ->
         if \connected != db.server-config?._server-state
-            return new-promise (rej) -> rej new Error "_server-state is not connected"
+            return new-promise (, rej) -> rej new Error "_server-state is not connected"
 
-        in-prog-collection = db.collection \$cmd.sys.inprog
+        in-prog-collection = db.collection \$cmd.sys.inprog            
         data <- bindP (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
         delta = new Date!.value-of! - start-time
         op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
         if !op
-            return new-promise (rej) -> new Error "query could not be found\nStarted at: #{start-time}"
-            
+            return new-promise (, rej) -> rej new Error "query could not be found\nStarted at: #{start-time}"
+        
         killop-collection = db.collection \$cmd.sys.killop
-        data <- bindP ((from-error-value-callback killop-collection.find-one, killop-collection) {op : op.opid})
-        dispose!
+        <- bindP ((from-error-value-callback killop-collection.find-one, killop-collection) {op : op.opid})
         returnP \killed
-    
+
     # execute-query-function :: () -> p result
     execute-query-function = do ->
         db := mongo-client.db database
         start-time := new Date!.value-of!
-        result <- bindP mongo-database-query-function db
-        dispose!
-        returnP result
+        mongo-database-query-function db
 
-    execute-query-function `with-cancel` cancel
+    with-cancel-and-dispose execute-query-function, cancel, dispose
 
 # for executing a single mongodb query from pipe
 # execute-mongo-aggregation-query :: (CancellablePromise cp) => DataSource -> String -> String -> Int -> cp result

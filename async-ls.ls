@@ -3,11 +3,15 @@ Promise = require \bluebird
 CancellationError = ((@message) !-> @name = \CancellationError)
     ..prototype = Error.prototype
 
-# with-cancel :: (CancellablePromise cp) => cp a -> (() -> p b) -> cp a
-with-cancel = (p, f) ->
-    p.cancellable!
-    p.catch Promise.CancellationError, (e) -> 
-        throw (new CancellationError f!)
+# with-cancel-and-dispose :: (CancellablePromise cp) => cp a -> (() -> p b) -> (() -> Void) -> cp a
+with-cancel-and-dispose = (p, f, g = (->)) ->
+    p.then (result) -> 
+        g!
+        returnP result
+    p.catch Promise.CancellationError, (e) ->
+        p = f!
+            ..finally -> g!
+        throw (new CancellationError p)
 
 # bindP :: (CancellablePromise cp) => cp a -> (a -> cp b) -> cp b
 bindP = (p, f) -> p.then (a) -> f a
@@ -35,14 +39,13 @@ from-error-value-callback = (f, self = null) ->
         catch ex
             rej ex
 
-
 # to-callback :: (CancellablePromise cp) => cp x -> CB x -> Void
 to-callback = (p, callback) !-->
     p.then ->
         callback null, it
     p.catch (err) ->
         return (callback err, null) if err?.name != \CancellationError
-        err, result <- err?.message.then
+        err, result <- to-callback err?.message
         callback (err or result), null
 
 # sequenceP :: (CancellablePromise cp) => [cp a] -> cp [a]
@@ -52,4 +55,4 @@ sequenceP = ([p, ...ps]) ->
     as <- bindP (sequenceP ps)
     [a] ++ as
 
-module.exports = {with-cancel, bindP, returnP, from-error-value-callback, to-callback, new-promise, sequenceP}
+module.exports = {with-cancel-and-dispose, bindP, returnP, from-error-value-callback, to-callback, new-promise, sequenceP}
