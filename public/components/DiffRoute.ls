@@ -11,7 +11,7 @@ module.exports = React.create-class {
     display-name: \DiffRoute
 
     render: ->
-        {local-document, remote-document} = @.state
+        {left-document, right-document} = @.state
 
         # (Show a) => a -> String
         show = -> 
@@ -22,18 +22,18 @@ module.exports = React.create-class {
 
         div {class-name: \diff-route},
             <[query transformation presentation parameters dataSource]>
-                |> filter ~> !!local-document?[it] or !!remote-document?[it]
-                |> filter ~> !(local-document?[it] `is-equal-to-object` remote-document?[it])
+                |> filter ~> !!right-document?[it] or !!left-document?[it]
+                |> filter ~> !(right-document?[it] `is-equal-to-object` left-document?[it])
                 |> map ~>
-                    base-text-lines = string-as-lines show remote-document[it]
-                    new-text-lines = string-as-lines show local-document[it]
+                    base-text-lines = string-as-lines show left-document[it]
+                    new-text-lines = string-as-lines show right-document[it]
                     opcodes = (new SequenceMatcher base-text-lines, new-text-lines) .get_opcodes!
                     view = build-view {
                         base-text-lines
                         new-text-lines
                         opcodes
-                        base-text-name: \server
-                        new-text-name: 'local storage'
+                        base-text-name: if !@props.query?.right then 'server' else @props.params.query-id
+                        new-text-name: if !@props.query?.right then 'local storage' else @props.query.right
                         context-size: null
                         view-type: 1
                     }
@@ -43,18 +43,23 @@ module.exports = React.create-class {
                             class-name: \diff 
                             dangerously-set-inner-HTML: __html: view.inner-HTML
 
-    load-documents: (props) ->                
+    load-documents: (props) ->
         $.getJSON "/apis/queries/#{props.params.query-id}"
-            ..done (remote-document) ~>
-                @.set-state do
-                    local-document: client-storage.get-document props.params.query-id
-                    remote-document: remote-document
-
+            ..done (left-document) ~>
+                err, right-document <~ do ->
+                    if !props?.query?.right 
+                        (callback) -> callback null, (client-storage.get-document props.params.query-id) 
+                    else 
+                        (callback) -> $.getJSON "/apis/queries/#{props.query.right}"
+                            ..done (document) -> callback null, document
+                            ..fail ({response-text}) -> callback response-text
+                @.set-state {left-document, right-document}
+        
     component-did-mount: -> 
         @.load-documents @.props
 
     component-will-receive-props: (props) -> load-documents props
 
-    get-initial-state: -> local-document: {}, remote-document: {}
+    get-initial-state: -> left-document: {}, right-document: {}
 
 }
