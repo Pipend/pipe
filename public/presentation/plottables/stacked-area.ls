@@ -31,10 +31,11 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
         chart
             ..x-axis.tick-format x-axis.tick-format
             ..y-axis.tick-format y-axis.tick-format
-        
-        plot-chart view, result, chart
+
 
         <- continuation chart, result
+                
+        plot-chart view, result, chart
         
         chart.update!
 
