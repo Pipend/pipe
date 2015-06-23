@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<svg width="640" height="420" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <g>
+  <g id="svg_2">
+   <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="33.44362" y="39.3426" width="80" height="341" id="svg_19"/>
+  </g>
+  <g id="svg_3">
+   <path stroke-linejoin="null" stroke-linecap="null" stroke-dasharray="null" stroke-width="null" d="m167.230835,379.920715l113.386414,-170.078125l-113.386414,-170.07811l85.038818,0l113.386658,170.07811l-113.386658,170.078125l-85.038818,0zm0,0" fill="rgb(60%,60%,60%)" fill-rule="nonzero" id="svg_7" xmlns="http://www.w3.org/2000/svg"/>
+  </g>
+  <g id="svg_4" stroke="null">
+   <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="419.33538" y="80.203159" width="69.04729" height="180.99999" id="svg_15" transform="matrix(0,1,-1.0939226888772424,0,696.4283951550617,-379.6188201904297) " stroke="null"/>
+   <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="419.33536" y="214.805569" width="69.04729" height="180.99999" id="svg_17" transform="matrix(0,1,-1.0939226888772424,0,843.6730163885957,-245.01641845703125) " stroke="null"/>
+   <rect fill="rgb(40%,40%,40%)" stroke-width="null" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="419.33541" y="349.805569" width="69.04729" height="180.99999" id="svg_18" transform="matrix(0,1,-1.0939226888772424,0,991.3526795386367,-110.01644897460938) " stroke="null"/>
+  </g>
+ </g>
+</svg>

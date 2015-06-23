@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pipe</title>
+    <style type="text/css">
+        body {
+            background-color: black;
+            color: white;
+        }
+        #logo {
+            margin: 1em auto 5em auto;
+            width: 640px;
+            height: 420px;
+            background-image: url('images/pipe.svg')
+        }
+        h1 {
+            margin: 0em auto 5em auto;
+            width: 640px;
+            text-align: center;
+            font-size: 5em;
+            font-family: Helvetica;
+            text-transform: uppercase;
+            color: white;
+
+            -webkit-animation: pipe-color-animation 5s 1;
+            -moz-animation: pipe-color-animation 5s 1;
+            animation: pipe-color-animation 5s 1;
+
+            -webkit-animation-fill-mode: forwards;
+            -moz-animation-fill-mode: forwards;
+            animation-fill-mode: forwards;
+        }
+
+        @-webkit-keyframes pipe-color-animation {
+            0% { color: black; }
+            100% { color: white; }
+        }
+        @-moz-keyframes pipe-color-animation {
+            0% { color: black; }
+            100% { color: white; }
+        }
+        @-ms-keyframes pipe-color-animation {
+            0% { color: black; }
+            100% { color: white; }
+        }
+        @-o-keyframes pipe-color-animation {
+            0% { color: black; }
+            100% { color: white; }
+        }
+        @keyframes pipe-color-animation {
+            0% { color: black; }
+            100% { color: white; }
+        }
+    </style>
+</head>
+<body>
+    <div id="logo"></div>
+    <h1>Pipe</h1>
+</body>
+</html>
