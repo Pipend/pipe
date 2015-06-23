@@ -330,19 +330,21 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {partial-data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
+        err, {data-source:partial-data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
+
+        console.log \partial-data-source, partial-data-source
+
+        # get the complete data-source which includes the query-type
+        {timeout}:data-source = fill-data-source partial-data-source
+        [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
         filename = query-title.replace /\s/g, '_'
 
         if format in text-formats
             err, transformed-result <- to-callback do ->
-
-                # get the complete data-source which includes the query-type
-                {timeout}:data-source = fill-data-source partial-data-source
-                [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
                 {result} <- bindP (execute query-database, data-source, query, req.parsed-query, cache, query-id)
                 transformed-result <- bindP (transform result, transformation, req.parsed-query)
@@ -373,6 +375,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                             overflow: \hidden
                         }
                     ->
+                        <- set-timeout _, 2000
                         <- render image-file
                         res.set \Content-disposition, "attachment; filename=#{filename}.png"
                         res.set \Content-type, \image/png
@@ -380,7 +383,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                         exit!   
 
             # compose the url for executing the query
-            err, query-params <- to-callback do -> if snapshot then (compile-parameters data-source.type, parameters) else returnP req.query                        
+            err, query-params <- to-callback do -> if snapshot then (compile-parameters data-source.type, parameters) else returnP req.query
             open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
 
 # api :: save query

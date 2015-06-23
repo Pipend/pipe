@@ -5,7 +5,7 @@
             "follow_symlinks": true,
             "path": ".",
             "file_exclude_patterns": ["*.js", "*.css"],
-            "folder_exclude_patterns": ["node_modules", "public/build"]
+            "folder_exclude_patterns": ["node_modules", "public/build", "tmp"]
         }
     ]    
 }

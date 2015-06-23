@@ -504,7 +504,7 @@ module.exports = React.create-class do
 
     save-snapshot: ->
         {branch-id, query-id}:saved-document <~ @.save
-        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@.state.cache}/png/320/240?snapshot=true"
+        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@.state.cache}/png/1200/800?snapshot=true"
 
     # save to client storage only if the document has loaded
     # save-to-client-storage :: () -> Void
