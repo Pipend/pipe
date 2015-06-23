@@ -335,8 +335,6 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
 
-        console.log \partial-data-source, partial-data-source
-
         # get the complete data-source which includes the query-type
         {timeout}:data-source = fill-data-source partial-data-source
         [req, res] |> each (.connection.set-timeout timeout ? 90000)
