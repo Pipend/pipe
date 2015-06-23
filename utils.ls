@@ -53,7 +53,7 @@ export get-query-by-id = (query-database, query-id) -->
     new-promise (, rej) -> rej "query not found #{query-id}"
 
 # fill-data-source :: PartialDataSource -> DataSource
-export fill-data-source = (partial-data-source) -->
+export fill-data-source = (partial-data-source) ->
     connection-prime = config?.connections?[partial-data-source?.type]?[partial-data-source?.connection-name]
     data-source = {} <<< (connection-prime or {}) <<< partial-data-source
 
@@ -66,15 +66,11 @@ export compile-parameters = (type, parameters) -->
     else
         res parameters
 
-# execute :: (CancellablePromise cp) => DB -> PartialDataSource -> String -> QueryParameters -> Cache -> String -> cp result
-export execute = (query-database, partial-data-source, query, parameters, cache, op-id) -->
+# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> QueryParameters -> Cache -> String -> cp result
+export execute = (query-database, {type, timeout}:data-source, query, parameters, cache, op-id) -->
 
-    # get the complete data-source which includes the query-type
-    {type}:data-source <- bindP do ->
-        res, rej <- new-promise
-        {type}:data-source? = fill-data-source partial-data-source
-        return rej new Error "query type: #{type} not found" if typeof (require "./query-types/#{type}") == \undefined
-        res data-source
+    if typeof (require "./query-types/#{type}") == \undefined
+        return new-promie (, rej) -> new Error "query type: #{type} not found"
 
     # return cached-result (if any) otherwise execute the query and cache the result
     compiled-query-parameters <- bindP (compile-parameters type, parameters)
@@ -94,7 +90,7 @@ export execute = (query-database, partial-data-source, query, parameters, cache,
         }
         ((require "./query-types/#{type}").execute query-database, data-source, query, compiled-query-parameters)
         
-    cancel-timer = set-timeout (-> cancellable-promise.cancel!), 90000 #TODO: should come fron config
+    cancel-timer = set-timeout (-> cancellable-promise.cancel!), (timeout ? 90000)
     execution-start-time = Date.now!
 
     cancellable-promise.then do
@@ -140,35 +136,5 @@ export running-ops = ->
     ops
         |> filter (.cancellable-promise.is-pending!)
         |> map ({op-id, op-info}) -> {op-id, op-info}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

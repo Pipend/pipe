@@ -245,7 +245,12 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 # executes the query object present in req.body
 # /apis/execute
 app.post \/apis/execute, (req, res) ->
-    {op-id, document:{data-source, query, parameters}, cache}? = req.body
+    {op-id, document:{data-source:partial-data-source, query, parameters}, cache}? = req.body
+    
+    # get the complete data-source which includes the query-type
+    {timeout}:data-source = fill-data-source partial-data-source
+    [req, res] |> each (.connection.set-timeout timeout ? 90000)
+
     err, result <- to-callback (execute query-database, data-source, query, parameters, cache, op-id)
     if !!err then die res, err else res.end json result
 
@@ -270,14 +275,18 @@ app.post \/apis/execute, (req, res) ->
                 get-latest-query-in-branch query-database, branch-id
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [data-source-params, parameters] = req.parsed-query 
+            [partial-data-source-params, parameters] = req.parsed-query 
                 |> obj-to-pairs 
                 |> partition (0 ==) . (.0.index-of 'ds-') 
                 |> ([ds, qs]) -> 
                     [(ds |> map ([k,v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] 
                         |> map pairs-to-obj
 
-            data-source = {} <<< data-source <<< data-source-params
+            partial-data-source = {} <<< data-source <<< partial-data-source-params
+
+            # get the complete data-source which includes the query-type
+            {timeout}:data-source = fill-data-source partial-data-source
+            [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
             {result} <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
             return returnP ((res) -> res.end json result) if display == \query
@@ -321,7 +330,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
+        err, {partial-data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
@@ -330,6 +339,11 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
 
         if format in text-formats
             err, transformed-result <- to-callback do ->
+
+                # get the complete data-source which includes the query-type
+                {timeout}:data-source = fill-data-source partial-data-source
+                [req, res] |> each (.connection.set-timeout timeout ? 90000)
+
                 {result} <- bindP (execute query-database, data-source, query, req.parsed-query, cache, query-id)
                 transformed-result <- bindP (transform result, transformation, req.parsed-query)
                 returnP transformed-result
