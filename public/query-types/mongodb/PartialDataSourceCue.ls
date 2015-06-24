@@ -6,7 +6,7 @@ module.exports = React.create-class {
 
     render: ->
 
-        {connection-name, database, collection} = @.props.data-source
+        {connection-name, database, collection} = @props.data-source-cue
         
         connections = @.state.connections
         databases = @.state.databases |> map -> {label: it, value: it}
@@ -16,28 +16,28 @@ module.exports = React.create-class {
             |> map ([value, options]) ->
                 (if typeof (options |> find (.value == value)) == \undefined then [{label: "- (#{value})", value}] else []) ++ (options |> sort-by (.label))
 
-        div {class-name: 'data-source mongodb-data-source'}, 
+        div {class-name: 'mongodb partial data-source-cue'}, 
             [
                 {
                     name: 'connection'
                     value: connection-name
                     options: connections
                     disabled: false
-                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @.props.data-source <<< {connection-name: value}
+                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @props.data-source-cue <<< {connection-name: value}
                 }
                 {
                     name: \database
                     value: database
                     options: databases
                     disabled: @.state.loading-databases
-                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @.props.data-source <<< {database: value}
+                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @props.data-source-cue <<< {database: value}
                 }
                 {
                     name: \collection
                     value: collection
                     options: collections
                     disabled: @.state.loading-collections
-                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @.props.data-source <<<< {collection: value}
+                    on-change: ({current-target:{value}}) ~> @.props.on-change {} <<< @props.data-source-cue <<<< {collection: value}
                 }
             ] |> map ({name, value, options, disabled, on-change}) ~>
                 div {key: name},
@@ -49,8 +49,8 @@ module.exports = React.create-class {
 
     update-options: (prev-props, props) ->
 
-        prev-data-source = prev-props.data-source
-        data-source = props.data-source
+        prev-data-source = prev-props.data-source-cue
+        data-source = props.data-source-cue
 
         load-collections = (params) ~>
             @.set-state {loading-collections: true}

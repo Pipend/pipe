@@ -6,6 +6,11 @@ config = require \./../config
 {compile-and-execute-livescript, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 
+# parse-connection-string :: String -> DataSource
+export parse-connection-string = (connection-string) ->
+    [, host, , port, database, collection]:result? = connection-string.match /mongodb\:\/\/([a-zA-Z0-9\.]+)(\:(\d+))?\/(.*)?\/(.*)?/
+    {host, port, database, collection}
+
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = ({connection-name, database}) --> 
 

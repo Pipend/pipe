@@ -1,20 +1,11 @@
-require \brace/theme/twilight
-DataSource = require \./DataSource.ls
-{map, pairs-to-obj} = require \prelude-ls
+CompleteDataSourceCue = require \./CompleteDataSourceCue.ls
+PartialDataSourceCue = require \./PartialDataSourceCue.ls
 
 editor-settings =
     mode: \ace/mode/livescript
     theme: \ace/theme/monokai
 
-get-empty-data-source = ->
-    {
-        type: \mssql
-        connection-name: ''
-    }
-
 module.exports = {
-
-    get-empty-data-source
 
     get-query-editor-settings: -> editor-settings
 
@@ -22,6 +13,8 @@ module.exports = {
 
     get-presentation-editor-settings: -> editor-settings
 
-    data-source-component: DataSource
+    partial-data-source-cue-component: PartialDataSourceCue
+
+    complete-data-source-cue-component: CompleteDataSourceCue
 
 }

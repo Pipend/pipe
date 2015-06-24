@@ -10,7 +10,7 @@ module.exports = React.create-class {
         div {class-name: \menu},            
             @.props.children
             div {class-name: \buttons},
-                @.props.items |> map ({action, hotkey, icon, label, highlight, type}:item) ~>
+                @.props.items |> map ({enabled, action, hotkey, icon, label, highlight, type}:item) ~>
 
                     # using ref for accessing the anchor tag from hotkey listener
                     ref = label.replace /\s/g, '' .to-lower-case!
@@ -21,15 +21,14 @@ module.exports = React.create-class {
 
                     if !!hotkey
                         key.unbind hotkey
-                        key hotkey, action-listener
+                        key hotkey, action-listener if enabled
                     
                     a do 
                         {
                             key: ref
                             ref
-                            on-click: action-listener
-                            style: if !!highlight then {border-top: "1px solid #{highlight}"} else {}
-                        }
+                            style: (if !!highlight then {border-top: "1px solid #{highlight}"} else {}) <<< (if enabled then {} else {opacity: 0.5})
+                        } <<< if enabled then {on-click: action-listener} else {}
                         match type
                             | \toggle => React.create-element Checkbox, {checked: item.toggled}
                         label

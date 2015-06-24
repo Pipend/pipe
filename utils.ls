@@ -6,7 +6,7 @@ transformation-context = require \./public/transformation/context
 {readdir-sync} = require \fs
 {compile} = require \livescript
 md5 = require \MD5
-{any, concat-map, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
+{any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
 vm = require \vm
 
 query-cache = {}
@@ -52,28 +52,52 @@ export get-query-by-id = (query-database, query-id) -->
     return returnP results.0 if !!results?.0
     new-promise (, rej) -> rej "query not found #{query-id}"
 
-# fill-data-source :: PartialDataSource -> DataSource
-export fill-data-source = (partial-data-source) ->
-    connection-prime = config?.connections?[partial-data-source?.type]?[partial-data-source?.connection-name]
-    data-source = {} <<< (connection-prime or {}) <<< partial-data-source
+# synchronous function, uses promises for encapsulating error
+# extract-data-source :: DateSourceCue -> p DataSource
+export extract-data-source = (data-source-cue) ->
+
+    # throw error if query-type does not exist
+    query-type = require "./query-types/#{data-source-cue?.query-type}"
+    if typeof query-type == \undefined
+        return new-promie (, rej) -> rej new Error "query type: #{data-source-cue?.query-type} not found"
+
+    # clean-data-source :: UncleanDataSource -> DataSource
+    clean-data-source = (unclean-data-source) ->
+        unclean-data-source
+            |> obj-to-pairs
+            |> reject ([key]) -> (dasherize key) in <[connection-kind complete]>
+            |> pairs-to-obj
+
+    # String -> Maybe UncleanDataSource
+    unclean-data-source = match data-source-cue?.connection-kind
+        | \connection-string => 
+            parsed-connection-string = (query-type?.parse-connection-string data-source-cue.connection-string) or {}
+            {} <<< data-source-cue <<< parsed-connection-string
+        | \pre-configured =>
+            connection-prime = config?.connections?[data-source-cue?.query-type]?[data-source-cue?.connection-name]
+            {} <<< data-source-cue <<< (connection-prime or {})
+        | \complete => {} <<< data-source-cue
+        | _ => null
+
+    if !!unclean-data-source
+        returnP clean-data-source unclean-data-source
+    else  
+        new-promise (, rej) -> rej new Error "connection kind: #{data-source-cue?.connection-kind} not found"
 
 # compile-parameters :: String -> QueryParameters -> p CompiledQueryParameters
-export compile-parameters = (type, parameters) -->
+export compile-parameters = (query-type, parameters) -->
     res, rej <- new-promise
     if \String == typeof! parameters
-        [err, compiled-query-parameters] = compile-and-execute-livescript parameters, (require "./query-types/#{type}").get-context!
-        if !!err then return rej err else res compiled-query-parameters
+        [err, compiled-query-parameters] = compile-and-execute-livescript parameters, (require "./query-types/#{query-type}").get-context!
+        if !!err then rej err else res compiled-query-parameters
     else
         res parameters
 
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> QueryParameters -> Cache -> String -> cp result
-export execute = (query-database, {type, timeout}:data-source, query, parameters, cache, op-id) -->
-
-    if typeof (require "./query-types/#{type}") == \undefined
-        return new-promie (, rej) -> new Error "query type: #{type} not found"
+export execute = (query-database, {query-type, timeout}:data-source, query, parameters, cache, op-id) -->
 
     # return cached-result (if any) otherwise execute the query and cache the result
-    compiled-query-parameters <- bindP (compile-parameters type, parameters)
+    compiled-query-parameters <- bindP (compile-parameters query-type, parameters)
     read-from-cache = [
         typeof cache == \boolean and cache === true
         typeof cache == \number and (new Date.value-of! - query-cache[key]?.cached-on) / 1000 < cache
@@ -88,13 +112,13 @@ export execute = (query-database, {type, timeout}:data-source, query, parameters
             query
             parameters: compiled-query-parameters
         }
-        ((require "./query-types/#{type}").execute query-database, data-source, query, compiled-query-parameters)
+        ((require "./query-types/#{query-type}").execute query-database, data-source, query, compiled-query-parameters)
         
     cancel-timer = set-timeout (-> cancellable-promise.cancel!), (timeout ? 90000)
     execution-start-time = Date.now!
 
     cancellable-promise.then do
-        (result) ->            
+        (result) ->
             clear-timeout cancel-timer
             execution-end-time = Date.now!
             query-cache[key] := {

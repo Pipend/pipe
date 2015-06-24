@@ -13,7 +13,6 @@ require \prelude-ls
 # this method differs from /utils.ls::compile-and-execute-livescript,
 # it uses the eval function to execute javascript since the "vm" module is unavailable on client-side
 
-
 export cancel-event = (e) ->
     e.prevent-default!
     e.stop-propagation!
