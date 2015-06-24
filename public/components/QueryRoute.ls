@@ -617,7 +617,7 @@ module.exports = React.create-class do
                             ..set-start range.start.row, 0
                         text = editor.session.get-text-range range
                         if editor.container.id == \query-editor
-                            callback null, (convert-to-ace-keywords keywords, data-source.type, prefix)    
+                            callback null, (convert-to-ace-keywords keywords ++ alphabet, data-source.type, prefix)    
                 if data-source `is-equal-to-object` @.state.data-source
                     ace-language-tools.set-completers [completer.protocol] ++ (@.default-completers |> map (.protocol)) 
 
