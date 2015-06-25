@@ -2,6 +2,7 @@
 {DOM:{div}}:React = require \react
 LabelledDropdown = require \./LabelledDropdown.ls
 LabelledTextField = require \./LabelledTextField.ls
+SimpleButton = require \./SimpleButton.ls
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -75,12 +76,10 @@ module.exports = React.create-class {
                         value: @props.data-source-cue.connection-string
                         on-change: (value) ~>
                             @.props.on-change {} <<< @.props.data-source-cue <<< {connection-string: value, complete: false}
-                    div do
-                        {
-                            style:
-                                background: if @props.data-source-cue.complete then \green else \red 
-                            on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
-                        }
-                        \complete
+                    React.create-element do 
+                        SimpleButton
+                        label: \Apply
+                        pressed: @props.data-source-cue.complete
+                        on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
 
 }

@@ -119,6 +119,7 @@ module.exports = React.create-class do
               label: \Diff
               enabled: saved-query
               highlight: do ~>
+                return null if !saved-query
                 changes = @changes-made!
                 return null if changes.length == 0
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
