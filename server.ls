@@ -251,7 +251,7 @@ app.post \/apis/execute, (req, res) ->
     {op-id, document:{data-source-cue, query, parameters}, cache}? = req.body
     err, result <- to-callback do ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
-        [req, res] |> each (.connection.set-timeout timeout ? 90000)
+        [req, res] |> each (.connection.set-timeout timeout ? 90000)        
         execute query-database, data-source, query, parameters, cache, op-id
     if !!err then die res, err else res.end json result
 

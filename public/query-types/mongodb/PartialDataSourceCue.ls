@@ -1,4 +1,5 @@
 {DOM:{a, div, input, label, option, select, textarea}}:React = require \react
+LabelledDropdown = require \../../components/LabelledDropdown.ls
 {all, camelize, each, find, map, sort, sort-by} = require \prelude-ls
 $ = require \jquery-browserify
 
@@ -24,27 +25,24 @@ module.exports = React.create-class {
                     value: connection-name
                     options: connections
                     disabled: false
-                    on-change: ({current-target:{value}}) ~> @update-props @props, {connection-name: value}
+                    on-change: (value) ~> @update-props @props, {connection-name: value}
                 }
                 {
                     name: \database
                     value: database
                     options: databases
                     disabled: @state.loading-databases
-                    on-change: ({current-target:{value}}) ~> @update-props @props, {database: value}
+                    on-change: (value) ~> @update-props @props, {database: value}
                 }
                 {
                     name: \collection
                     value: collection
                     options: collections
                     disabled: @state.loading-collections
-                    on-change: ({current-target:{value}}) ~> @update-props @props, {collection: value}
+                    on-change: (value) ~> @update-props @props, {collection: value}
                 }
             ] |> map ({name, value, options, disabled, on-change}) ~>
-                div {key: name},
-                    label null, name
-                    select {disabled, value, on-change},
-                        options |> map -> option {key: it.value, value: it.value}, it.label
+                React.create-element LabelledDropdown, {key: name, disabled, label: name, value, options, on-change}
 
     get-initial-state: -> {connections: [], databases: [], collections: [], loading-databases: false, loading-collections: false}
     

@@ -1,6 +1,8 @@
 {DOM:{a, div, input, label, option, select, textarea}}:React = require \react
+LabelledTextField = require \../../components/LabelledTextField.ls
+LabelledDropdown = require \../../components/LabelledDropdown.ls
 $ = require \jquery-browserify
-{each, find, map, sort-by} = require \prelude-ls
+{find, sort-by} = require \prelude-ls
 
 module.exports = React.create-class {
 
@@ -11,25 +13,23 @@ module.exports = React.create-class {
             | _ => []
         connections ++= @state.connections |> sort-by (.label)
         div {class-name: 'mssql partial data-source-cue'},
-            div null,
-                label null, \connection
-                select {
-                    value: connection-name
-                    on-change: ({current-target:{value}}) ~> 
-                        default-database = (@state.connections |> find (.value == value)).default-database
-                        @props.on-change {} <<< @props.data-source-cue <<<
-                            connection-name: value, 
-                            database: default-database
-                            complete: !!default-database
-                },
-                    connections |> map -> option {key: it.value, value: it.value}, it.label
-            div null,
-                label null, \database
-                input do
-                    type: \text
-                    value: @props.data-source-cue?.database or ""
-                    on-change: ({current-target:{value}}) ~>
-                        @props.on-change {} <<< @props.data-source-cue <<< {database: value, complete: false}
+            React.create-element do
+                LabelledDropdown
+                label: \connection
+                value: connection-name
+                options: connections
+                on-change: (value) ~>
+                    default-database = (@state.connections |> find (.value == value)).default-database
+                    @props.on-change {} <<< @props.data-source-cue <<<
+                        connection-name: value, 
+                        database: default-database
+                        complete: !!default-database
+            React.create-element do
+                LabelledTextField
+                label: \database
+                value: @props.data-source-cue?.database or ""
+                on-change: (value) ~> 
+                    @props.on-change {} <<< @props.data-source-cue <<< {database: value, complete: false}
             div do
                 {
                     style:

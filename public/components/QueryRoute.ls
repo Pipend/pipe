@@ -260,7 +260,7 @@ module.exports = React.create-class do
                                 on-change: (value) ~>
                                     <~ @set-state {"#{editor-id}" : value}
                                     @save-to-client-storage-debounced!
-                            } <<< ui-protocol[data-source-cue.type]?[camelize "get-#{editor-id}-editor-settings"]!
+                            } <<< ui-protocol[data-source-cue.type]?[camelize "#{editor-id}-editor-settings"]!
                             
                             # RESIZE HANDLE
                             if resizable 
