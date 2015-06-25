@@ -68,21 +68,15 @@ export extract-data-source = (data-source-cue) ->
             |> reject ([key]) -> (dasherize key) in <[connection-kind complete]>
             |> pairs-to-obj
 
-    # String -> Maybe UncleanDataSource
-    unclean-data-source = match data-source-cue?.connection-kind
-        | \connection-string => 
-            parsed-connection-string = (query-type?.parse-connection-string data-source-cue.connection-string) or {}
-            {} <<< data-source-cue <<< parsed-connection-string
-        | \pre-configured =>
-            connection-prime = config?.connections?[data-source-cue?.query-type]?[data-source-cue?.connection-name]
-            {} <<< data-source-cue <<< (connection-prime or {})
-        | \complete => {} <<< data-source-cue
-        | _ => null
-
-    if !!unclean-data-source
-        returnP clean-data-source unclean-data-source
-    else  
-        new-promise (, rej) -> rej new Error "connection kind: #{data-source-cue?.connection-kind} not found"
+    returnP clean-data-source do 
+        match data-source-cue?.connection-kind
+            | \connection-string => 
+                parsed-connection-string = (query-type?.parse-connection-string data-source-cue.connection-string) or {}
+                {} <<< data-source-cue <<< parsed-connection-string
+            | \pre-configured =>
+                connection-prime = config?.connections?[data-source-cue?.query-type]?[data-source-cue?.connection-name]
+                {} <<< data-source-cue <<< (connection-prime or {})
+            | _ => {} <<< data-source-cue
 
 # compile-parameters :: String -> QueryParameters -> p CompiledQueryParameters
 export compile-parameters = (query-type, parameters) -->
