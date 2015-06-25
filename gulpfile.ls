@@ -18,12 +18,17 @@ if !!gulp-io-port
 source = require \vinyl-source-stream
 watchify = require \watchify
 
+emit-with-delay = (event) ->
+    set-timeout do 
+        -> io.emit event
+        200
+
 # COMPONENTS STYLES
 gulp.task \build:components:styles, ->
     gulp.src <[./public/components/*.styl]>
     .pipe stylus {use: nib!, compress: true}
     .pipe gulp.dest './public/components'
-    .on \end, -> io.emit \build-complete if !!io
+    .on \end, -> emit-with-delay \build-complete if !!io
 
 gulp.task \watch:components:styles, ->
     gulp.watch <[./public/components/*.styl]>, <[build:components:styles]>
@@ -59,10 +64,10 @@ gulp.task \build:components:scripts, ->
 
 gulp.task \watch:components:scripts, ->
     component-bundler.on \update, -> 
-        io.emit \build-start if !!io
+        emit-with-delay \build-start if !!io
         bundle-components!
     component-bundler.on \time, (time) -> 
-        io.emit \build-complete if !!io
+        emit-with-delay \build-complete if !!io
         gulp-util.log "App.js built in #{time / 1000} seconds"
 
 # PRESENTATION SCRIPTS

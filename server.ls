@@ -10,7 +10,7 @@ moment = require \moment
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
-{execute, transform, fill-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
+{execute, transform, extract-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -95,8 +95,11 @@ app.get \/queries/:queryId, (req, res) ->
 # returns the default document of query type identified by config.default-data-source.type
 # /apis/defaultDocuemnt
 app.get \/apis/defaultDocument, (req, res) ->
-    {type} = config.default-data-source
-    res.end pretty {} <<< (require "./query-types/#{type}").default-document! <<< {data-source: config.default-data-source, query-title: 'Untitled query'}
+    {query-type} = config.default-data-source-cue
+    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<< {
+        data-source-cue: config.default-data-source-cue
+        query-title: 'Untitled query'
+    }
 
 # api :: list of branches
 # returns a list of branches where each item has the branch-id and the latest-query in that branch
@@ -245,13 +248,11 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 # executes the query object present in req.body
 # /apis/execute
 app.post \/apis/execute, (req, res) ->
-    {op-id, document:{data-source:partial-data-source, query, parameters}, cache}? = req.body
-    
-    # get the complete data-source which includes the query-type
-    {timeout}:data-source = fill-data-source partial-data-source
-    [req, res] |> each (.connection.set-timeout timeout ? 90000)
-
-    err, result <- to-callback (execute query-database, data-source, query, parameters, cache, op-id)
+    {op-id, document:{data-source-cue, query, parameters}, cache}? = req.body
+    err, result <- to-callback do ->
+        {timeout}:data-source <- bindP (extract-data-source data-source-cue)
+        [req, res] |> each (.connection.set-timeout timeout ? 90000)        
+        execute query-database, data-source, query, parameters, cache, op-id
     if !!err then die res, err else res.end json result
 
 # api :: execute query
@@ -270,22 +271,20 @@ app.post \/apis/execute, (req, res) ->
         err, f <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
-            {query-id, data-source, query, transformation, presentation} <- bindP do ->
+            {query-id, data-source-cue, query, transformation, presentation} <- bindP do ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [partial-data-source-params, parameters] = req.parsed-query 
+            [data-source-cue-params, parameters] = req.parsed-query 
                 |> obj-to-pairs 
-                |> partition (0 ==) . (.0.index-of 'ds-') 
+                |> partition (0 ==) . (.0.index-of 'dsc-') 
                 |> ([ds, qs]) -> 
-                    [(ds |> map ([k,v]) -> [(camelize k.replace /^ds-/, ''),v]), qs] 
+                    [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
                         |> map pairs-to-obj
 
-            partial-data-source = {} <<< data-source <<< partial-data-source-params
-
             # get the complete data-source which includes the query-type
-            {timeout}:data-source = fill-data-source partial-data-source
+            {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
             {result} <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
@@ -330,20 +329,17 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source:partial-data-source, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
+        err, {data-source-cue, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
             return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
             get-latest-query-in-branch query-database, req.params.branch-id
         return die res, err if !!err
-
-        # get the complete data-source which includes the query-type
-        {timeout}:data-source = fill-data-source partial-data-source
-        [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
         filename = query-title.replace /\s/g, '_'
 
         if format in text-formats
             err, transformed-result <- to-callback do ->
-
+                {timeout}:data-source <- bindP (extract-data-source data-source-cue)
+                [req, res] |> each (.connection.set-timeout timeout ? 90000)
                 {result} <- bindP (execute query-database, data-source, query, req.parsed-query, cache, query-id)
                 transformed-result <- bindP (transform result, transformation, req.parsed-query)
                 returnP transformed-result
@@ -373,15 +369,22 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                             overflow: \hidden
                         }
                     ->
-                        <- set-timeout _, 2000
                         <- render image-file
-                        res.set \Content-disposition, "attachment; filename=#{filename}.png"
-                        res.set \Content-type, \image/png
-                        if snapshot then res.end! else (create-read-stream image-file .pipe res)
-                        exit!   
+                        if snapshot
+                            res.end "snapshot saved to #{image-file}"
+                        else
+                            res.set \Content-disposition, "attachment; filename=#{filename}.png"
+                            res.set \Content-type, \image/png
+                            create-read-stream image-file .pipe res
+                        exit!
 
             # compose the url for executing the query
-            err, query-params <- to-callback do -> if snapshot then (compile-parameters data-source.type, parameters) else returnP req.query
+            err, query-params <- to-callback do -> 
+                if snapshot
+                    {query-type}:data-source <- bindP (extract-data-source data-source-cue)
+                    compile-parameters query-type, parameters
+                else 
+                    returnP req.query
             open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
 
 # api :: save query
@@ -419,9 +422,11 @@ app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
     err, result <- to-callback ((require "./query-types/#{req.params.query-type}").connections req.query)
     if !!err then die res, err else res.end pretty result
 
-# api :: {{query-type}} keywords
-app.post \/apis/queryTypes/:queryType/keywords, (req, res) ->
-    err, result <- to-callback ((require "./query-types/#{req.params.query-type}").keywords fill-data-source req.body)
+# api :: keywords
+app.post \/apis/keywords, (req, res) ->
+    err, result <- to-callback do ->
+        {query-type}:data-source <- bindP (extract-data-source req.body)
+        (require "./query-types/#{query-type}").keywords data-source
     if !!err then die res, err else res.end pretty result
 
 app.listen http-port

@@ -22,7 +22,10 @@ export connections = ->
     returnP do 
         connections: (config?.connections?.mssql or {}) 
             |> obj-to-pairs
-            |> map ([name, value]) -> {label: (value.label or name), value: name}
+            |> map ([name, value]) ->
+                label: (value?.label or name)
+                value: name
+                default-database: value?.default-database or ''
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->

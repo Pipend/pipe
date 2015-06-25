@@ -12,7 +12,8 @@ server-config = {
                 allow-disk-use: true
                 timeout: 1000*60*10
     default-data-source:
-        type: \mongodb
+        connection-kind: \pre-configured
+        query-type: \mongodb
         connection-name: \local
         database: \pipe
         collection: \queries

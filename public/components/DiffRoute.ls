@@ -21,7 +21,7 @@ module.exports = React.create-class {
             | _ => typeof! it
 
         div {class-name: \diff-route},
-            <[query transformation presentation parameters dataSource]>
+            <[query transformation presentation parameters dataSourceCue]>
                 |> filter ~> !!right-document?[it] or !!left-document?[it]
                 |> filter ~> !(right-document?[it] `is-equal-to-object` left-document?[it])
                 |> map ~>

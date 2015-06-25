@@ -2,7 +2,7 @@
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
 {map} = require \prelude-ls
-{compile-and-execute-livescript, get-latest-query-in-branch, get-query-by-id, transform}:utils = require \./../utils
+{compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, get-query-by-id, transform}:utils = require \./../utils
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
@@ -26,13 +26,15 @@ export execute = (query-database, data-source, query, parameters) -->
 
             # run-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
             run-query: (query-id, parameters) -->
-                {data-source, query, transformation}:result <- bindP (get-query-by-id query-database, query-id)
+                {data-source-cue, query, transformation}:result <- bindP (get-query-by-id query-database, query-id)
+                data-source <- bindP (extract-data-source data-source-cue)
                 {result} <- bindP utils.execute query-database, data-source, query, parameters, false, generate-op-id!
                 transform result, transformation, parameters
 
             # run-latest-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
             run-latest-query: (branch-id, parameters) -->
-                {data-source, query, transformation}:result <- bindP (get-latest-query-in-branch query-database, branch-id)
+                {data-source-cue, query, transformation}:result <- bindP (get-latest-query-in-branch query-database, branch-id)
+                data-source <- bindP (extract-data-source data-source-cue)
                 {result} <- bindP (utils.execute query-database, data-source, query, parameters, false, generate-op-id!)
                 transform result, transformation, parameters
                 

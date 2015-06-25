@@ -21,6 +21,7 @@ App = React.create-class {
             React.create-element RouteHandler, {
                 params: @.get-params!
                 query: @.get-query!
+                auto-reload: !!gulp-io-port
             }
             div {class-name: \building}, \Building... if @.state.building
 
