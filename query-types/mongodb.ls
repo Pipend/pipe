@@ -3,8 +3,9 @@ config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
 {id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, sort-by, floor} = require \prelude-ls
-{compile-and-execute-livescript, get-all-keys-recursively} = require \./../utils
+{compile-and-execute-livescript, compile-and-execute-livescript-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
+Promise = require \bluebird
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
@@ -65,11 +66,10 @@ export keywords = (data-source) ->
     pipeline = 
         * $sort: _id: -1
         * $limit: 10
-    results <- bindP execute-mongo-aggregation-query do 
+    results <- bindP execute-mongo-database-query-function do
         data-source
-        \pipeline
-        pipeline
-        10000
+        (db) -> execute-aggregation-pipeline false, (db.collection data-source.collection), pipeline
+        #pipeline
     collection-keywords = results
         |> concat-map (-> get-all-keys-recursively ((k, v)-> typeof v != \function), it)
         |> unique
@@ -167,45 +167,49 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
 
     with-cancel-and-dispose execute-query-function, cancel, dispose
 
-# for executing a single mongodb query from pipe
-# execute-mongo-aggregation-query :: (CancellablePromise cp) => DataSource -> String -> String -> Int -> cp result
-export execute-mongo-aggregation-query = ({collection, allow-disk-use}:data-source, aggregation-type, aggregation-query) -->
-    # select the mongo-query-execution function based on aggregation type
-    f = switch aggregation-type
-        | \pipeline => execute-aggregation-pipeline allow-disk-use
-        | \map-reduce => execute-aggregation-map-reduce
-        | _ => -> new-promise (, rej) -> rej new Error "Unexpected query aggregation-type '#aggregation-type' \nExpected either 'pipeline' or 'map-reduce'."
-
-    # execute the query & reformat the result for map-reduce queries
-    result <- bindP execute-mongo-database-query-function do 
-        data-source
-        (db) -> f (db.collection collection), aggregation-query
-    if \map-reduce == aggregation-type and !!result.collection-name
-        return returnP {result: {collection-name: result.collection-name, tag: result.db.tag}}
-    returnP result
-
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, parameters) -->
-    [aggregation-type, aggregation-query] <- bindP do ->
+export execute = (query-database, {collection, allow-disk-use}:data-source, query, parameters) -->
+    [aggregation-type, computation] <- bindP do ->
         res, rej <- new-promise
 
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
 
-        [err, aggregation-query] = compile-and-execute-livescript (convert-query-to-valid-livescript query), query-context
-        return rej err if !!err
-        aggregation-type = \pipeline
+        # computation :: (CancellablePromise cp) => -> cp result
+        {aggregation-type, computation} = switch
+            # detect computation query-type by a directive:
+            | (query.index-of '#! computation') == 0 => {
+                aggregation-type: 'computation'
+                computation: ->
+                    aggregation-query <- bindP compile-and-execute-livescript-p query, query-context <<< {Promise, console, new-promise, bindP, from-error-value-callback}
+                    execute-mongo-database-query-function do 
+                        data-source
+                        aggregation-query
+            }
+            | (query.index-of '$map') == 0 => {
+                aggregation-type: 'map-reduce'
+                computation: ->
+                    # {$map, $reduce, $finalize} must be properties of a hash input to map-reduce
+                    aggregation-query <- bindP compile-and-execute-livescript-p "{\n#{query}\n}", query-context
+                    result <- bindP execute-mongo-database-query-function do 
+                        data-source
+                        (db) -> execute-aggregation-map-reduce (db.collection collection), aggregation-query
+                    returnP if !result.collection-name then result else {result: {collection-name: result.collection-name, tag: result.db.tag}}
 
-        # {$map, $reduce, $finalize} must be part of one hash in order to perform map-reduce
-        # convert-query-to-valid-livescript function puts them in a collection: [{$map}, {$reduce}, {$finalize}]
-        if '$map' in (aggregation-query |> concat-map Obj.keys)
-            [err, aggregation-query] = compile-and-execute-livescript ("{\n#{query}\n}"), query-context
-            return rej err if !!err
-            aggregation-type = \map-reduce
+            }
+            | _ => {
+                aggregation-type: 'pipeline'
+                computation: ->
+                    aggregation-query <- bindP compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context
+                    execute-mongo-database-query-function do 
+                        data-source
+                        (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
+            }
 
-        res [aggregation-type, aggregation-query]
+
+        res [aggregation-type, computation]
     
-    execute-mongo-aggregation-query data-source, aggregation-type, aggregation-query
+    computation!
 
 # default-document :: () -> Document
 export default-document = -> 

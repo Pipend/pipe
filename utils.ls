@@ -27,6 +27,12 @@ export compile-and-execute-livescript = (livescript-code, context) -->
         return die "javascript runtime error: #{err.to-string!}"
     [null, result]
 
+export compile-and-execute-livescript-p = (livescript-code, context) -->
+    resolve, reject <- new-promise
+    [err, result] = compile-and-execute-livescript livescript-code, context
+    return reject err if !!err
+    resolve result
+
 
 {get-all-keys-recursively} = require \./public/utils.ls
 export get-all-keys-recursively

@@ -2,7 +2,7 @@ AceEditor = require \./AceEditor.ls
 DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take} = require \prelude-ls
+{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
 {DOM:{div, input, label, span}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -385,7 +385,10 @@ module.exports = React.create-class do
             data: JSON.stringify {op-id, document: @document-from-state!, cache}
             success: ({result, from-cache, execution-end-time, execution-duration}) ~>
 
-                keywords-from-query-result = result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                keywords-from-query-result = switch 
+                    | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                    | is-type 'Object', result => get-all-keys-recursively (-> true), result
+                    | _ => []
 
                 # clean existing presentation
                 $ @refs.presentation.get-DOM-node! .empty!
