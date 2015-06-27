@@ -248,11 +248,11 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 # executes the query object present in req.body
 # /apis/execute
 app.post \/apis/execute, (req, res) ->
-    {op-id, document:{data-source-cue, query, parameters}, cache}? = req.body
+    {op-id, document:{data-source-cue, query, parameters, transpilation}, cache}? = req.body
     err, result <- to-callback do ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
         [req, res] |> each (.connection.set-timeout timeout ? 90000)        
-        execute query-database, data-source, query, parameters, cache, op-id
+        execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id
     if !!err then die res, err else res.end json result
 
 # api :: execute query

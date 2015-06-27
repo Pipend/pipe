@@ -3,7 +3,7 @@ config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
 {id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, sort-by, floor} = require \prelude-ls
-{compile-and-execute-livescript, compile-and-execute-livescript-p, get-all-keys-recursively} = require \./../utils
+{compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 Promise = require \bluebird
 
@@ -168,8 +168,8 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     with-cancel-and-dispose execute-query-function, cancel, dispose
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, {collection, allow-disk-use}:data-source, query, parameters) -->
+# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
+export execute = (query-database, {collection, allow-disk-use}:data-source, query, transpilation, parameters) -->
     [aggregation-type, computation] <- bindP do ->
         res, rej <- new-promise
 
@@ -200,7 +200,10 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
             | _ => {
                 aggregation-type: 'pipeline'
                 computation: ->
-                    aggregation-query <- bindP compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context
+                    aggregation-query <- bindP match transpilation
+                        | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
+                        | _ => compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context
+                    console.log aggregation-query
                     execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query

@@ -8,7 +8,7 @@ require \LiveScript
 # the first require is used by browserify to import the prelude-ls module
 # the second require is defined in the prelude-ls module and exports the object
 require \prelude-ls
-{all, any, keys, is-type, keys, map, Str, floor, concat-map} = require \prelude-ls
+{all, any, keys, is-type, keys, map, Str, floor, concat-map, foldr1} = require \prelude-ls
 
 # this method differs from /utils.ls::compile-and-execute-livescript,
 # it uses the eval function to execute javascript since the "vm" module is unavailable on client-side
@@ -18,7 +18,7 @@ export cancel-event = (e) ->
     e.stop-propagation!
     # false
 
-export compile-and-execute-livescript = (livescript-code, context) ->
+export compile-and-execute-livescript = (livescript-code, context) -->
 
     die = (err)->
         [err, null]
@@ -40,6 +40,20 @@ export compile-and-execute-livescript = (livescript-code, context) ->
         return die "javascript runtime error: #{err.to-string!}"
 
     [null, result]
+
+export compile-and-execute-javascript = (code, context) -->
+    try 
+        str-context = keys context |> map ((k) -> "var #{k} = context.#{k}; ") |> foldr1 (a,b) -> a + b
+        str = """
+        var f = function(context){
+          #{str-context}
+          return #{code};
+        };
+        f(context);
+        """
+        [null, (eval str)]
+    catch err 
+        ["javascript runtime error: #{err.to-string!}", null]
 
 export date-from-object-id = (object-id) -> new Date (parse-int (object-id.substring 0, 8), 16) * 1000
 

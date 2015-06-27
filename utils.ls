@@ -34,6 +34,22 @@ export compile-and-execute-livescript-p = (livescript-code, context) -->
     resolve result
 
 
+# compile-and-execute-javascript :: String -> Map k, v -> [err, result]
+export compile-and-execute-javascript = (javascript-code, context) -->
+    die = (err)-> [err, null]
+    try 
+        result = vm.run-in-new-context javascript-code, context
+    catch err
+        return die "javascript runtime error: #{err.to-string!}"
+    [null, result]
+
+export compile-and-execute-javascript-p = (javascript-code, context) -->
+    resolve, reject <- new-promise
+    [err, result] = compile-and-execute-javascript javascript-code, context
+    return reject err if !!err
+    resolve result
+
+
 {get-all-keys-recursively} = require \./public/utils.ls
 export get-all-keys-recursively
 
@@ -94,7 +110,7 @@ export compile-parameters = (query-type, parameters) -->
         res parameters
 
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> QueryParameters -> Cache -> String -> cp result
-export execute = (query-database, {query-type, timeout}:data-source, query, parameters, cache, op-id) -->
+export execute = (query-database, {query-type, timeout}:data-source, query, transpilation, parameters, cache, op-id) -->
 
     # return cached-result (if any) otherwise execute the query and cache the result
     compiled-query-parameters <- bindP (compile-parameters query-type, parameters)
@@ -112,7 +128,7 @@ export execute = (query-database, {query-type, timeout}:data-source, query, para
             query
             parameters: compiled-query-parameters
         }
-        ((require "./query-types/#{query-type}").execute query-database, data-source, query, compiled-query-parameters)
+        ((require "./query-types/#{query-type}").execute query-database, data-source, query, transpilation, compiled-query-parameters)
         
     cancel-timer = set-timeout (-> cancellable-promise.cancel!), (timeout ? 90000)
     execution-start-time = Date.now!

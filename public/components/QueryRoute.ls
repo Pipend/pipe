@@ -3,7 +3,7 @@ DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
 {any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
-{DOM:{div, input, label, span}}:React = require \react
+{DOM:{div, input, label, span, select, option}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -11,7 +11,7 @@ ui-protocol =
     curl: require \../query-types/curl/ui-protocol.ls
 $ = require \jquery-browserify
 window.d3 = require \d3
-{compile-and-execute-livescript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
+{compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 transformation-context = require \../transformation/context.ls
 presentation-context = require \../presentation/context.ls
 SharePopup = require \./SharePopup.ls
@@ -128,6 +128,7 @@ module.exports = React.create-class do
             * icon: \h, label: \Share, enabled: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
             * icon: \s, label: \Snapshot, enabled:saved-query, action: @save-snapshot
             * icon: \v, label: \VCS, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
+            * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> toggle-popup button-left, \settings-popup
 
         div {class-name: \query-route},
 
@@ -184,6 +185,12 @@ module.exports = React.create-class do
                         parameters: if !!err then {} else parameters-object
                         data-source-cue
                     }
+            | \settings-popup =>
+                div {class-name: \dialog-container},
+                    div null, "hello"
+                    select {}, 
+                        ['livescript', 'javascript'] |> map (k) -> option {key: k, value: k}, k
+
 
             # DIALOGS
             if !!dialog
@@ -399,7 +406,12 @@ module.exports = React.create-class do
 
                 parameters-object ?= {}
 
-                [err, func] = compile-and-execute-livescript "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
+                compile = switch @state.transpilation-language
+                    | 'livescript' => compile-and-execute-livescript 
+                    | 'javascript' => compile-and-execute-javascript
+                
+
+                [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
                 return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
                 
                 try
@@ -407,7 +419,7 @@ module.exports = React.create-class do
                 catch ex
                     return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
-                [err, func] = compile-and-execute-livescript do 
+                [err, func] = compile do 
                     "(#presentation\n)"
                     {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
                 return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
@@ -650,6 +662,7 @@ module.exports = React.create-class do
             from-cache: false # latest result is from-cache (it is returned by the server on execution)
             executing-op: 0
             keywords-from-query-result: []
+            transpilation-language: 'javascript' # livescript
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
@@ -699,6 +712,7 @@ module.exports = React.create-class do
             query-editor-height
             transformation-editor-height
             presentation-editor-height
+            transpilation-language
         } = @state
         {
             query-id
@@ -707,6 +721,10 @@ module.exports = React.create-class do
             tree-id
             data-source-cue
             query-title
+            transpilation:
+                query: transpilation-language
+                transformation: transpilation-language
+                presentation: transpilation-language
             query
             transformation
             presentation
