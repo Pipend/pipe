@@ -186,10 +186,17 @@ module.exports = React.create-class do
                         data-source-cue
                     }
             | \settings-popup =>
+                console.log @state.transpilation-language
                 div {class-name: \dialog-container},
                     div null, "hello"
-                    select {}, 
-                        ['livescript', 'javascript'] |> map (k) -> option {key: k, value: k}, k
+                    select {
+                        value: @state.transpilation-language
+                        on-change: ({current-target:{value}}) ~> 
+                            console.log \value, value
+                            <- @set-state transpilation-language: value
+                    }, 
+                        ['livescript', 'javascript'] |> map (k) ~> 
+                            option {key: k, value: k}, k
 
 
             # DIALOGS
