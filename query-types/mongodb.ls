@@ -2,7 +2,7 @@
 config = require \./../config
 {compile} = require \LiveScript
 {MongoClient, ObjectID, Server} = require \mongodb
-{id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, sort-by, floor} = require \prelude-ls
+{id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor} = require \prelude-ls
 {compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 Promise = require \bluebird
@@ -181,16 +181,23 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
             | (query.index-of '#! computation') == 0 => {
                 aggregation-type: 'computation'
                 computation: ->
-                    aggregation-query <- bindP compile-and-execute-livescript-p query, query-context <<< {Promise, console, new-promise, bindP, from-error-value-callback}
+                    query := query.substring (query.index-of '\n') + 1 # remove the directive line
+                    console.log query
+                    aggregation-query <- bindP (match transpilation
+                        | 'javascript' => compile-and-execute-javascript-p ("f = #{query}")
+                        | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, console, new-promise, bindP, from-error-value-callback}
                     execute-mongo-database-query-function do 
                         data-source
                         aggregation-query
             }
-            | (query.index-of '$map') == 0 => {
+            | (['$map', '$reduce', 'options'] |> all (k) -> (query.index-of k) > -1) => { #TODO: improve sub-type detection algorithms
                 aggregation-type: 'map-reduce'
                 computation: ->
                     # {$map, $reduce, $finalize} must be properties of a hash input to map-reduce
-                    aggregation-query <- bindP compile-and-execute-livescript-p "{\n#{query}\n}", query-context
+                    aggregation-query <- bindP (match transpilation
+                        | 'javascript' => compile-and-execute-javascript-p ("json = #{query}")
+                        | _ => compile-and-execute-livescript-p "{\n#{query}\n}") query-context
+                    console.log aggregation-query
                     result <- bindP execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-map-reduce (db.collection collection), aggregation-query
@@ -203,7 +210,6 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     aggregation-query <- bindP match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
                         | _ => compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context
-                    console.log aggregation-query
                     execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query

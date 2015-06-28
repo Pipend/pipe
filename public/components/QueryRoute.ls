@@ -3,7 +3,7 @@ DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
 {any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
-{DOM:{div, input, label, span, select, option}}:React = require \react
+{DOM:{div, input, label, span, select, option, button}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -128,7 +128,7 @@ module.exports = React.create-class do
             * icon: \h, label: \Share, enabled: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
             * icon: \s, label: \Snapshot, enabled:saved-query, action: @save-snapshot
             * icon: \v, label: \VCS, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
-            * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> toggle-popup button-left, \settings-popup
+            * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
 
         div {class-name: \query-route},
 
@@ -185,18 +185,6 @@ module.exports = React.create-class do
                         parameters: if !!err then {} else parameters-object
                         data-source-cue
                     }
-            | \settings-popup =>
-                console.log @state.transpilation-language
-                div {class-name: \dialog-container},
-                    div null, "hello"
-                    select {
-                        value: @state.transpilation-language
-                        on-change: ({current-target:{value}}) ~> 
-                            console.log \value, value
-                            <- @set-state transpilation-language: value
-                    }, 
-                        ['livescript', 'javascript'] |> map (k) ~> 
-                            option {key: k, value: k}, k
 
 
             # DIALOGS
@@ -229,6 +217,23 @@ module.exports = React.create-class do
                                     | \reset => @set-state remote-document
                                     @set-state {dialog: null, queries-in-between: null}
                             }
+                    | \settings =>
+                        div {},
+                            div null, "hello"
+                            select {
+                                value: @state.transpilation-language
+                                on-change: ({current-target:{value}}) ~> 
+                                    console.log \value, value
+                                    <- @set-state transpilation-language: value
+                            }, 
+                                ['livescript', 'javascript'] |> map (k) ~> 
+                                    option {key: k, value: k}, k
+
+                            button {
+                                on-click: ~>
+                                    @set-state {dialog: null}
+                            }, "OK"
+
 
             div {class-name: \content},
 
@@ -669,7 +674,7 @@ module.exports = React.create-class do
             from-cache: false # latest result is from-cache (it is returned by the server on execution)
             executing-op: 0
             keywords-from-query-result: []
-            transpilation-language: 'javascript' # livescript
+            transpilation-language: 'livescript' # javascript or livescript
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
