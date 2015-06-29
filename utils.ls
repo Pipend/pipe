@@ -1,6 +1,6 @@
 # all functions in this file are for use on server-side only (either by server.ls or query-types)
 
-{bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
+{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \./async-ls
 config = require \./config
 transformation-context = require \./public/transformation/context
 {readdir-sync} = require \fs
@@ -104,32 +104,55 @@ export execute = (query-database, {query-type, timeout}:data-source, query, para
     ] |> any id        
     key = md5 JSON.stringify {data-source, query, compiled-query-parameters}
     return returnP {} <<< query-cache[key] <<< {from-cache: true, execution-duration: 0} if read-from-cache and !!query-cache[key]
+    
+    # look for a running op that matches the document hash    
+    main-op = ops |> find -> it.document-hash == key and it.cancellable-promise.is-pending! and it.parent-op-id == null
 
-    cancellable-promise = add-op do
-        op-id
-        {
-            data-source
-            query
-            parameters: compiled-query-parameters
-        }
-        ((require "./query-types/#{query-type}").execute query-database, data-source, query, compiled-query-parameters)
-        
-    cancel-timer = set-timeout (-> cancellable-promise.cancel!), (timeout ? 90000)
-    execution-start-time = Date.now!
+    # create the main op if it doesn't exist
+    main-op = 
+        | typeof main-op == \undefined =>     
+            # (CancellablePromise cp) => cp result -> cp ResultWithMeta
+            cancellable-promise = do ->
+                execution-start-time = Date.now!
+                result <- bindP ((require "./query-types/#{query-type}").execute query-database, data-source, query, compiled-query-parameters)
+                execution-end-time = Date.now!
+                query-cache[key] := {
+                    result
+                    execution-start-time
+                    execution-end-time
+                }
+                returnP {} <<< query-cache[key] <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
 
-    cancellable-promise.then do
-        (result) ->
-            clear-timeout cancel-timer
-            execution-end-time = Date.now!
-            query-cache[key] := {
-                result
-                execution-start-time
-                execution-end-time
-            }
-            returnP {} <<< query-cache[key] <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
-        (err) -> 
-            clear-timeout cancel-timer
-            throw err
+            # cancel the promise if execution takes longer than data-source.timeout milliseconds
+            cancel-timer = set-timeout (-> cancellable-promise.cancel!), timeout ? 90000
+            cancellable-promise.finally -> clear-timeout cancel-timer
+
+            # create op & add it to ops list, in order to cancel it in future
+            op = 
+                op-id: "main_#{op-id}"
+                parent-op-id: null
+                document: 
+                    data-source: data-source
+                    query: query
+                    parameters: compiled-query-parameters
+                document-hash: key
+                cancellable-promise: cancellable-promise
+            ops.push op
+            op
+        | _ => main-op
+
+    # create a child op
+    child-op = 
+        op-id: op-id
+        parent-op-id: main-op.op-id
+        cancellable-promise: with-cancel-and-dispose do 
+            new-promise (res, rej) -> 
+                err, result <- to-callback main-op.cancellable-promise
+                if !!err then rej err else res result
+            -> returnP \killed-it
+    ops.push child-op
+    child-op.cancellable-promise
+
 
 # transform :: result -> String -> CompiledQueryParameters -> p transformed-result
 export transform = (query-result, transformation, parameters) -->
@@ -142,23 +165,31 @@ export transform = (query-result, transformation, parameters) -->
     catch err
         return rej err
 
-# add-op :: (CancellablePromise cp) => String -> OpInfo -> cp result -> cp result
-add-op = (op-id, op-info, cancellable-promise) -->
-    ops.push {op-id, op-info, cancellable-promise}
-    cancellable-promise
-
 # cancel-op :: String -> Status
 export cancel-op = (op-id) ->
     op = ops |> find -> it.op-id == op-id
     return [false, Error "no op with #{op-id} found"] if !op
     return [false, Error "no running op with #{op-id} found"] if !op.cancellable-promise.is-pending!
-    op.cancellable-promise.cancel!
+
+    # cancel the op's promise if this is the main op
+    if op.parent-op-id == null
+        op.cancellable-promise.cancel!
+
+    else
+        sibling-ops = ops |> filter -> it.parent-op-id == op.parent-op-id and it.cancellable-promise.is-pending!
+
+        # cancel the child promise if the child has other live siblings
+        if sibling-ops.length > 1
+            op.cancellable-promise.cancel!
+
+        # cancel the main promise if this is the only child
+        else
+            cancel-op op.parent-op-id
+            
     [true, null]
 
 # running-ops :: () -> [String]
 export running-ops = ->
-    ops
-        |> filter (.cancellable-promise.is-pending!)
-        |> map ({op-id, op-info}) -> {op-id, op-info}
+    ops |> filter (.cancellable-promise.is-pending!)
 
 
