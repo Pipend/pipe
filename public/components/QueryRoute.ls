@@ -2,7 +2,7 @@ AceEditor = require \./AceEditor.ls
 DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
+{all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
 {DOM:{div, input, label, span}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -398,19 +398,11 @@ module.exports = React.create-class do
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @refs.presentation.get-DOM-node! .empty! .append pre
-            @set-state {from-cache: false, execution-error: true}
+            @set-state {execution-error: true}
 
-        # process-server-response :: ResultWithMetadata -> Void
-        process-server-response = ({result, from-cache, execution-end-time, execution-duration}:result-with-metadata) !~>
-
-            if cache
-                @result-with-metadata = result-with-metadata
-
-            keywords-from-query-result = switch 
-                | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
-                | is-type 'Object', result => get-all-keys-recursively (-> true), result
-                | _ => []
-
+        # process-query-result :: ResultWithMetadata -> Void
+        process-query-result = (result) !~>
+            
             # clean existing presentation
             $ @refs.presentation.get-DOM-node! .empty!
 
@@ -438,26 +430,21 @@ module.exports = React.create-class do
             catch ex
                 return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
-            <~ @set-state {
-                from-cache
-                execution-end-time
-                execution-duration
-                keywords-from-query-result
-                execution-error: false
-            }
-            if document[\webkitHidden]
-                notification = new notify do 
-                    'Pipe: query execution complete'
-                    body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
-                    notify-click: -> window.focus!
-                notification.show!
-        
+            @set-state {execution-error: false}
+
         # use client cache if the query or its dependencies did not change
-        if cache and !!@result-with-metadata and !(@changes-made! |> find -> it in <[query parameters dataSourceCue]>)
+        if cache and !!@cached-execution and (all (~> @state[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue]>)
             @set-state {executing-op: generate-uid!}
-            process-server-response @result-with-metadata
+            {result, execution-end-time} = @cached-execution.result-with-metadata
+            process-query-result result
             set-timeout do
-                ~> @set-state {executing-op: ""}
+                ~> @set-state {
+                    executing-op: ""
+                    displayed-on: Date.now!
+                    from-cache: true
+                    execution-duration: 0
+                    execution-end-time 
+                }
                 0
 
         else
@@ -468,7 +455,25 @@ module.exports = React.create-class do
                 content-type: 'application/json; charset=utf-8'
                 data-type: \json
                 data: JSON.stringify {op-id, document: @document-from-state!, cache}
-                success: process-server-response
+                success: ({result, from-cache, execution-end-time, execution-duration}:result-with-metadata) ~>
+                    @cached-execution = {document: @document-from-state!, result-with-metadata}
+                    process-query-result result
+                    keywords-from-query-result = switch 
+                        | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                        | is-type 'Object', result => get-all-keys-recursively (-> true), result
+                        | _ => []
+                    <~ @set-state {
+                        from-cache
+                        execution-end-time
+                        execution-duration
+                        keywords-from-query-result
+                    }
+                    if document[\webkitHidden]
+                        notification = new notify do 
+                            'Pipe: query execution complete'
+                            body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
+                            notify-click: -> window.focus!
+                        notification.show!
                 error: ({response-text}?) -> display-error response-text
                 complete: ~> @set-state {displayed-on: Date.now!, executing-op: ""}
             }
