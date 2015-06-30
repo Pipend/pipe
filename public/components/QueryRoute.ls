@@ -607,6 +607,7 @@ module.exports = React.create-class do
 
         # selects presentation content only
         key 'command + a', (e) ~> 
+            return true if e.target != document.body
             range = document.create-range!
                 ..select-node-contents @refs.presentation.get-DOM-node!
             selection = window.get-selection!
