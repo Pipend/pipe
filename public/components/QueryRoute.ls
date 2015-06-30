@@ -549,8 +549,8 @@ module.exports = React.create-class do
                 ..done (document) ~>
                     # gets the state from the document, and stores a copy of it under the key "remote-document"
                     # state.remote-document is used to check if the client copy has diverged
-                    remote-document = @state-from-document document                    
-                    <~ @set-state {} <<< (if !!local-document then @state-from-document local-document else remote-document) <<< {remote-document}
+                    remote-document = document
+                    <~ @set-state {} <<< (@state-from-document (if !!local-document then local-document else remote-document)) <<< {remote-document}
                     @update-presentation-size!
                 ..fail ({response-text}?) ~> 
                     alert "unable to load query: #{response-text}"
