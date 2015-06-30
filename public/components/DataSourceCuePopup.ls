@@ -49,11 +49,12 @@ module.exports = React.create-class {
                     |> map -> {label: it, value: it}
                 on-change: (value) ~>
                     {connection-kind} = @props.data-source-cue
+                    new-connection-kinds = connection-kinds-from-query-type value
                     @props?.on-change do 
                         query-type: value
-                        connection-kind: 
-                            | connection-kind in (connection-kinds-from-query-type value) => connection-kind
-                            | _ => null
+                        connection-kind:
+                            | connection-kind in new-connection-kinds => connection-kind
+                            | _ => new-connection-kinds?.0?.value ? null
                         complete: complete-by-default value
 
             # lists all the connection kinds            
