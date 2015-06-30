@@ -83,40 +83,53 @@ module.exports = React.create-class do
         } = @state
 
         # MENU ITEMS
-        toggle-popup = (button-left, popup-name) ~> @set-state do
-            popup-left: button-left - 100
-            popup: if @state.popup == popup-name then '' else popup-name
+        toggle-popup = (popup-name, button-left, button-width) ~~>
+            @set-state do
+                popup-left: button-left + button-width / 2
+                popup: if @state.popup == popup-name then '' else popup-name
 
         saved-query = !!@props.params.branch-id and !(@props.params.branch-id in <[local localFork]>) and !!@props.params.query-id
 
         menu-items = 
-            * icon: \n, label: \New, action: ~> window.open "/branches", \_blank
-            * icon: \f, label: \Fork, enabled: saved-query, action: ~> @fork!
-            * hotkey: "command + s", icon: \s, label: \Save, action: ~> @save!            
-            * type: \toggle
+            * label: \New, icon: \n, action: ~> window.open "/branches", \_blank
+            * label: \Fork, icon: \f, enabled: saved-query, action: ~> @fork!
+            * label: \Save, hotkey: "command + s", icon: \s, action: ~> @save!
+            * label: \Cache
               icon: \c
-              label: \Cache
               highlight: if from-cache then 'rgba(0,255,0,1)' else null
               toggled: cache
+              type: \toggle
               action: ~> @set-state {cache: !cache}
-            * hotkey: "command + enter"
+            * label: \Execute
               icon: \e
-              label: \Execute
               enabled: data-source-cue.complete
+              hotkey: "command + enter"
               show: !executing-op
               action: ~> @set-state {executing-op: @execute!}
-            * icon: \ca
-              label: \Cancel
+            * label: \Cancel
+              icon: \ca
               show: !!executing-op
               action: ~> $.get "/apis/ops/#{executing-op}/cancel"
-            * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-cue-popup
-            * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
-            * icon: \t, label: \Tags, action: ~>
-            * icon: \r, label: \Reset, enabled: saved-query, action: ~> 
+            * label: 'Data Source'
+              icon: \d
+              pressed: \data-source-cue-popup == popup
+              action: toggle-popup \data-source-cue-popup
+            * label: \Parameters
+              icon: \p
+              pressed: \parameters-popup == popup
+              action: toggle-popup \parameters-popup
+            * label: \Tags
+              icon: \t
+              pressed: \tags-popup == popup
+              action: toggle-popup \tags-popup
+            * label: \Reset
+              icon: \r
+              enabled: saved-query
+              action: ~> 
                 <~ @set-state remote-document
                 @save-to-client-storage!
-            * icon: \t
-              label: \Diff
+            * label: \Diff
+              icon: \t
               enabled: saved-query
               highlight: do ~>
                 return null if !saved-query
@@ -125,9 +138,13 @@ module.exports = React.create-class do
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
                 'rgba(255,255,0,1)'
               action: ~> window.open "#{window.location.href}/diff", \_blank
-            * icon: \h, label: \Share, enabled: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
-            * icon: \s, label: \Snapshot, enabled:saved-query, action: @save-snapshot
-            * icon: \v, label: \VCS, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
+            * label: \Share
+              icon: \h
+              enabled: saved-query
+              pressed: \share-popup == popup
+              action: toggle-popup \share-popup
+            * label: \Snapshot, icon: \s, enabled:saved-query, action: @save-snapshot
+            * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
 
         div {class-name: \query-route},
 
@@ -143,15 +160,21 @@ module.exports = React.create-class do
                 div {class-name: \logo, on-click: ~> @transition-to "/"}
 
             # POPUPS 
-            match popup
+
+            # left-from-width :: Number -> Number
+            left-from-width = (width) ~>
+                x = popup-left - width / 2
+                max-x = (x + width)
+                viewport-width = @get-DOM-node!.offset-width
+                diff = max-x - viewport-width
+                if diff > 0 then x - diff else x
+
+            switch popup
             | \data-source-cue-popup =>
                 React.create-element do
                     DataSourceCuePopup
                     {
-                        left: (width) ~>
-                            viewport-width = @get-DOM-node!.offset-width
-                            diff = viewport-width - popup-left
-                            if diff < width then (viewport-width - width - 10) else popup-left                        
+                        left: left-from-width
                         data-source-cue: data-source-cue
                         on-change: (data-source-cue) ~> 
                             <~ @set-state {data-source-cue}
@@ -159,7 +182,7 @@ module.exports = React.create-class do
                     }
 
             | \parameters-popup =>
-                div {class-name: 'parameters-popup popup', style: {left: popup-left}},
+                div {class-name: 'parameters-popup popup', style: {left: left-from-width 400}},
                     React.create-element AceEditor, do
                         editor-id: "parameters-editor"
                         value: @state.parameters
@@ -175,15 +198,13 @@ module.exports = React.create-class do
                     SharePopup
                     {
                         host: window.location.host
-                        left: (width) ~>
-                            viewport-width = @get-DOM-node!.offset-width
-                            diff = viewport-width - popup-left
-                            if diff < width then (viewport-width - width - 10) else popup-left
+                        left: left-from-width
                         query-id
                         branch-id
                         parameters: if !!err then {} else parameters-object
                         data-source-cue
                     }
+
 
             # DIALOGS
             if !!dialog
