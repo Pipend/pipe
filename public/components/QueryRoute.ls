@@ -107,7 +107,7 @@ module.exports = React.create-class do
               enabled: data-source-cue.complete
               hotkey: "command + enter"
               show: !executing-op
-              action: ~> @set-state {executing-op: @execute!}
+              action: ~> @execute!
             * label: \Cancel
               icon: \ca
               show: !!executing-op
@@ -393,75 +393,87 @@ module.exports = React.create-class do
 
         return executing-op if !!executing-op        
 
+        # display-error :: Error -> Void
         display-error = (err) !~>
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @refs.presentation.get-DOM-node! .empty! .append pre
             @set-state {from-cache: false, execution-error: true}
 
-        op-id = generate-uid!
-        $.ajax {
-            type: \post
-            url: \/apis/execute
-            content-type: 'application/json; charset=utf-8'
-            data-type: \json
-            data: JSON.stringify {op-id, document: @document-from-state!, cache}
-            success: ({result, from-cache, execution-end-time, execution-duration}) ~>
+        # process-server-response :: ResultWithMetadata -> Void
+        process-server-response = ({result, from-cache, execution-end-time, execution-duration}:result-with-metadata) !~>
 
-                keywords-from-query-result = switch 
-                    | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
-                    | is-type 'Object', result => get-all-keys-recursively (-> true), result
-                    | _ => []
+            if cache
+                @result-with-metadata = result-with-metadata
 
-                # clean existing presentation
-                $ @refs.presentation.get-DOM-node! .empty!
+            keywords-from-query-result = switch 
+                | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                | is-type 'Object', result => get-all-keys-recursively (-> true), result
+                | _ => []
 
-                if !!parameters and parameters.trim!.length > 0
-                    [err, parameters-object] = compile-and-execute-livescript parameters, {}
-                    console.log err if !!err
+            # clean existing presentation
+            $ @refs.presentation.get-DOM-node! .empty!
 
-                parameters-object ?= {}
+            if !!parameters and parameters.trim!.length > 0
+                [err, parameters-object] = compile-and-execute-livescript parameters, {}
+                console.log err if !!err
 
-                [err, func] = compile-and-execute-livescript "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
-                return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
-                
-                try
-                    transformed-result = func result
-                catch ex
-                    return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
+            parameters-object ?= {}
 
-                [err, func] = compile-and-execute-livescript do 
-                    "(#presentation\n)"
-                    {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
-                return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
-                
-                try
-                    func @refs.presentation.get-DOM-node!, transformed-result
-                catch ex
-                    return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
+            [err, func] = compile-and-execute-livescript "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
+            return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
+            
+            try
+                transformed-result = func result
+            catch ex
+                return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
-                <~ @set-state {
-                    from-cache
-                    execution-end-time
-                    execution-duration
-                    keywords-from-query-result
-                    execution-error: false
-                }
-                if document[\webkitHidden]
-                    notification = new notify do 
-                        'Pipe: query execution complete'
-                        body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
-                        notify-click: -> window.focus!
-                    notification.show!
+            [err, func] = compile-and-execute-livescript do 
+                "(#presentation\n)"
+                {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
+            return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
+            
+            try
+                func @refs.presentation.get-DOM-node!, transformed-result
+            catch ex
+                return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
-            error: ({response-text}?) ->
-                display-error response-text
+            <~ @set-state {
+                from-cache
+                execution-end-time
+                execution-duration
+                keywords-from-query-result
+                execution-error: false
+            }
+            if document[\webkitHidden]
+                notification = new notify do 
+                    'Pipe: query execution complete'
+                    body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
+                    notify-click: -> window.focus!
+                notification.show!
+        
+        # use client cache if the query or its dependencies did not change
+        if cache and !!@result-with-metadata and !(@changes-made! |> find -> it in <[query parameters dataSourceCue]>)
+            @set-state {executing-op: generate-uid!}
+            process-server-response @result-with-metadata
+            set-timeout do
+                ~> @set-state {executing-op: ""}
+                0
 
-            complete: ~>
-                @set-state {displayed-on: Date.now!, executing-op: ""}                
-
-        }
-        op-id
+        else
+            op-id = generate-uid!
+            $.ajax {
+                type: \post
+                url: \/apis/execute
+                content-type: 'application/json; charset=utf-8'
+                data-type: \json
+                data: JSON.stringify {op-id, document: @document-from-state!, cache}
+                success: process-server-response
+                error: ({response-text}?) -> display-error response-text
+                complete: ~> @set-state {displayed-on: Date.now!, executing-op: ""}
+            }
+            @set-state {executing-op: op-id}
+            
 
     POST-document: (document-to-save, callback) ->
         $.ajax {

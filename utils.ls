@@ -89,7 +89,7 @@ export compile-parameters = (query-type, parameters) -->
     res, rej <- new-promise
     if \String == typeof! parameters
         [err, compiled-query-parameters] = compile-and-execute-livescript parameters, (require "./query-types/#{query-type}").get-context!
-        if !!err then rej err else res compiled-query-parameters
+        if !!err then rej err else res (compiled-query-parameters ? {})
     else
         res parameters
 
@@ -98,11 +98,11 @@ export execute = (query-database, {query-type, timeout}:data-source, query, para
 
     # return cached-result (if any) otherwise execute the query and cache the result
     compiled-query-parameters <- bindP (compile-parameters query-type, parameters)
+    key = md5 JSON.stringify {data-source, query, compiled-query-parameters}
     read-from-cache = [
         typeof cache == \boolean and cache === true
-        typeof cache == \number and (new Date.value-of! - query-cache[key]?.cached-on) / 1000 < cache
-    ] |> any id        
-    key = md5 JSON.stringify {data-source, query, compiled-query-parameters}
+        typeof cache == \number and (Date.now! - query-cache[key]?.execution-end-time) / 1000 < cache
+    ] |> any id    
     return returnP {} <<< query-cache[key] <<< {from-cache: true, execution-duration: 0} if read-from-cache and !!query-cache[key]
     
     # look for a running op that matches the document hash    
