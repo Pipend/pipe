@@ -21,6 +21,8 @@ ConflictDialog = require \./ConflictDialog.ls
 _ = require \underscore
 ace-language-tools = require \brace/ext/language_tools 
 notify = require \notifyjs
+{key} = require \keymaster
+{cancel-event} = require \../utils.ls
 
 # returns dasherized collection of keywords for auto-completion
 keywords-from-object = (object) ->
@@ -602,6 +604,15 @@ module.exports = React.create-class do
         # load the document based on the url
         @load @props
         notify.request-permission! if notify.needs-permission
+
+        # selects presentation content only
+        key 'command + a', (e) ~> 
+            range = document.create-range!
+                ..select-node-contents @refs.presentation.get-DOM-node!
+            selection = window.get-selection!
+                ..remove-all-ranges!
+                ..add-range range
+            cancel-event e
 
     component-will-receive-props: (props) ->
         # return if branch & query id did not change
