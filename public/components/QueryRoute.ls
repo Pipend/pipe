@@ -40,9 +40,10 @@ convert-to-ace-keywords = (keywords, meta, prefix) ->
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
 # returns a hash of editor-heights used in get-initial-state and state-from-document
-# Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
+# editor-heights :: Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
 editor-heights = (query-editor-height = 300, transformation-editor-height = 324, presentation-editor-height = 240) ->
-    viewport-height = window.inner-height - 50 - 3 * (40 + 5) # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+    # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+    viewport-height = window.inner-height - 50 - 3 * (40 + 5)
     editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
         s = sum ds
         ds |> map round . (viewport-height *) . (/s)
@@ -58,29 +59,14 @@ module.exports = React.create-class do
 
     mixins: [Navigation]
 
+    # React class method
+    # render :: a -> VirtualDOM
     render: ->
         {
-            query-id
-            branch-id
-            tree-id
-            data-source-cue
-            query
-            query-title
-            transformation
-            presentation
-            parameters
-            editor-width
-            popup-left
-            popup
-            queries-in-between
-            dialog
-            remote-document
-            cache
-            from-cache
-            executing-op
-            displayed-on
-            execution-error
-            execution-end-time
+            query-id, branch-id, tree-id, data-source-cue, query, query-title, 
+            transformation, presentation, parameters, editor-width, popup-left, 
+            popup, queries-in-between, dialog, remote-document, cache, from-cache, 
+            executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
         } = @state
 
@@ -94,7 +80,26 @@ module.exports = React.create-class do
 
         menu-items = 
             * label: \New, icon: \n, action: ~> window.open "/branches", \_blank
-            * label: \Fork, icon: \f, enabled: saved-query, action: ~> @fork!
+            * label: \Fork
+              icon: \f
+              enabled: saved-query
+              action: ~> 
+                  # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
+                  {query-id, parent-id, tree-id, query-title}:document? = @document-from-state!
+                  throw "cannot fork a local query, please save the query before forking it" if @props.params.branch-id in <[local localFork]>
+
+                  # create a new copy of the document, update as required then save it to local storage
+                  {query-id}:forked-document = {} <<< document <<< {
+                      query-id: generate-uid!
+                      parent-id: query-id
+                      branch-id: \localFork
+                      tree-id
+                      query-title: "Copy of #{query-title}"
+                  }
+                  client-storage.save-document query-id, forked-document
+
+                  # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
+                  window.open "/branches/localFork/queries/#{query-id}", \_blank
             * label: \Save, hotkey: "command + s", icon: \s, action: ~> @save!
             * label: \Cache
               icon: \c
@@ -128,7 +133,7 @@ module.exports = React.create-class do
               icon: \r
               enabled: saved-query
               action: ~> 
-                <~ @set-state remote-document
+                <~ @set-state (@state-from-document remote-document)
                 @save-to-client-storage!
             * label: \Diff
               icon: \t
@@ -145,7 +150,12 @@ module.exports = React.create-class do
               enabled: saved-query
               pressed: \share-popup == popup
               action: toggle-popup \share-popup
-            * label: \Snapshot, icon: \s, enabled:saved-query, action: @save-snapshot
+            * label: \Snapshot
+              icon: \s
+              enabled:saved-query
+              action: ~>
+                  {branch-id, query-id}:saved-document <~ @save
+                  $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
             * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
 
         div {class-name: \query-route},
@@ -221,21 +231,9 @@ module.exports = React.create-class do
                                 on-resolution-select: (resolution) ~>
                                     uid = generate-uid!
                                     match resolution
-                                    | \new-commit =>
-                                        @POST-document {} <<< @document-from-state! <<< {
-                                            query-id: uid
-                                            parent-id: queries-in-between.0
-                                            branch-id
-                                            tree-id
-                                        }
-                                    | \fork =>
-                                        @POST-document {} <<< @document-from-state! <<< {
-                                            query-id: uid
-                                            parent-id: query-id
-                                            branch-id: uid
-                                            tree-id
-                                        }
-                                    | \reset => @set-state remote-document
+                                    | \new-commit => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
+                                    | \fork => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
+                                    | \reset => @set-state (@state-from-document remote-document)
                                     @set-state {dialog: null, queries-in-between: null}
                             }
 
@@ -352,46 +350,20 @@ module.exports = React.create-class do
                                     div null,
                                         label null, title
                                         span null, value
-        
-    update-presentation-size: ->
+    
+    # update-presentation-size :: a -> Void
+    update-presentation-size: !->
         left = @state.editor-width + 10
-        @refs.presentation-container.get-DOM-node!.style <<< {
-            left
+        @refs.presentation-container.get-DOM-node!.style <<<
+            left: left
             width: window.inner-width - left
             height: window.inner-height - @refs.menu.get-DOM-node!.offset-height
-        }
+    
+    # execute :: a -> Void
+    execute: !->
+        return if !!@state.executing-op
 
-    fork: ->
-        # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
-        {query-id, parent-id, tree-id, query-title}:document? = @document-from-state!
-        throw "cannot fork a local query, please save the query before forking it" if @props.params.branch-id in <[local localFork]>
-
-        # create a new copy of the document, update as required then save it to local storage
-        {query-id}:forked-document = {} <<< document <<< {
-            query-id: generate-uid!
-            parent-id: query-id
-            branch-id: \localFork
-            tree-id
-            query-title: "Copy of #{query-title}"
-        }
-        client-storage.save-document query-id, forked-document
-
-        # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
-        window.open "/branches/localFork/queries/#{query-id}", \_blank    
-
-    # execute :: () -> String
-    execute: ->
-        {
-            data-source-cue
-            query
-            transformation
-            presentation
-            parameters
-            cache
-            executing-op
-        } = @state
-
-        return executing-op if !!executing-op        
+        {data-source-cue, query, transformation, presentation, parameters, cache} = @state
 
         # display-error :: Error -> Void
         display-error = (err) !~>
@@ -400,7 +372,7 @@ module.exports = React.create-class do
             $ @refs.presentation.get-DOM-node! .empty! .append pre
             @set-state {execution-error: true}
 
-        # process-query-result :: ResultWithMetadata -> Void
+        # process-query-result :: Result -> Void
         process-query-result = (result) !~>
             
             # clean existing presentation
@@ -438,15 +410,10 @@ module.exports = React.create-class do
             {result, execution-end-time} = @cached-execution.result-with-metadata
             process-query-result result
             set-timeout do
-                ~> @set-state {
-                    executing-op: ""
-                    displayed-on: Date.now!
-                    from-cache: true
-                    execution-duration: 0
-                    execution-end-time 
-                }
+                ~> @set-state {executing-op: "", displayed-on: Date.now!, from-cache: true, execution-duration: 0, execution-end-time}
                 0
 
+        # POST the document to the server for execution & cache the response
         else
             op-id = generate-uid!
             $.ajax {
@@ -462,12 +429,7 @@ module.exports = React.create-class do
                         | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
                         | is-type 'Object', result => get-all-keys-recursively (-> true), result
                         | _ => []
-                    <~ @set-state {
-                        from-cache
-                        execution-end-time
-                        execution-duration
-                        keywords-from-query-result
-                    }
+                    <~ @set-state {from-cache, execution-end-time, execution-duration, keywords-from-query-result}
                     if document[\webkitHidden]
                         notification = new notify do 
                             'Pipe: query execution complete'
@@ -478,9 +440,9 @@ module.exports = React.create-class do
                 complete: ~> @set-state {displayed-on: Date.now!, executing-op: ""}
             }
             @set-state {executing-op: op-id}
-            
 
-    POST-document: (document-to-save, callback) ->
+    # POST-document :: Document -> (Document -> Void) -> Void
+    POST-document: (document-to-save, callback) !->
         $.ajax {
             type: \post
             url: \/apis/save
@@ -490,18 +452,24 @@ module.exports = React.create-class do
         }
             ..done ({query-id, branch-id}:saved-document) ~>
                 client-storage.delete-document @props.params.query-id
-                @set-state {} <<< saved-document <<< {remote-document: saved-document}
+                @set-state {} <<< (@state-from-document saved-document) <<< {remote-document: saved-document}
                 @transition-to "/branches/#{branch-id}/queries/#{query-id}"
                 callback saved-document if !!callback
-            ..fail ({response-text}:err?) ~>
-                return alert 'SERVER ERROR' if !response-text
-                try
-                    {queries-in-between}? = JSON.parse response-text
-                catch exception
-                    return alert 'SERVER ERROR'
-                return alert 'SERVER ERROR' if !queries-in-between
-                @set-state {dialog: \save-conflict, queries-in-between}
+            ..fail ({response-text}?) ~>
+                [err, queries-in-between]? = do ->
+                    return [\empty-error] if !response-text
+                    try
+                        {queries-in-between}? = JSON.parse response-text
+                    catch exception
+                        return [\parse-error]
+                    return [\unknown-error] if !queries-in-between
+                    [\save-conflict, queries-in-between]
+                match err
+                | \save-conflict => @set-state {dialog: \save-conflict, queries-in-between}
+                | _ => alert "Error: #{err}, #{response-text}"
     
+    # returns a list of document properties (from current UIState) that diverged from the remote document
+    # changes-made :: a -> [String]
     changes-made: ->
 
         # there are no changes made if the query does not exist on the server 
@@ -511,34 +479,19 @@ module.exports = React.create-class do
         <[query transformation presentation parameters queryTitle dataSourceCue]>
             |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
 
-    save: (callback) ->
-        {
-            query-id
-            branch-id
-            data-source-cue
-            query
-            query-title
-            transformation
-            presentation
-            parameters
-            editor-width
-            popup-left
-            popup
-            queries-in-between
-            dialog
-        } = @state
-
+    # converts the current UIState to Document & POST's it as a "save" request to the server
+    # save :: (Document -> Void) -> Void
+    save: (callback) !->
         if @changes-made!.length == 0
-            callback @document-from-state! if !!callback
-            return
+            return callback @document-from-state! if !!callback
 
         uid = generate-uid! 
-        {query-id, tree-id}:document = @document-from-state!
+        {query-id, tree-id, parent-id}:document = @document-from-state!
 
-        # a new query-id is generate at the time of save, parent-id is set to the old query-id
+        # a new query-id is generated at the time of save, parent-id is set to the old query-id
         # expect in the case of a forked-query (whose parent-id is saved in the local-storage at the time of fork)
         @POST-document do 
-            {} <<< document <<< {
+            {} <<< document <<<
                 query-id: uid
                 parent-id: switch @props.params.branch-id
                     | \local => null
@@ -546,20 +499,17 @@ module.exports = React.create-class do
                     | _ => query-id
                 branch-id: if (@props.params.branch-id.index-of \local) == 0 then uid else @props.params.branch-id
                 tree-id: tree-id or uid
-            }
             callback
 
-    save-snapshot: ->
-        {branch-id, query-id}:saved-document <~ @save
-        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
-
     # save to client storage only if the document has loaded
-    # save-to-client-storage :: () -> Void
+    # save-to-client-storage :: a -> Void
     save-to-client-storage: !-> 
         if !!@state.remote-document
             client-storage.save-document @props.params.query-id, @document-from-state!
 
-    load: (props) ->
+    # loads the document from local cache (if present) or server
+    # load :: Props -> Void
+    load: (props) !->
         {branch-id, query-id}? = props.params
 
         load-document = (query-id, url) ~> 
@@ -586,7 +536,9 @@ module.exports = React.create-class do
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
         load-document query-id, \/apis/defaultDocument
 
-    component-did-mount: ->
+    # React component life cycle method (invoked once the component was renderer to the DOM)
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
 
         # setup auto-completion
         transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
@@ -632,7 +584,9 @@ module.exports = React.create-class do
                 ..add-range range
             cancel-event e
 
-    component-will-receive-props: (props) ->
+    # React component life cycle method (invoked before props are set)
+    # component-will-receive-props :: Props -> Void
+    component-will-receive-props: (props) !->
         # return if branch & query id did not change
         return if props.params.branch-id == @props.params.branch-id and props.params.query-id == @props.params.query-id
 
@@ -641,9 +595,10 @@ module.exports = React.create-class do
 
         @load props    
 
+    # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
-    # component-did-update :: Props -> State -> ()
-    component-did-update: (prev-props, prev-state) ->
+    # component-did-update :: Props -> State -> Void
+    component-did-update: (prev-props, prev-state) !->
         {data-source-cue} = @state
 
         # return if the data-source-cue is not complete or there is no change in the data-source-cue
@@ -681,6 +636,8 @@ module.exports = React.create-class do
         # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
         @completers.push completer if !existing-completer
 
+    # React class method
+    # get-initial-state :: a -> UIState
     get-initial-state: ->
         {
             query-id: null
@@ -703,52 +660,26 @@ module.exports = React.create-class do
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
+    # state-from-document :: Document -> UIState
     state-from-document: ({
-        query-id
-        parent-id
-        branch-id
-        tree-id
-        data-source-cue
-        query-title
-        query
-        transformation
-        presentation
-        parameters
-        ui
+        query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
+        transformation, presentation, parameters, ui
     }?) ->
         {
-            query-id
-            parent-id
-            branch-id
-            tree-id
-            data-source-cue
-            query-title
-            query
-            transformation
-            presentation
-            parameters
+            query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
+            transformation, presentation, parameters
             editor-width: ui?.editor?.width or @state.editor-width
         } <<< editor-heights do 
             ui?.query-editor?.height or @state.query-editor-height
             ui?.transformation-editor?.height or @state.transformation-editor-height
             ui?.presentation-editor?.height or @state.presentation-editor-height
 
+    # document-from-state :: a -> Document
     document-from-state: ->
         {
-            query-id
-            parent-id
-            branch-id
-            tree-id
-            data-source-cue
-            query-title
-            query
-            transformation
-            presentation
-            parameters
-            editor-width
-            query-editor-height
-            transformation-editor-height
-            presentation-editor-height
+            query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
+            transformation, presentation, parameters, editor-width, query-editor-height,
+            transformation-editor-height, presentation-editor-height
         } = @state
         {
             query-id
