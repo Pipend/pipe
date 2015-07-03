@@ -640,10 +640,7 @@ module.exports = React.create-class do
     # get-initial-state :: a -> UIState
     get-initial-state: ->
         {
-            query-id: null
-            parent-id: null
-            branch-id: null
-            tree-id: null
+            query-id: null, parent-id: null, branch-id: null, tree-id: null,
             data-source-cue: {type: \mongodb, kind: \partial-data-source, complete: false}
             query: ""
             query-title: "Untitled query"

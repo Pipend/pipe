@@ -6,7 +6,7 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
         chart = nv.models.scatter-chart!
             .show-dist-x x-axis.show-dist
             .show-dist-y y-axis.show-dist
-            .transition-duration transition-duration
+            # .transition-duration transition-duration
             .color color
             .show-dist-x x-axis.show-dist
             .show-dist-y y-axis.show-dist
@@ -16,7 +16,7 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
 
 
         chart
-            ..scatter.only-circles false
+            # ..scatter.only-circles false
 
             ..tooltip-content (key, , , {point}) -> 
                 tooltip key, point
