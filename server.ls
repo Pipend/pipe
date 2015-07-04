@@ -6,7 +6,7 @@ express = require \express
 md5 = require \MD5
 moment = require \moment
 {MongoClient} = require \mongodb
-{any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values, partition, camelize} = require \prelude-ls
+{any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values, partition, camelize, sort} = require \prelude-ls
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
@@ -416,7 +416,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
 
 # api :: save query
-app.post \/apis/save, (req, res)->
+app.post \/apis/save, (req, res) ->
 
     err, results <- query-database.collection \queries .aggregate do 
         * $match:
