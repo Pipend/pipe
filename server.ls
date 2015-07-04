@@ -114,22 +114,31 @@ app.get \/apis/defaultDocument, (req, res) ->
         err, results <- query-database.collection \queries .aggregate do 
             * $match: {status: true} <<< (if !!req.params.branch-id  then {branch-id: req.params.branch-id} else {})
             * $sort: _id : 1
+            * $group: 
+                _id: \$branchId
+                branch-id: $last: \$branchId
+                query-id: $last: \$queryId
+                query-title: $last: \$queryTitle
+                data-source-cue: $last: \$dataSourceCue
+                presentation: $last: \$presentation
+                tags: $last: \$tags
+                user: $last: \$user
+                creation-time: $last: \$creationTime            
             * $project:
-                _id: 1
+                _id: 0
                 branch-id: 1
                 query-id: 1
                 query-title: 1
-                data-source: 1
+                data-source-cue: 1
+                tags: 1
                 user: 1
                 creation-time: 1
+
         return die res, err if !!err
         res.set \Content-type, \application/json
         res.end pretty do 
             results
-                |> group-by (.branch-id)
-                |> Obj.map maximum-by (.creation-time) 
-                |> obj-to-pairs
-                |> map ([branch-id, latest-query]) -> 
+                |> map ({branch-id}:latest-query) -> 
                     {
                         branch-id
                         latest-query
