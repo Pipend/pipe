@@ -17,6 +17,16 @@ server-config = {
         connection-name: \local
         database: \pipe
         collection: \queries
+    # the js-store uses javascript object for caching & does not persist across application restarts
+    # cache-store:
+    #    type: \js-store
+    #    expires-in: 2 * 24 * 60 * 60 # = 2 days
+    cache-store:
+        type: \redis-store
+        host: \localhost
+        port: 6379
+        database: 10
+        expires-in: 2 * 24 * 60 * 60 # = 2 days
     http-port: 4081
     mongo-connection-opitons:
         auto_reconnect: true
