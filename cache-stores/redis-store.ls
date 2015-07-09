@@ -3,7 +3,7 @@ redis = require \redis
 {cache-store} = require \../config
 {host, port, database, expires-in}? = cache-store
 
-# :: DataSource -> p Store
+# p Store
 module.exports = do ->
     res, rej <- new-promise
     redis-client = redis.create-client port, host, {}

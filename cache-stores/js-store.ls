@@ -2,7 +2,7 @@
 {cache-store} = require \../config
 {expires-in}? = cache-store
 
-# a -> p Store
+# p Store
 module.exports = do ->
 
     store = {}
