@@ -6,7 +6,7 @@ SimpleButton = require \./SimpleButton.ls
 module.exports = (fields) ->
     React.create-class do
         render: ->
-            div {class-name: 'mongodb complete data-source-cue'},
+            div {class-name: 'complete data-source-cue'},
                 fields |> map (key) ~>
                     React.create-element do
                         LabelledTextField

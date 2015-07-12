@@ -32,6 +32,7 @@
     "moment": "^2.10.0",
     "mongodb": "^1.4.34",
     "mssql": "^2.1.5",
+    "mysql": "^2.7.0",
     "notifyjs": "^1.2.5",
     "nvd3": "git+https://github.com/novus/nvd3.git#v1.8.1",
     "pg": "^4.4.0",

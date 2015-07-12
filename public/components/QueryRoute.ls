@@ -10,6 +10,7 @@ ui-protocol =
     multi: require \../query-types/multi/ui-protocol.ls
     curl: require \../query-types/curl/ui-protocol.ls
     postgresql: require \../query-types/postgresql/ui-protocol.ls
+    mysql: require \../query-types/mysql/ui-protocol.ls
 $ = require \jquery-browserify
 window.d3 = require \d3
 {compile-and-execute-livescript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
