@@ -8,6 +8,7 @@ ui-protocol =
     mssql: require \../query-types/mssql/ui-protocol.ls
     multi: require \../query-types/multi/ui-protocol.ls
     curl: require \../query-types/curl/ui-protocol.ls
+    postgresql: require \../query-types/postgresql/ui-protocol.ls
     
 module.exports = React.create-class {
 
@@ -71,7 +72,7 @@ module.exports = React.create-class {
                             connection-kind: value
                             complete: complete-by-default query-type
 
-            # renders a new data-source component based on the value of the "query-type" dropdown
+            # renders a new data-source component based on the value of the "connection-kind" dropdown
             if @props.data-source-cue.connection-kind != \connection-string
                 data-source-cue-component-name = 
                     | @props.data-source-cue.connection-kind == \pre-configured => \partial-data-source-cue-component 
