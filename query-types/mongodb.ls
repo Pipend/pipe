@@ -83,16 +83,9 @@ export keywords = (data-source) ->
 
 # convert-query-to-valid-livescript :: String -> String
 convert-query-to-valid-livescript = (query) ->
-    lines = query.split (new RegExp "\\r|\\n")
-        |> filter -> 
-            line = it.trim!
-            !(line.length == 0 or line.0 == \#)
-    lines = [0 til lines.length] 
-        |> map (i)-> 
-            line = lines[i]
-            line = (if i > 0 then "},{" else "") + line if line.0 == \$
-            line
-    "[{#{lines.join '\n'}}]"
+    lines = (str) -> str.split '\n'
+    "aggregate do \n" + ((foldr1 (+)) . (map ((x) -> "    #{x}\n")) . lines) query
+
 
 # get-context :: a -> Context
 export get-context = ->
@@ -209,7 +202,15 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                 computation: ->
                     aggregation-query <- bindP match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
-                        | _ => compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context
+                        | _ => 
+                            compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context <<< {
+                                aggregate: (...args) -> args
+                            } <<< (
+                                # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
+                                ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"] 
+                                |> map -> ["#it", (hash) -> "#it": hash]
+                                |> pairs-to-obj
+                            )
                     execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
