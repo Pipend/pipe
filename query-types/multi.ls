@@ -15,7 +15,7 @@ export get-context = ->
 
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, parameters) -->
+export execute = (query-database, data-source, query, transpilation, parameters) -->
     
     # generate-op-id :: () -> String
     generate-op-id = -> "#{Math.floor Math.random! * 1000}"

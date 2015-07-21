@@ -14,7 +14,7 @@ export get-context = ->
 
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, parameters) -->
+export execute = (query-database, data-source, query, transpilation, parameters) -->
     {shell-command, parse} = require \./shell-command-parser
     result = parse shell-command, query
     return (new-promise (, rej) -> rej new Error "Parsing Error #{result.0.1}") if !!result.0.1
