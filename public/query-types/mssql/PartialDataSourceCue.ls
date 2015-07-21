@@ -13,7 +13,7 @@ module.exports = React.create-class {
             | typeof (@state.connections |> find (.value == connection-name)) == \undefined => [label: "- (#{connection-name})", value: connection-name]
             | _ => []
         connections ++= @state.connections |> sort-by (.label)
-        div {class-name: 'mssql partial data-source-cue'},
+        div {class-name: "#{@props.data-source-cue.query-type} partial data-source-cue"},
             React.create-element do
                 LabelledDropdown
                 label: \connection
@@ -41,6 +41,6 @@ module.exports = React.create-class {
         connections: []
 
     component-did-mount: ->
-        ($.getJSON \/apis/queryTypes/mssql/connections, '') .done ({connections or []}) ~> @set-state {connections}
+        ($.getJSON "/apis/queryTypes/#{@props.data-source-cue.query-type}/connections", '') .done ({connections or []}) ~> @set-state {connections}
 
 }

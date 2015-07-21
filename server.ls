@@ -114,22 +114,31 @@ app.get \/apis/defaultDocument, (req, res) ->
         err, results <- query-database.collection \queries .aggregate do 
             * $match: {status: true} <<< (if !!req.params.branch-id  then {branch-id: req.params.branch-id} else {})
             * $sort: _id : 1
+            * $group: 
+                _id: \$branchId
+                branch-id: $last: \$branchId
+                query-id: $last: \$queryId
+                query-title: $last: \$queryTitle
+                data-source-cue: $last: \$dataSourceCue
+                presentation: $last: \$presentation
+                tags: $last: \$tags
+                user: $last: \$user
+                creation-time: $last: \$creationTime            
             * $project:
-                _id: 1
+                _id: 0
                 branch-id: 1
                 query-id: 1
                 query-title: 1
-                data-source: 1
+                data-source-cue: 1
+                tags: 1
                 user: 1
                 creation-time: 1
+
         return die res, err if !!err
         res.set \Content-type, \application/json
         res.end pretty do 
             results
-                |> group-by (.branch-id)
-                |> Obj.map maximum-by (.creation-time) 
-                |> obj-to-pairs
-                |> map ([branch-id, latest-query]) -> 
+                |> map ({branch-id}:latest-query) -> 
                     {
                         branch-id
                         latest-query
@@ -255,6 +264,15 @@ app.post \/apis/execute, (req, res) ->
         execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id
     if !!err then die res, err else res.end json result
 
+# partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
+partition-data-source-cue-params = (query) ->
+    query
+        |> obj-to-pairs 
+        |> partition (0 ==) . (.0.index-of 'dsc-') 
+        |> ([ds, qs]) -> 
+            [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
+                |> map pairs-to-obj
+
 # api :: execute query
 # retrieves the query from query-id or branch-id and returns the execution result
 # /apis/branches/:branchId/execute
@@ -276,12 +294,7 @@ app.post \/apis/execute, (req, res) ->
                 get-latest-query-in-branch query-database, branch-id
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [data-source-cue-params, parameters] = req.parsed-query 
-                |> obj-to-pairs 
-                |> partition (0 ==) . (.0.index-of 'dsc-') 
-                |> ([ds, qs]) -> 
-                    [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
-                        |> map pairs-to-obj
+            [data-source-cue-params, parameters] = partition-data-source-cue-params req.parsed-query 
 
             # get the complete data-source which includes the query-type
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
@@ -329,19 +342,22 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, {data-source-cue, branch-id, query-id, query-title, query, transformation, parameters}? <- to-callback do ->
-            return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
-            get-latest-query-in-branch query-database, req.params.branch-id
+        err, [data-source, {branch-id, query-id, query-title, query, transformation}:document, parsed-query-string] <- to-callback do ->
+            {data-source-cue}:document <- bindP do ->
+                return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
+                get-latest-query-in-branch query-database, req.params.branch-id
+            [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
+            data-source <- bindP (extract-data-source {} <<< data-source-cue <<< data-source-cue-params)
+            returnP [data-source, document, parsed-query-string]
         return die res, err if !!err
 
         filename = query-title.replace /\s/g, '_'
 
         if format in text-formats
             err, transformed-result <- to-callback do ->
-                {timeout}:data-source <- bindP (extract-data-source data-source-cue)
-                [req, res] |> each (.connection.set-timeout timeout ? 90000)
-                {result} <- bindP (execute query-database, data-source, query, req.parsed-query, cache, query-id)
-                transformed-result <- bindP (transform result, transformation, req.parsed-query)
+                [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
+                {result} <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id)
+                transformed-result <- bindP (transform result, transformation, parsed-query-string)
                 returnP transformed-result
             return die res, err if !!err
 
@@ -381,8 +397,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             # compose the url for executing the query
             err, query-params <- to-callback do -> 
                 if snapshot
-                    {query-type}:data-source <- bindP (extract-data-source data-source-cue)
-                    compile-parameters query-type, parameters
+                    compile-parameters data-source.query-type, document.parameters
                 else 
                     returnP req.query
             open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"

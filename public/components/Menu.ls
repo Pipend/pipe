@@ -10,13 +10,14 @@ module.exports = React.create-class {
         div {class-name: \menu},            
             @.props.children
             div {class-name: \buttons},
-                @.props.items |> map ({enabled, action, hotkey, icon, label, highlight, type}:item) ~>
+                @.props.items |> map ({pressed, enabled, action, hotkey, icon, label, highlight, type}:item) ~>
 
-                    # using ref for accessing the anchor tag from hotkey listener
+                    # using ref for accessing the anchor tag from action listener
                     ref = label.replace /\s/g, '' .to-lower-case!
                     
                     action-listener = (e) ~>
-                        action @.refs[ref].get-DOM-node!.offset-left
+                        {offset-left, offset-width}:anchor-tag = @.refs[ref].get-DOM-node!
+                        action offset-left, offset-width
                         cancel-event e
 
                     if !!hotkey
@@ -28,6 +29,7 @@ module.exports = React.create-class {
                             key: ref
                             ref
                             style: (if !!highlight then {border-top: "1px solid #{highlight}"} else {}) <<< (if enabled then {} else {opacity: 0.5})
+                            class-name: if pressed then \pressed else ''
                         } <<< if enabled then {on-click: action-listener} else {}
                         match type
                             | \toggle => React.create-element Checkbox, {checked: item.toggled}

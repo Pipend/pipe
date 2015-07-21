@@ -11,12 +11,42 @@ server-config = {
                 port: 27017            
                 allow-disk-use: true
                 timeout: 1000*60*10
+        mssql: 
+            local:
+                host: ''
+                user: ''
+                password: ''
+                default-database: ''
+        postgresql:
+            local:
+                host: ''
+                port: ''
+                user: ''
+                password: ''
+                default-database: ''
+        mysql:
+            local:
+                host: ''
+                user: ''
+                password: ''
+                default-database: ''
     default-data-source:
         connection-kind: \pre-configured
         query-type: \mongodb
         connection-name: \local
         database: \pipe
         collection: \queries
+        complete: true
+    # the js-store uses javascript object for caching & does not persist across application restarts
+    # cache-store:
+    #    type: \js-store
+    #    expires-in: 2 * 24 * 60 * 60 # = 2 days
+    cache-store:
+        type: \redis-store
+        host: \localhost
+        port: 6379
+        database: 10
+        expires-in: 2 * 24 * 60 * 60 # = 2 days
     http-port: 4081
     mongo-connection-opitons:
         auto_reconnect: true

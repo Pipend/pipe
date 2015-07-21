@@ -1,5 +1,5 @@
 moment = require \moment
-{Obj, average, concat-map, drop, each, filter, find, foldr1, id, map, maximum, minimum, obj-to-pairs, sort, sum, tail, take, unique} = require \prelude-ls
+{Obj, average, concat-map, drop, each, filter, find, foldr1, id, keys, map, maximum, minimum, obj-to-pairs, sort, sum, tail, take, unique} = require \prelude-ls
 
 parse-date = (s) -> new Date s
 today = -> ((moment!start-of \day .format "YYYY-MM-DDT00:00:00.000") + \Z) |> parse-date
@@ -50,6 +50,11 @@ module.exports = ->
         to-timestamp: (s) -> (moment (new Date s)).unix! * 1000
 
         today: today!
+
+        transpose: (arr) ->
+            keys arr.0
+                |> map (column) ->
+                    arr |> map (row) -> row[column]
 
         # credit: https://gist.github.com/Gozala/1697037
         tco: (fn) ->

@@ -2,13 +2,15 @@ AceEditor = require \./AceEditor.ls
 DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
+{all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
 {DOM:{div, input, label, span, select, option, button}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
     multi: require \../query-types/multi/ui-protocol.ls
     curl: require \../query-types/curl/ui-protocol.ls
+    postgresql: require \../query-types/postgresql/ui-protocol.ls
+    mysql: require \../query-types/mysql/ui-protocol.ls
 $ = require \jquery-browserify
 window.d3 = require \d3
 {compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
@@ -21,6 +23,8 @@ ConflictDialog = require \./ConflictDialog.ls
 _ = require \underscore
 ace-language-tools = require \brace/ext/language_tools 
 notify = require \notifyjs
+{key} = require \keymaster
+{cancel-event} = require \../utils.ls
 
 # returns dasherized collection of keywords for auto-completion
 keywords-from-object = (object) ->
@@ -38,9 +42,10 @@ convert-to-ace-keywords = (keywords, meta, prefix) ->
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
 # returns a hash of editor-heights used in get-initial-state and state-from-document
-# Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
+# editor-heights :: Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
 editor-heights = (query-editor-height = 300, transformation-editor-height = 324, presentation-editor-height = 240) ->
-    viewport-height = window.inner-height - 50 - 3 * (40 + 5) # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+    # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
+    viewport-height = window.inner-height - 50 - 3 * (40 + 5)
     editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
         s = sum ds
         ds |> map round . (viewport-height *) . (/s)
@@ -56,67 +61,84 @@ module.exports = React.create-class do
 
     mixins: [Navigation]
 
+    # React class method
+    # render :: a -> VirtualDOM
     render: ->
         {
-            query-id
-            branch-id
-            tree-id
-            data-source-cue
-            query
-            query-title
-            transformation
-            presentation
-            parameters
-            editor-width
-            popup-left
-            popup
-            queries-in-between
-            dialog
-            remote-document
-            cache
-            from-cache
-            executing-op
-            displayed-on
-            execution-error
-            execution-end-time
+            query-id, branch-id, tree-id, data-source-cue, query, query-title, 
+            transformation, presentation, parameters, editor-width, popup-left, 
+            popup, queries-in-between, dialog, remote-document, cache, from-cache, 
+            executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
         } = @state
 
         # MENU ITEMS
-        toggle-popup = (button-left, popup-name) ~> @set-state do
-            popup-left: button-left - 100
-            popup: if @state.popup == popup-name then '' else popup-name
+        toggle-popup = (popup-name, button-left, button-width) ~~>
+            @set-state do
+                popup-left: button-left + button-width / 2
+                popup: if @state.popup == popup-name then '' else popup-name
 
         saved-query = !!@props.params.branch-id and !(@props.params.branch-id in <[local localFork]>) and !!@props.params.query-id
 
         menu-items = 
-            * icon: \n, label: \New, action: ~> window.open "/branches", \_blank
-            * icon: \f, label: \Fork, enabled: saved-query, action: ~> @fork!
-            * hotkey: "command + s", icon: \s, label: \Save, action: ~> @save!            
-            * type: \toggle
+            * label: \New, icon: \n, action: ~> window.open "/branches", \_blank
+            * label: \Fork
+              icon: \f
+              enabled: saved-query
+              action: ~> 
+                  # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
+                  {query-id, parent-id, tree-id, query-title}:document? = @document-from-state!
+                  throw "cannot fork a local query, please save the query before forking it" if @props.params.branch-id in <[local localFork]>
+
+                  # create a new copy of the document, update as required then save it to local storage
+                  {query-id}:forked-document = {} <<< document <<< {
+                      query-id: generate-uid!
+                      parent-id: query-id
+                      branch-id: \localFork
+                      tree-id
+                      query-title: "Copy of #{query-title}"
+                  }
+                  client-storage.save-document query-id, forked-document
+
+                  # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
+                  window.open "/branches/localFork/queries/#{query-id}", \_blank
+            * label: \Save, hotkey: "command + s", icon: \s, action: ~> @save!
+            * label: \Cache
               icon: \c
-              label: \Cache
               highlight: if from-cache then 'rgba(0,255,0,1)' else null
               toggled: cache
+              type: \toggle
               action: ~> @set-state {cache: !cache}
-            * hotkey: "command + enter"
+            * label: \Execute
               icon: \e
-              label: \Execute
               enabled: data-source-cue.complete
+              hotkey: "command + enter"
               show: !executing-op
-              action: ~> @set-state {executing-op: @execute!}
-            * icon: \ca
-              label: \Cancel
+              action: ~> @execute!
+            * label: \Cancel
+              icon: \ca
               show: !!executing-op
               action: ~> $.get "/apis/ops/#{executing-op}/cancel"
-            * icon: \d, label: 'Data Source', action: (button-left) ~> toggle-popup button-left, \data-source-cue-popup
-            * icon: \p, label: \Parameters, action: (button-left) ~> toggle-popup button-left, \parameters-popup
-            * icon: \t, label: \Tags, action: ~>
-            * icon: \r, label: \Reset, enabled: saved-query, action: ~> 
-                <~ @set-state remote-document
+            * label: 'Data Source'
+              icon: \d
+              pressed: \data-source-cue-popup == popup
+              action: toggle-popup \data-source-cue-popup
+            * label: \Parameters
+              icon: \p
+              pressed: \parameters-popup == popup
+              action: toggle-popup \parameters-popup
+            * label: \Tags
+              icon: \t
+              pressed: \tags-popup == popup
+              action: toggle-popup \tags-popup
+            * label: \Reset
+              icon: \r
+              enabled: saved-query
+              action: ~> 
+                <~ @set-state (@state-from-document remote-document)
                 @save-to-client-storage!
-            * icon: \t
-              label: \Diff
+            * label: \Diff
+              icon: \t
               enabled: saved-query
               highlight: do ~>
                 return null if !saved-query
@@ -125,10 +147,20 @@ module.exports = React.create-class do
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
                 'rgba(255,255,0,1)'
               action: ~> window.open "#{window.location.href}/diff", \_blank
-            * icon: \h, label: \Share, enabled: saved-query, action: (button-left) ~> toggle-popup button-left, \share-popup
-            * icon: \s, label: \Snapshot, enabled:saved-query, action: @save-snapshot
-            * icon: \v, label: \VCS, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
+            * label: \Share
+              icon: \h
+              enabled: saved-query
+              pressed: \share-popup == popup
+              action: toggle-popup \share-popup
+            * label: \Snapshot
+              icon: \s
+              enabled:saved-query
+              action: ~>
+                  {branch-id, query-id}:saved-document <~ @save
+                  $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
+            * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
             * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
+
 
         div {class-name: \query-route},
 
@@ -144,15 +176,21 @@ module.exports = React.create-class do
                 div {class-name: \logo, on-click: ~> @transition-to "/"}
 
             # POPUPS 
-            match popup
+
+            # left-from-width :: Number -> Number
+            left-from-width = (width) ~>
+                x = popup-left - width / 2
+                max-x = (x + width)
+                viewport-width = @get-DOM-node!.offset-width
+                diff = max-x - viewport-width
+                if diff > 0 then x - diff else x
+
+            switch popup
             | \data-source-cue-popup =>
                 React.create-element do
                     DataSourceCuePopup
                     {
-                        left: (width) ~>
-                            viewport-width = @get-DOM-node!.offset-width
-                            diff = viewport-width - popup-left
-                            if diff < width then (viewport-width - width - 10) else popup-left                        
+                        left: left-from-width
                         data-source-cue: data-source-cue
                         on-change: (data-source-cue) ~> 
                             <~ @set-state {data-source-cue}
@@ -160,7 +198,7 @@ module.exports = React.create-class do
                     }
 
             | \parameters-popup =>
-                div {class-name: 'parameters-popup popup', style: {left: popup-left}},
+                div {class-name: 'parameters-popup popup', style: {left: left-from-width 400}},
                     React.create-element AceEditor, do
                         editor-id: "parameters-editor"
                         value: @state.parameters
@@ -176,10 +214,7 @@ module.exports = React.create-class do
                     SharePopup
                     {
                         host: window.location.host
-                        left: (width) ~>
-                            viewport-width = @get-DOM-node!.offset-width
-                            diff = viewport-width - popup-left
-                            if diff < width then (viewport-width - width - 10) else popup-left
+                        left: left-from-width
                         query-id
                         branch-id
                         parameters: if !!err then {} else parameters-object
@@ -200,21 +235,9 @@ module.exports = React.create-class do
                                 on-resolution-select: (resolution) ~>
                                     uid = generate-uid!
                                     match resolution
-                                    | \new-commit =>
-                                        @POST-document {} <<< @document-from-state! <<< {
-                                            query-id: uid
-                                            parent-id: queries-in-between.0
-                                            branch-id
-                                            tree-id
-                                        }
-                                    | \fork =>
-                                        @POST-document {} <<< @document-from-state! <<< {
-                                            query-id: uid
-                                            parent-id: query-id
-                                            branch-id: uid
-                                            tree-id
-                                        }
-                                    | \reset => @set-state remote-document
+                                    | \new-commit => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
+                                    | \fork => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
+                                    | \reset => @set-state (@state-from-document remote-document)
                                     @set-state {dialog: null, queries-in-between: null}
                             }
                     | \settings =>
@@ -348,123 +371,104 @@ module.exports = React.create-class do
                                     div null,
                                         label null, title
                                         span null, value
-        
-    update-presentation-size: ->
+    
+    # update-presentation-size :: a -> Void
+    update-presentation-size: !->
         left = @state.editor-width + 10
-        @refs.presentation-container.get-DOM-node!.style <<< {
-            left
+        @refs.presentation-container.get-DOM-node!.style <<<
+            left: left
             width: window.inner-width - left
             height: window.inner-height - @refs.menu.get-DOM-node!.offset-height
-        }
+    
+    # execute :: a -> Void
+    execute: !->
+        return if !!@state.executing-op
 
-    fork: ->
-        # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
-        {query-id, parent-id, tree-id, query-title}:document? = @document-from-state!
-        throw "cannot fork a local query, please save the query before forking it" if @props.params.branch-id in <[local localFork]>
+        {data-source-cue, query, transformation, presentation, parameters, cache} = @state
 
-        # create a new copy of the document, update as required then save it to local storage
-        {query-id}:forked-document = {} <<< document <<< {
-            query-id: generate-uid!
-            parent-id: query-id
-            branch-id: \localFork
-            tree-id
-            query-title: "Copy of #{query-title}"
-        }
-        client-storage.save-document query-id, forked-document
-
-        # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
-        window.open "/branches/localFork/queries/#{query-id}", \_blank    
-
-    # execute :: () -> String
-    execute: ->
-        {
-            data-source-cue
-            query
-            transformation
-            presentation
-            parameters
-            cache
-            executing-op
-        } = @state
-
-        return executing-op if !!executing-op        
-
+        # display-error :: Error -> Void
         display-error = (err) !~>
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @refs.presentation.get-DOM-node! .empty! .append pre
-            @set-state {from-cache: false, execution-error: true}
+            @set-state {execution-error: true}
 
-        op-id = generate-uid!
-        $.ajax {
-            type: \post
-            url: \/apis/execute
-            content-type: 'application/json; charset=utf-8'
-            data-type: \json
-            data: JSON.stringify {op-id, document: @document-from-state!, cache}
-            success: ({result, from-cache, execution-end-time, execution-duration}) ~>
+        # process-query-result :: Result -> Void
+        process-query-result = (result) !~>
+            
+            # clean existing presentation
+            $ @refs.presentation.get-DOM-node! .empty!
 
-                keywords-from-query-result = switch 
-                    | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
-                    | is-type 'Object', result => get-all-keys-recursively (-> true), result
-                    | _ => []
+            if !!parameters and parameters.trim!.length > 0
+                [err, parameters-object] = compile-and-execute-livescript parameters, {}
+                console.log err if !!err
 
-                # clean existing presentation
-                $ @refs.presentation.get-DOM-node! .empty!
+            parameters-object ?= {}
 
-                if !!parameters and parameters.trim!.length > 0
-                    [err, parameters-object] = compile-and-execute-livescript parameters, {}
-                    console.log err if !!err
+            compile = switch @state.transpilation-language
+                | 'livescript' => compile-and-execute-livescript 
+                | 'javascript' => compile-and-execute-javascript
+            
 
-                parameters-object ?= {}
+            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
+            return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
+            
+            try
+                transformed-result = func result
+            catch ex
+                return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
-                compile = switch @state.transpilation-language
-                    | 'livescript' => compile-and-execute-livescript 
-                    | 'javascript' => compile-and-execute-javascript
-                
+            [err, func] = compile do 
+                "(#presentation\n)"
+                {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
+            return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
+            
+            try
+                func @refs.presentation.get-DOM-node!, transformed-result
+            catch ex
+                return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
-                [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
-                return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
-                
-                try
-                    transformed-result = func result
-                catch ex
-                    return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
+            @set-state {execution-error: false}
 
-                [err, func] = compile do 
-                    "(#presentation\n)"
-                    {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
-                return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
-                
-                try
-                    func @refs.presentation.get-DOM-node!, transformed-result
-                catch ex
-                    return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
+        # use client cache if the query or its dependencies did not change
+        if cache and !!@cached-execution and (all (~> @state[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue]>)
+            @set-state {executing-op: generate-uid!}
+            {result, execution-end-time} = @cached-execution.result-with-metadata
+            process-query-result result
+            set-timeout do
+                ~> @set-state {executing-op: "", displayed-on: Date.now!, from-cache: true, execution-duration: 0, execution-end-time}
+                0
 
-                <~ @set-state {
-                    from-cache
-                    execution-end-time
-                    execution-duration
-                    keywords-from-query-result
-                    execution-error: false
-                }
-                if document[\webkitHidden]
-                    notification = new notify do 
-                        'Pipe: query execution complete'
-                        body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
-                        notify-click: -> window.focus!
-                    notification.show!
+        # POST the document to the server for execution & cache the response
+        else
+            op-id = generate-uid!
+            $.ajax {
+                type: \post
+                url: \/apis/execute
+                content-type: 'application/json; charset=utf-8'
+                data-type: \json
+                data: JSON.stringify {op-id, document: @document-from-state!, cache}
+                success: ({result, from-cache, execution-end-time, execution-duration}:result-with-metadata) ~>
+                    @cached-execution = {document: @document-from-state!, result-with-metadata}
+                    process-query-result result
+                    keywords-from-query-result = switch 
+                        | is-type 'Array', result =>  result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                        | is-type 'Object', result => get-all-keys-recursively (-> true), result
+                        | _ => []
+                    <~ @set-state {from-cache, execution-end-time, execution-duration, keywords-from-query-result}
+                    if document[\webkitHidden]
+                        notification = new notify do 
+                            'Pipe: query execution complete'
+                            body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
+                            notify-click: -> window.focus!
+                        notification.show!
+                error: ({response-text}?) -> display-error response-text
+                complete: ~> @set-state {displayed-on: Date.now!, executing-op: ""}
+            }
+            @set-state {executing-op: op-id}
 
-            error: ({response-text}?) ->
-                display-error response-text
-
-            complete: ~>
-                @set-state {displayed-on: Date.now!, executing-op: ""}                
-
-        }
-        op-id
-
-    POST-document: (document-to-save, callback) ->
+    # POST-document :: Document -> (Document -> Void) -> Void
+    POST-document: (document-to-save, callback) !->
         $.ajax {
             type: \post
             url: \/apis/save
@@ -474,18 +478,24 @@ module.exports = React.create-class do
         }
             ..done ({query-id, branch-id}:saved-document) ~>
                 client-storage.delete-document @props.params.query-id
-                @set-state {} <<< saved-document <<< {remote-document: saved-document}
+                @set-state {} <<< (@state-from-document saved-document) <<< {remote-document: saved-document}
                 @transition-to "/branches/#{branch-id}/queries/#{query-id}"
                 callback saved-document if !!callback
-            ..fail ({response-text}:err?) ~>
-                return alert 'SERVER ERROR' if !response-text
-                try
-                    {queries-in-between}? = JSON.parse response-text
-                catch exception
-                    return alert 'SERVER ERROR'
-                return alert 'SERVER ERROR' if !queries-in-between
-                @set-state {dialog: \save-conflict, queries-in-between}
+            ..fail ({response-text}?) ~>
+                [err, queries-in-between]? = do ->
+                    return [\empty-error] if !response-text
+                    try
+                        {queries-in-between}? = JSON.parse response-text
+                    catch exception
+                        return [\parse-error]
+                    return [\unknown-error] if !queries-in-between
+                    [\save-conflict, queries-in-between]
+                match err
+                | \save-conflict => @set-state {dialog: \save-conflict, queries-in-between}
+                | _ => alert "Error: #{err}, #{response-text}"
     
+    # returns a list of document properties (from current UIState) that diverged from the remote document
+    # changes-made :: a -> [String]
     changes-made: ->
 
         # there are no changes made if the query does not exist on the server 
@@ -495,34 +505,19 @@ module.exports = React.create-class do
         <[query transformation presentation parameters queryTitle dataSourceCue]>
             |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
 
-    save: (callback) ->
-        {
-            query-id
-            branch-id
-            data-source-cue
-            query
-            query-title
-            transformation
-            presentation
-            parameters
-            editor-width
-            popup-left
-            popup
-            queries-in-between
-            dialog
-        } = @state
-
+    # converts the current UIState to Document & POST's it as a "save" request to the server
+    # save :: (Document -> Void) -> Void
+    save: (callback) !->
         if @changes-made!.length == 0
-            callback @document-from-state! if !!callback
-            return
+            return callback @document-from-state! if !!callback
 
         uid = generate-uid! 
-        {query-id, tree-id}:document = @document-from-state!
+        {query-id, tree-id, parent-id}:document = @document-from-state!
 
-        # a new query-id is generate at the time of save, parent-id is set to the old query-id
+        # a new query-id is generated at the time of save, parent-id is set to the old query-id
         # expect in the case of a forked-query (whose parent-id is saved in the local-storage at the time of fork)
         @POST-document do 
-            {} <<< document <<< {
+            {} <<< document <<<
                 query-id: uid
                 parent-id: switch @props.params.branch-id
                     | \local => null
@@ -530,20 +525,17 @@ module.exports = React.create-class do
                     | _ => query-id
                 branch-id: if (@props.params.branch-id.index-of \local) == 0 then uid else @props.params.branch-id
                 tree-id: tree-id or uid
-            }
             callback
 
-    save-snapshot: ->
-        {branch-id, query-id}:saved-document <~ @save
-        $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
-
     # save to client storage only if the document has loaded
-    # save-to-client-storage :: () -> Void
+    # save-to-client-storage :: a -> Void
     save-to-client-storage: !-> 
         if !!@state.remote-document
             client-storage.save-document @props.params.query-id, @document-from-state!
 
-    load: (props) ->
+    # loads the document from local cache (if present) or server
+    # load :: Props -> Void
+    load: (props) !->
         {branch-id, query-id}? = props.params
 
         load-document = (query-id, url) ~> 
@@ -552,8 +544,8 @@ module.exports = React.create-class do
                 ..done (document) ~>
                     # gets the state from the document, and stores a copy of it under the key "remote-document"
                     # state.remote-document is used to check if the client copy has diverged
-                    remote-document = @state-from-document document                    
-                    <~ @set-state {} <<< (if !!local-document then @state-from-document local-document else remote-document) <<< {remote-document}
+                    remote-document = document
+                    <~ @set-state {} <<< (@state-from-document (if !!local-document then local-document else remote-document)) <<< {remote-document}
                     @update-presentation-size!
                 ..fail ({response-text}?) ~> 
                     alert "unable to load query: #{response-text}"
@@ -570,7 +562,9 @@ module.exports = React.create-class do
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
         load-document query-id, \/apis/defaultDocument
 
-    component-did-mount: ->
+    # React component life cycle method (invoked once the component was renderer to the DOM)
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
 
         # setup auto-completion
         transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
@@ -606,7 +600,19 @@ module.exports = React.create-class do
         @load @props
         notify.request-permission! if notify.needs-permission
 
-    component-will-receive-props: (props) ->
+        # selects presentation content only
+        key 'command + a', (e) ~> 
+            return true if e.target != document.body
+            range = document.create-range!
+                ..select-node-contents @refs.presentation.get-DOM-node!
+            selection = window.get-selection!
+                ..remove-all-ranges!
+                ..add-range range
+            cancel-event e
+
+    # React component life cycle method (invoked before props are set)
+    # component-will-receive-props :: Props -> Void
+    component-will-receive-props: (props) !->
         # return if branch & query id did not change
         return if props.params.branch-id == @props.params.branch-id and props.params.query-id == @props.params.query-id
 
@@ -615,9 +621,10 @@ module.exports = React.create-class do
 
         @load props    
 
+    # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
-    # component-did-update :: Props -> State -> ()
-    component-did-update: (prev-props, prev-state) ->
+    # component-did-update :: Props -> State -> Void
+    component-did-update: (prev-props, prev-state) !->
         {data-source-cue} = @state
 
         # return if the data-source-cue is not complete or there is no change in the data-source-cue
@@ -655,12 +662,11 @@ module.exports = React.create-class do
         # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
         @completers.push completer if !existing-completer
 
+    # React class method
+    # get-initial-state :: a -> UIState
     get-initial-state: ->
         {
-            query-id: null
-            parent-id: null
-            branch-id: null
-            tree-id: null
+            query-id: null, parent-id: null, branch-id: null, tree-id: null,
             data-source-cue: {type: \mongodb, kind: \partial-data-source, complete: false}
             query: ""
             query-title: "Untitled query"
@@ -678,53 +684,26 @@ module.exports = React.create-class do
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
+    # state-from-document :: Document -> UIState
     state-from-document: ({
-        query-id
-        parent-id
-        branch-id
-        tree-id
-        data-source-cue
-        query-title
-        query
-        transformation
-        presentation
-        parameters
-        ui
+        query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
+        transformation, presentation, parameters, ui
     }?) ->
         {
-            query-id
-            parent-id
-            branch-id
-            tree-id
-            data-source-cue
-            query-title
-            query
-            transformation
-            presentation
-            parameters
+            query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
+            transformation, presentation, parameters
             editor-width: ui?.editor?.width or @state.editor-width
         } <<< editor-heights do 
             ui?.query-editor?.height or @state.query-editor-height
             ui?.transformation-editor?.height or @state.transformation-editor-height
             ui?.presentation-editor?.height or @state.presentation-editor-height
 
+    # document-from-state :: a -> Document
     document-from-state: ->
         {
-            query-id
-            parent-id
-            branch-id
-            tree-id
-            data-source-cue
-            query-title
-            query
-            transformation
-            presentation
-            parameters
-            editor-width
-            query-editor-height
-            transformation-editor-height
-            presentation-editor-height
-            transpilation-language
+            query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
+            transformation, presentation, parameters, editor-width, query-editor-height,
+            transformation-editor-height, presentation-editor-height, transpilation-language
         } = @state
         {
             query-id

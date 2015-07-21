@@ -10,7 +10,7 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
         chart = nv.models.multi-bar-chart!
             .x x
             .y y
-            .transition-duration transition-duration
+            # .transition-duration transition-duration
             .reduce-x-ticks reduce-x-ticks
             .rotate-labels rotate-labels
             .show-controls show-controls

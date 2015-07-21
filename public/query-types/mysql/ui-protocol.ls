@@ -1,5 +1,5 @@
-CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host port database collection]>
-PartialDataSourceCue = require \./PartialDataSourceCue.ls
+CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host user password database]>
+PartialDataSourceCue = require \../mssql/PartialDataSourceCue.ls
 
 editor-settings =
     mode: \ace/mode/livescript
