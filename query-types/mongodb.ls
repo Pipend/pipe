@@ -84,7 +84,7 @@ export keywords = (data-source) ->
 # convert-query-to-valid-livescript :: String -> String
 convert-query-to-valid-livescript = (query) ->
     lines = (str) -> str.split '\n'
-    "aggregate do \n" + ((foldr1 (+)) . (map ((x) -> "    #{x}\n")) . lines) query
+    "aggregate do \n" + ((foldr1 (+)) . (map (x) -> "    #{x}\n") . lines) query
 
 
 # get-context :: a -> Context

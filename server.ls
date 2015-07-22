@@ -289,7 +289,7 @@ partition-data-source-cue-params = (query) ->
         err, f <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
-            {query-id, data-source-cue, query, transformation, presentation} <- bindP do ->
+            {query-id, data-source-cue, query, transpilation, transformation, presentation} <- bindP do ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
@@ -300,7 +300,7 @@ partition-data-source-cue-params = (query) ->
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
-            {result} <- bindP (execute query-database, data-source, query, parameters, cache, query-id)
+            {result} <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id)
             return returnP ((res) -> res.end json result) if display == \query
 
             transformed-result <- bindP (transform result, transformation, parameters)

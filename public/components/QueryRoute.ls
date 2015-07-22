@@ -209,7 +209,7 @@ module.exports = React.create-class do
                             @save-to-client-storage-debounced!
 
             | \share-popup =>
-                [err, parameters-object] = compile-and-execute-livescript parameters
+                [err, parameters-object] = compile-and-execute-livescript parameters, {}
                 React.create-element do 
                     SharePopup
                     {
