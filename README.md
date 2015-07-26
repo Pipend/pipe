@@ -13,7 +13,7 @@ server-config = {
                 timeout: 1000*60*10
         mssql: 
             local:
-                host: ''
+                server: ''
                 user: ''
                 password: ''
                 default-database: ''

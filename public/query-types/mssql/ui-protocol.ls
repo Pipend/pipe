@@ -1,4 +1,4 @@
-CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host user password database]>
+CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[server user password database]>
 PartialDataSourceCue = require \./PartialDataSourceCue.ls
 
 editor-settings =
