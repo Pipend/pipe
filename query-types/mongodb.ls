@@ -225,8 +225,8 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
 export default-document = -> 
     {
         query: """
-        $sort: _id: -1 
-        $limit: 20
+        $sort _id: -1 
+        $limit 20
         """
         transformation: "id"
         presentation: "json"
