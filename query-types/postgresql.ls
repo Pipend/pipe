@@ -8,7 +8,7 @@ execute-sql = ({user, password, host, port, database}, query) -->
     client = null
 
     execute-sql-promise = new-promise (res, rej) ->
-        client := new pg.Client "postgres://#{user}:#{password}@#{host}:#{port}/#{database}"
+        client := new pg.Client "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}"
         client.connect (err) ->
             return rej err if !!err 
             err, {rows}? <- client.query query 
