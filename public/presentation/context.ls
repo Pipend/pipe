@@ -103,12 +103,12 @@ download = (type, view, result) -->
 
 json = (view, result) !--> 
     pre = $ "<pre/>"
-        ..html JSON.stringify result, null, 4
+        ..text JSON.stringify result, null, 4
     ($ view).append pre
 
 csv = (view, result) !-->
     pre = $ "<pre/>"
-        ..html json-to-csv result
+        ..text json-to-csv result
     ($ view).append pre
 
 plot-chart = (view, result, chart)->
