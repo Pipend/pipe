@@ -3,73 +3,73 @@
     color rgb(196, 197, 180)
     position absolute
 
-    font-family: "Andale Mono", monospace
-    font-size: 110%
-    margin: 0px !important
+    font-family "Andale Mono", monospace
+    margin 0px !important 
+    font-size 1.1vh
 
     pre
-        font-family: "Andale Mono", monospace
-        font-size: 110%
-        margin: 0px !important
+        font-family "Andale Mono", monospace
+        margin 0px !important
 
     table
         color rgb(196, 197, 180)
+        font-size 1.1vh
 
     svg
-        background-color: white
+        background-color white
         &.correlation-matrix
-            font: 10px sans-serif
-            padding: 10px
+            font 10px sans-serif
+            padding 10px
 
             .axis, .frame
-                shape-rendering: crispEdges
+                shape-rendering crispEdges
 
             .axis 
                 line
-                    stroke: #ddd
+                    stroke #ddd
                 path
-                    display: none
+                    display none
 
             .frame
-                fill: none
-                stroke: #aaa
+                fill none
+                stroke #aaa
 
             circle
-                fill-opacity: .7
+                fill-opacity .7
                 &.hidden
-                    fill: #ccc !important
+                    fill #ccc !important
 
             .extent
-                fill: #000
-                fill-opacity: .125
-                stroke: #fff
+                fill #000
+                fill-opacity .125
+                stroke #fff
 
         .multi-chart
             .hide-y2 .y2 line, .hide-y1 .y1 line
                 display none
 
     .d3-tip
-        background: rgba(0, 0, 0, 0.8)
-        border-radius: 2px
-        color: #fff
-        line-height: 1
-        padding: 12px
+        background rgba(0, 0, 0, 0.8)
+        border-radius 2px
+        color #fff
+        line-height 1
+        padding 12px
     
     .horizontal, .vertical
-        box-sizing: border-box
+        box-sizing border-box
 
     .horizontal
-        border-right: 1px solid #ccc
+        border-right 1px solid #ccc
 
     .regression
         .axis line
-            stroke: black
-            stroke-width: 1
+            stroke black
+            stroke-width 1
 
         .domain
-            fill: none
-            shape-rendering: inherit
-            stroke: #000
+            fill none
+            shape-rendering inherit
+            stroke #000
 
     .vertical
-        border-bottom: 1px solid #ccc
+        border-bottom 1px solid #ccc

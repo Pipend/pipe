@@ -385,6 +385,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                             overflow: \hidden
                         }
                     ->
+                        <- set-timeout _, 1000
                         <- render image-file
                         if snapshot
                             res.end "snapshot saved to #{image-file}"
