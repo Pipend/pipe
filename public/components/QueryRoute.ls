@@ -384,7 +384,7 @@ module.exports = React.create-class do
     execute: !->
         return if !!@state.executing-op
 
-        {data-source-cue, query, transformation, presentation, parameters, cache} = @state
+        {data-source-cue, query, transformation, presentation, parameters, cache, transpilation-language} = @state
 
         # display-error :: Error -> Void
         display-error = (err) !~>
@@ -405,7 +405,7 @@ module.exports = React.create-class do
 
             parameters-object ?= {}
 
-            compile = switch @state.transpilation-language
+            compile = switch transpilation-language
                 | 'livescript' => compile-and-execute-livescript 
                 | 'javascript' => compile-and-execute-javascript
             
@@ -431,7 +431,8 @@ module.exports = React.create-class do
             @set-state {execution-error: false}
 
         # use client cache if the query or its dependencies did not change
-        if cache and !!@cached-execution and (all (~> @state[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue]>)
+        sdocument = @document-from-state!
+        if cache and !!@cached-execution and (all (~> sdocument[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue transpilation]>)
             @set-state {executing-op: generate-uid!}
             {result, execution-end-time} = @cached-execution.result-with-metadata
             process-query-result result
@@ -539,7 +540,7 @@ module.exports = React.create-class do
         {branch-id, query-id}? = props.params
 
         load-document = (query-id, url) ~> 
-            local-document = client-storage.get-document query-id            
+            local-document = client-storage.get-document query-id
             $.getJSON url
                 ..done (document) ~>
                     # gets the state from the document, and stores a copy of it under the key "remote-document"
@@ -687,12 +688,13 @@ module.exports = React.create-class do
     # state-from-document :: Document -> UIState
     state-from-document: ({
         query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
-        transformation, presentation, parameters, ui
+        transformation, presentation, parameters, ui, transpilation
     }?) ->
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
-            transformation, presentation, parameters
+            transformation, presentation, parameters, 
             editor-width: ui?.editor?.width or @state.editor-width
+            transpilation-language: transpilation?.query ? "livescript"
         } <<< editor-heights do 
             ui?.query-editor?.height or @state.query-editor-height
             ui?.transformation-editor?.height or @state.transformation-editor-height

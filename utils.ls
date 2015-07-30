@@ -119,7 +119,7 @@ export execute = (query-database, {query-type, timeout}:data-source, query, tran
     compiled-query-parameters <- bindP (compile-parameters query-type, parameters)
 
     # the cache key
-    key = md5 JSON.stringify {data-source, query, compiled-query-parameters}
+    key = md5 JSON.stringify {data-source, query, compiled-query-parameters, transpilation}
 
     # connect to the cache store (we need the save function for storing the result in cache later)
     {load, save} <- bindP cache-store
