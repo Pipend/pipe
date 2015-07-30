@@ -241,9 +241,11 @@ module.exports = React.create-class do
                                     @set-state {dialog: null, queries-in-between: null}
                             }
                     | \settings =>
-                        div {},
-                            div null, "hello"
+                        div {style: {color: "white", text-align: "right",  transform: "scale(1.5)"}},
+                            div {style: {margin-bottom: "1em"}}, "Select MongoDB query language / Transformation and Presentation language:"
                             select {
+                                style: 
+                                    margin-right: "1em"
                                 value: @state.transpilation-language
                                 on-change: ({current-target:{value}}) ~> 
                                     console.log \value, value
@@ -253,6 +255,8 @@ module.exports = React.create-class do
                                     option {key: k, value: k}, k
 
                             button {
+                                style:
+                                    width: "4em"
                                 on-click: ~>
                                     @set-state {dialog: null}
                             }, "OK"
