@@ -20,6 +20,7 @@ SharePopup = require \./SharePopup.ls
 {Navigation} = require \react-router
 client-storage = require \../client-storage.ls
 ConflictDialog = require \./ConflictDialog.ls
+ClientExternalLibsDialog = require \./ClientExternalLibsDialog.ls
 _ = require \underscore
 ace-language-tools = require \brace/ext/language_tools 
 notify = require \notifyjs
@@ -160,6 +161,7 @@ module.exports = React.create-class do
                   $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
             * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
             * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
+            * icon: \t, label: \Libs, enabled: true, action: (button-left) ~> @set-state {dialog: \libs}
 
 
         div {class-name: \query-route},
@@ -260,6 +262,12 @@ module.exports = React.create-class do
                                 on-click: ~>
                                     @set-state {dialog: null}
                             }, "OK"
+                    | \libs =>
+                      React.create-element do
+                        ClientExternalLibsDialog
+                        {
+
+                        }
 
 
             div {class-name: \content},
