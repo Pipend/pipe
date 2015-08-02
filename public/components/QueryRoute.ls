@@ -263,11 +263,12 @@ module.exports = React.create-class do
                                     @set-state {dialog: null}
                             }, "OK"
                     | \libs =>
-                      React.create-element do
-                        ClientExternalLibsDialog
+                      React.create-element ClientExternalLibsDialog,
                         {
-
-                        }
+                            initial-urls: [""]
+                            on-change: (urls) ~>
+                                console.log \urls, urls
+                        } 
 
 
             div {class-name: \content},

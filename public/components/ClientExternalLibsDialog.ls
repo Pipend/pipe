@@ -1,12 +1,52 @@
-{filter, find, fold, map, sort-by} = require \prelude-ls
-{DOM:{button, circle, div, g, h1, line, path, svg}}:React = require \react
+{filter, find, fold, map, sort-by, zip, take, drop} = require \prelude-ls
+{DOM:{button, div, h1, label, input, a, span}}:React = require \react
 
 module.exports = React.create-class do 
 
     render: ->
-        div { }, @state.urls.map (u) -> button {}, "A"
-        #h1 null, "Hello"
+        
+        div { }, 
+            div { }, 
+                @state.urls `zip` [0 til @state.urls.length]
+                    |> map ([url, index]) ~>
+                        div { style: display: "flex", justify-content: "space-between", width: "200px" },
+                            React.create-element LibInput, {
+                                style: width: "180px"
+                                url: url
+                                on-change: (url) ~> 
+                                    @set-state {urls: do ~> @state.urls[index] = url; @state.urls}
+                            }
+                            if index < 1 then span null, "" else a { 
+                                style: color: "white"
+                                on-click: ~>
+                                    @set-state {urls: do ~> @state.urls.splice index, 1; @state.urls}
+                            }, "X"
+            button {on-click: ~> @set-state {urls: @state.urls ++ ["untitled"]}}, "Add"
+            button {on-click: ~> @props.on-change @state.urls}, "OK"
+        
 
-    get-initial-state: -> {
-        urls: [""]
-    }
+    get-initial-state: -> 
+        urls: @props.initial-urls # ["underscore"]
+
+
+LibInput = React.create-class do
+    render: ->
+        div { 
+            style: {
+                width: "100%"
+                border: "2px solid red"
+            }  <<< @props.style 
+        }, 
+            input {
+                style: width: "100%"
+                type: "text"
+                placeholder: "Enter the URL here"
+                value: @props.url
+                on-change: ({current-target:{value}}) ~> @props.on-change value 
+            }, null
+
+    get-initial-state: -> 
+        {}
+
+    get-default-props: ->
+
