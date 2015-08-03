@@ -1,6 +1,11 @@
 {filter, find, fold, map, sort-by, zip, take, drop} = require \prelude-ls
 {DOM:{button, div, h1, label, input, a, span}}:React = require \react
 
+Autocomplete = require 'react-autocomplete'
+window.Autocomplete = Autocomplete
+window.h1 = h1
+
+
 module.exports = React.create-class do 
 
     render: ->
@@ -31,19 +36,29 @@ module.exports = React.create-class do
 
 LibInput = React.create-class do
     render: ->
-        div { 
-            style: {
-                width: "100%"
-                border: "2px solid red"
-            }  <<< @props.style 
-        }, 
-            input {
-                style: width: "100%"
-                type: "text"
-                placeholder: "Enter the URL here"
-                value: @props.url
-                on-change: ({current-target:{value}}) ~> @props.on-change value 
-            }, null
+        React.create-element do 
+            ComboboxOption #TODO: https://github.com/rackt/react-autocomplete/blob/master/examples/basic/main.js
+            # Autocomplete.Typeahead 
+            # {
+            #     default-value: "underscore"
+            #     name: "urlselector"
+            #     options: ["underscore", "lodash", "heatmap"]
+            # }
+            # div { style: background-color: "red"}, ""
+
+        # div { 
+        #     style: {
+        #         width: "100%"
+        #         border: "2px solid red"
+        #     }  <<< @props.style 
+        # }, 
+            # input {
+            #     style: width: "100%"
+            #     type: "text"
+            #     placeholder: "Enter the URL here"
+            #     value: @props.url
+            #     on-change: ({current-target:{value}}) ~> @props.on-change value 
+            # }, null
 
     get-initial-state: -> 
         {}
