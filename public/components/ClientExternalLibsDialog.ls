@@ -1,67 +1,71 @@
-{filter, find, fold, map, sort-by, zip, take, drop} = require \prelude-ls
+{filter, find, fold, map, any, sort-by, zip, take, drop} = require \prelude-ls
 {DOM:{button, div, h1, label, input, a, span}}:React = require \react
-
-Autocomplete = require 'react-autocomplete'
-window.Autocomplete = Autocomplete
-window.h1 = h1
-
+AutoComplete = React.create-factory require \react-auto-complete
 
 module.exports = React.create-class do 
 
     render: ->
         
-        div { }, 
+        div { class-name: \client-external-libs-dailog }, 
             div { }, 
                 @state.urls `zip` [0 til @state.urls.length]
-                    |> map ([url, index]) ~>
-                        div { style: display: "flex", justify-content: "space-between", width: "200px" },
-                            React.create-element LibInput, {
-                                style: width: "180px"
-                                url: url
-                                on-change: (url) ~> 
-                                    @set-state {urls: do ~> @state.urls[index] = url; @state.urls}
-                            }
-                            if index < 1 then span null, "" else a { 
-                                style: color: "white"
+                    |> map ([, index]) ~>
+                        div { class-name: "element #{if @state.urls[index]?.valid ? false then 'valid' else 'invalid'}" },
+                            AutoComplete do
+                                option-class: ScriptOption
+                                value: @state.urls[index]?.url ? ""
+                                options: @state.scripts
+                                on-change: (value) ~>
+                                    #@set-state selected-script: value
+                                    @request.abort! if !!@request
+                                    @request = $.getJSON "http://api.cdnjs.com/libraries?fields=version,homepage,keywords&search=#{value}"
+                                        ..done (scripts) ~> @set-state {
+                                            scripts: scripts?.results |> take 20 
+                                                |> map ({name, version, latest}) -> name: "#{name} (#{version})", value: latest
+                                        }
+
+                                    valid = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test value
+                                    @set-state { urls: do ~> @state.urls[index] = {url: value, valid}; @state.urls }
+                            if index < 1 then span {class-name: 'x'}, "" else span { 
+                                class-name: 'x'
                                 on-click: ~>
-                                    @set-state {urls: do ~> @state.urls.splice index, 1; @state.urls}
-                            }, "X"
-            button {on-click: ~> @set-state {urls: @state.urls ++ ["untitled"]}}, "Add"
-            button {on-click: ~> @props.on-change @state.urls}, "OK"
+                                    @set-state { urls: do ~> @state.urls.splice index, 1; @state.urls }
+                            }, "×"
+            button {on-click: ~> @set-state {urls: @state.urls ++ [""]}}, "Add"
+            button {
+                on-click: ~> 
+                    @props.on-change <| @state.urls |> filter (-> !!it)
+            }, "OK"
         
 
     get-initial-state: -> 
-        urls: @props.initial-urls # ["underscore"]
+        scripts: []
+        urls: @props.initial-urls |> map (url) -> {url, valid: true}
 
 
-LibInput = React.create-class do
+
+
+ScriptOption = React.create-class do
+
+    display-name: \ScriptOption
+
+    statics:
+
+        # [ScriptOption] -> String -> [ScriptOption]
+        filter: (list, search) -> list
+
+    # a -> ReactElement
     render: ->
-        React.create-element do 
-            ComboboxOption #TODO: https://github.com/rackt/react-autocomplete/blob/master/examples/basic/main.js
-            # Autocomplete.Typeahead 
-            # {
-            #     default-value: "underscore"
-            #     name: "urlselector"
-            #     options: ["underscore", "lodash", "heatmap"]
-            # }
-            # div { style: background-color: "red"}, ""
 
-        # div { 
-        #     style: {
-        #         width: "100%"
-        #         border: "2px solid red"
-        #     }  <<< @props.style 
-        # }, 
-            # input {
-            #     style: width: "100%"
-            #     type: "text"
-            #     placeholder: "Enter the URL here"
-            #     value: @props.url
-            #     on-change: ({current-target:{value}}) ~> @props.on-change value 
-            # }, null
+        {on-click, on-mouse-over, on-mouse-out, focused, name, value} = @props
 
-    get-initial-state: -> 
-        {}
-
-    get-default-props: ->
-
+        # ScriptOption
+        div do 
+            {
+                class-name: "script-option #{if focused then 'focused' else ''}"
+                on-click
+                on-mouse-over
+                on-mouse-out
+            }
+            div style:{font-weight: \bold}, name
+            div style:{font-size: \0.8em}, value ? ""

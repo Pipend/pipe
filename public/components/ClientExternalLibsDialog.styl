@@ -1,0 +1,106 @@
+.client-external-libs-dailog
+    height 400px
+
+    .element 
+        display flex
+        justify-content space-between
+        width 600px
+        margin-bottom 2px
+
+        &.invalid
+            .auto-complete 
+                .control 
+                    input 
+                        background red
+
+        .x
+            display inline-block
+            width 20px
+            color white
+            text-align center
+
+        .auto-complete
+            width 100%
+            background white
+            -webkit-user-select none
+            position relative
+
+            .script-option
+                color #666
+                cursor pointer
+                font-size 0.8em
+                padding 8px 10px
+
+                &.focused
+                    background #f2f9fc
+                    color #333
+
+                span.highlight
+                    background rgba(212, 219, 222, 0.7)
+
+
+            &.disabled
+                pointer-events none
+
+            .control
+                border 1px solid
+                border-color #d9d9d9 #cccccc #b3b3b3
+                border-radius 4px
+                font-size 0.8em
+                padding 2px 10px 2px 3px
+                -webkit-transition all 0.2s 0s ease
+                position relative
+                z-index 9
+
+                .placeholder
+                    color #aaaaaa
+                    padding 8px 0px 8px 10px
+                    max-width -webkit-calc(100% - 10px)
+                    overflow hidden
+                    text-overflow ellipsis
+                    white-space nowrap
+                    position absolute
+                    top 0
+                    left 0
+
+                input 
+                    background none
+                    border none
+                    outline none 
+                    font-size 1em
+                    margin 2px
+                    padding 4px 0px
+                    vertical-align middle
+                    width 100%
+
+                .reset
+                    display none
+
+                .arrow
+                    display none
+
+            .options
+                background white
+                border 1px solid #ccc
+                border-top none
+                border-bottom-left-radius 4px
+                border-bottom-right-radius 4px
+                box-sizing border-box
+                max-height 200px
+                overflow auto
+                position absolute
+                width 100%
+                z-index 10
+
+            &.open 
+
+                .control
+                    border-color #b3b3b3 #cccccc #d9d9d9
+                    border-top-left-radius 4px
+                    border-top-right-radius 4px
+                    border-bottom-left-radius 0px
+                    border-bottom-right-radius 0px
+                    
+                    .arrow
+                        border-color transparent transparent #999999
+                        border-width 0 5px 5px
