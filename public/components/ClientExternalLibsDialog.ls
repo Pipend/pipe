@@ -34,13 +34,14 @@ module.exports = React.create-class do
             button {on-click: ~> @set-state {urls: @state.urls ++ [""]}}, "Add"
             button {
                 on-click: ~> 
-                    @props.on-change <| @state.urls |> filter (-> !!it)
+                    @props.on-change <| @state.urls |> filter (.valid) |> map (.url)
             }, "OK"
         
 
     get-initial-state: -> 
         scripts: []
-        urls: @props.initial-urls |> map (url) -> {url, valid: true}
+        urls: @props.initial-urls ++ (if @props.initial-urls.length == 0 then [""] else []) 
+            |> map (url) -> {url, valid: true}
 
 
 

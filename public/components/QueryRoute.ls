@@ -2,8 +2,8 @@ AceEditor = require \./AceEditor.ls
 DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
-{all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type} = require \prelude-ls
-{DOM:{div, input, label, span, select, option, button}}:React = require \react
+{all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type, difference, each} = require \prelude-ls
+{DOM:{div, input, label, span, select, option, button, script}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -250,7 +250,6 @@ module.exports = React.create-class do
                                     margin-right: "1em"
                                 value: @state.transpilation-language
                                 on-change: ({current-target:{value}}) ~> 
-                                    console.log \value, value
                                     <- @set-state transpilation-language: value
                             }, 
                                 ['livescript', 'javascript'] |> map (k) ~> 
@@ -265,9 +264,13 @@ module.exports = React.create-class do
                     | \libs =>
                       React.create-element ClientExternalLibsDialog,
                         {
-                            initial-urls: [""]
+                            initial-urls: @state.client-external-libs
                             on-change: (urls) ~>
-                                console.log \urls, urls
+                                @set-state {
+                                    client-external-libs: urls
+                                    dialog: null
+                                }
+                                @save-to-client-storage-debounced!
                         } 
 
 
@@ -639,42 +642,59 @@ module.exports = React.create-class do
     # updates the list of auto-completers if the data-source-cue has changed
     # component-did-update :: Props -> State -> Void
     component-did-update: (prev-props, prev-state) !->
-        {data-source-cue} = @state
 
-        # return if the data-source-cue is not complete or there is no change in the data-source-cue
-        return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
+        # auto complete
+        do ~>
+            {data-source-cue} = @state
 
-        # @completers is an array that stores a completer for each data-source-cue
-        @completers = [] if !@completers
+            # return if the data-source-cue is not complete or there is no change in the data-source-cue
+            return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
 
-        # tries to find and return an exiting completer for the current data-source-cue iff the completer has a protocol property
-        existing-completer = @completers |> find -> it.data-source-cue `is-equal-to-object` data-source-cue
-        return ace-language-tools.set-completers [existing-completer.protocol] ++ (@default-completers |> map (.protocol)) if !!existing-completer?.protocol
-        
-        completer = existing-completer or {data-source-cue}
+            # @completers is an array that stores a completer for each data-source-cue
+            @completers = [] if !@completers
 
-        # aborts any previous on-going requests for keywords before starting a new one
-        # on success updates the protocol property of the completer
-        @keywords-request.abort! if !!@keywords-request
-        @keywords-request = $.ajax do
-            type: \post
-            url: "/apis/keywords"
-            content-type: 'application/json; charset=utf-8'
-            data-type: \json
-            data: JSON.stringify data-source-cue
-            success: (keywords) ~>
-                completer.protocol =
-                    get-completions: (editor, , , prefix, callback) ->
-                        range = editor.getSelectionRange!.clone!
-                            ..set-start range.start.row, 0
-                        text = editor.session.get-text-range range
-                        if editor.container.id == \query-editor
-                            callback null, (convert-to-ace-keywords keywords ++ alphabet, data-source-cue.type, prefix)    
-                if data-source-cue `is-equal-to-object` @state.data-source-cue
-                    ace-language-tools.set-completers [completer.protocol] ++ (@default-completers |> map (.protocol)) 
+            # tries to find and return an exiting completer for the current data-source-cue iff the completer has a protocol property
+            existing-completer = @completers |> find -> it.data-source-cue `is-equal-to-object` data-source-cue
+            return ace-language-tools.set-completers [existing-completer.protocol] ++ (@default-completers |> map (.protocol)) if !!existing-completer?.protocol
+            
+            completer = existing-completer or {data-source-cue}
 
-        # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
-        @completers.push completer if !existing-completer
+            # aborts any previous on-going requests for keywords before starting a new one
+            # on success updates the protocol property of the completer
+            @keywords-request.abort! if !!@keywords-request
+            @keywords-request = $.ajax do
+                type: \post
+                url: "/apis/keywords"
+                content-type: 'application/json; charset=utf-8'
+                data-type: \json
+                data: JSON.stringify data-source-cue
+                success: (keywords) ~>
+                    completer.protocol =
+                        get-completions: (editor, , , prefix, callback) ->
+                            range = editor.getSelectionRange!.clone!
+                                ..set-start range.start.row, 0
+                            text = editor.session.get-text-range range
+                            if editor.container.id == \query-editor
+                                callback null, (convert-to-ace-keywords keywords ++ alphabet, data-source-cue.type, prefix)    
+                    if data-source-cue `is-equal-to-object` @state.data-source-cue
+                        ace-language-tools.set-completers [completer.protocol] ++ (@default-completers |> map (.protocol)) 
+
+            # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
+            @completers.push completer if !existing-completer
+
+        # client-external-libs
+        do ~>
+            addUrls = @state.client-external-libs `difference` prev-state.client-external-libs
+
+            removeUrls = prev-state.client-external-libs `difference` @state.client-external-libs
+
+            addUrls |> each (url) ->
+                script = document.create-element "script"
+                    ..src = url
+                document.head.append-child script
+
+            removeUrls |> each (url) ->
+                $ "head > script[src='#{url}'" .remove!
 
     # React class method
     # get-initial-state :: a -> UIState
@@ -695,19 +715,22 @@ module.exports = React.create-class do
             executing-op: 0
             keywords-from-query-result: []
             transpilation-language: 'livescript' # javascript or livescript
+            client-external-libs: []
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
     # state-from-document :: Document -> UIState
     state-from-document: ({
         query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
-        transformation, presentation, parameters, ui, transpilation
+        transformation, presentation, parameters, ui, transpilation,
+        client-external-libs
     }?) ->
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
             transformation, presentation, parameters, 
             editor-width: ui?.editor?.width or @state.editor-width
             transpilation-language: transpilation?.query ? "livescript"
+            client-external-libs: client-external-libs ? []
         } <<< editor-heights do 
             ui?.query-editor?.height or @state.query-editor-height
             ui?.transformation-editor?.height or @state.transformation-editor-height
@@ -718,7 +741,8 @@ module.exports = React.create-class do
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
             transformation, presentation, parameters, editor-width, query-editor-height,
-            transformation-editor-height, presentation-editor-height, transpilation-language
+            transformation-editor-height, presentation-editor-height, transpilation-language, 
+            client-external-libs
         } = @state
         {
             query-id
@@ -734,6 +758,7 @@ module.exports = React.create-class do
             query
             transformation
             presentation
+            client-external-libs
             parameters
             ui:
                 editor:
