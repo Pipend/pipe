@@ -10,11 +10,19 @@ module.exports = React.create-class do
             div { }, 
                 @state.urls `zip` [0 til @state.urls.length]
                     |> map ([, index]) ~>
-                        div { class-name: "element #{if @state.urls[index]?.valid ? false then 'valid' else 'invalid'}" },
+                        
+                        url-regex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/
+
+                        div { class-name: "element #{if @state.urls[index]?.valid ? true then 'valid' else 'invalid'}" },
                             AutoComplete do
+                                placeholder: "Script Url"
                                 option-class: ScriptOption
                                 value: @state.urls[index]?.url ? ""
                                 options: @state.scripts
+                                on-blur: (value) ~>
+                                    valid = url-regex.test value
+                                    @set-state { urls: do ~> @state.urls[index] = {url: value, valid}; @state.urls }
+
                                 on-change: (value) ~>
                                     #@set-state selected-script: value
                                     @request.abort! if !!@request
@@ -24,8 +32,9 @@ module.exports = React.create-class do
                                                 |> map ({name, version, latest}) -> name: "#{name} (#{version})", value: latest
                                         }
 
-                                    valid = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test value
-                                    @set-state { urls: do ~> @state.urls[index] = {url: value, valid}; @state.urls }
+                                    valid = url-regex.test value
+                                    @set-state { urls: do ~> @state.urls[index] = {url: value} <<< (if valid then {valid} else {}); @state.urls }
+
                             if index < 1 then span {class-name: 'x'}, "" else span { 
                                 class-name: 'x'
                                 on-click: ~>
@@ -58,15 +67,12 @@ ScriptOption = React.create-class do
     # a -> ReactElement
     render: ->
 
-        {on-click, on-mouse-over, on-mouse-out, focused, name, value} = @props
+        {focused, name, value} = @props
 
         # ScriptOption
         div do 
             {
                 class-name: "script-option #{if focused then 'focused' else ''}"
-                on-click
-                on-mouse-over
-                on-mouse-out
             }
             div style:{font-weight: \bold}, name
             div style:{font-size: \0.8em}, value ? ""

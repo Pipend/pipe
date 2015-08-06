@@ -643,7 +643,7 @@ module.exports = React.create-class do
     # component-did-update :: Props -> State -> Void
     component-did-update: (prev-props, prev-state) !->
 
-        # auto complete
+        # data source auto complete
         do ~>
             {data-source-cue} = @state
 
