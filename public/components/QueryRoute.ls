@@ -160,7 +160,6 @@ module.exports = React.create-class do
                   {branch-id, query-id}:saved-document <~ @save
                   $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
             * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
-            * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
             * icon: \t, label: \Libs, enabled: true, action: (button-left) ~> @set-state {dialog: \libs}
 
 
@@ -242,35 +241,21 @@ module.exports = React.create-class do
                                     | \reset => @set-state (@state-from-document remote-document)
                                     @set-state {dialog: null, queries-in-between: null}
                             }
-                    | \settings =>
-                        div {style: {color: "white", text-align: "right",  transform: "scale(1.5)"}},
-                            div {style: {margin-bottom: "1em"}}, "Select MongoDB query language / Transformation and Presentation language:"
-                            select {
-                                style: 
-                                    margin-right: "1em"
-                                value: @state.transpilation-language
-                                on-change: ({current-target:{value}}) ~> 
-                                    <- @set-state transpilation-language: value
-                            }, 
-                                ['livescript', 'javascript'] |> map (k) ~> 
-                                    option {key: k, value: k}, k
-
-                            button {
-                                style:
-                                    width: "4em"
-                                on-click: ~>
-                                    @set-state {dialog: null}
-                            }, "OK"
                     | \libs =>
                       React.create-element ClientExternalLibsDialog,
                         {
                             initial-urls: @state.client-external-libs
-                            on-change: (urls) ~>
+                            initial-transpilation-language: @state.transpilation-language
+                            on-change: ({urls, transpilation-language}) ~>
                                 @set-state {
                                     client-external-libs: urls
+                                    transpilation-language: transpilation-language
                                     dialog: null
                                 }
                                 @save-to-client-storage-debounced!
+                            on-cancel: ~> @set-state {
+                              dialog: null
+                            }
                         } 
 
 
