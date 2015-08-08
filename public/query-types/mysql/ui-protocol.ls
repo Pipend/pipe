@@ -1,8 +1,12 @@
 CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host user password database]>
 PartialDataSourceCue = require \../mssql/PartialDataSourceCue.ls
 
-editor-settings =
-    mode: \ace/mode/livescript
+client-side-editor-settings = (transpilation-language) ->
+    mode: "ace/mode/#{transpilation-language}"
+    theme: \ace/theme/monokai
+
+server-side-editor-settings =
+    mode: \ace/mode/sql
     theme: \ace/theme/monokai
 
 module.exports = {
@@ -10,7 +14,9 @@ module.exports = {
         supports-connection-string: true
         partial-data-source-cue-component: PartialDataSourceCue
         complete-data-source-cue-component: CompleteDataSourceCue
-    query-editor-settings: -> editor-settings
-    transformation-editor-settings: -> editor-settings
-    presentation-editor-settings: -> editor-settings
+    query-editor-settings: (_) -> server-side-editor-settings
+    transformation-editor-settings: (transpilation-language) -> 
+        client-side-editor-settings transpilation-language
+    presentation-editor-settings: (transpilation-language) -> 
+        client-side-editor-settings transpilation-language
 }

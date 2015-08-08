@@ -27,6 +27,9 @@ notify = require \notifyjs
 {key} = require \keymaster
 {cancel-event} = require \../utils.ls
 
+trace = (a, b) --> console.log a; b
+trace-it = (a) -> console.log a; a
+
 # returns dasherized collection of keywords for auto-completion
 keywords-from-object = (object) ->
     object
@@ -305,7 +308,7 @@ module.exports = React.create-class do
                                 on-change: (value) ~>
                                     <~ @set-state {"#{editor-id}" : value}
                                     @save-to-client-storage-debounced!
-                            } <<< ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!
+                            } <<< ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"] @state.transpilation-language
                             
                             # RESIZE HANDLE
                             if resizable 

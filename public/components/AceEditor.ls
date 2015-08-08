@@ -2,6 +2,8 @@
 ace = require \brace
 require \brace/theme/monokai
 require \brace/mode/livescript
+require \brace/mode/javascript
+require \brace/mode/sql
 require \brace/ext/searchbox
 
 module.exports = React.create-class {
@@ -22,7 +24,10 @@ module.exports = React.create-class {
                 range.setStart range.start.row, 0
                 line = editor.session.getTextRange range
                 editor.execCommand \startAutocomplete if command.name == "insertstring" and ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
-        @.process-props {mode: \ace/mode/livescript, theme: \ace/theme/monokai} <<< @.props
+
+        ace-props = {mode: \ace/mode/livescript, theme: \ace/theme/monokai} <<< @.props
+        console.log \props, ace-props
+        @.process-props ace-props
 
     component-did-update: (prev-props) ->
         editor = ace.edit @.props.editor-id

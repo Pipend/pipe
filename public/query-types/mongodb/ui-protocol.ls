@@ -1,8 +1,8 @@
 CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host port database collection]>
 PartialDataSourceCue = require \./PartialDataSourceCue.ls
 
-editor-settings =
-    mode: \ace/mode/livescript
+editor-settings = (transpilation-language) ->
+    mode: "ace/mode/#{transpilation-language}"
     theme: \ace/theme/monokai
 
 module.exports = {
@@ -10,7 +10,10 @@ module.exports = {
         supports-connection-string: true
         partial-data-source-cue-component: PartialDataSourceCue
         complete-data-source-cue-component: CompleteDataSourceCue
-    query-editor-settings: -> editor-settings
-    transformation-editor-settings: -> editor-settings
-    presentation-editor-settings: -> editor-settings
+    query-editor-settings: (transpilation-language) -> 
+        editor-settings transpilation-language
+    transformation-editor-settings: (transpilation-language) -> 
+        editor-settings transpilation-language
+    presentation-editor-settings: (transpilation-language) -> 
+        editor-settings transpilation-language
 }

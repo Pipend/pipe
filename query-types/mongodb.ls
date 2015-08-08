@@ -79,7 +79,7 @@ export keywords = (data-source) ->
         <[$add $add-to-set $all-elements-true $and $any-element-true $avg $cmp $concat $cond $day-of-month $day-of-week $day-of-year $divide 
           $eq $first $geo-near $group $gt $gte $hour $if-null $last $let $limit $literal $lt $lte $map $match $max $meta $millisecond $min $minute $mod $month 
           $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort 
-          $strcasecmp $substr $subtract $sum $to-lower $to-upper $unwind $week $year]>
+          $strcasecmp $substr $subtract $sum $to-lower $to-upper $unwind $week $year do]>
 
 # convert-query-to-valid-livescript :: String -> String
 convert-query-to-valid-livescript = (query) ->
