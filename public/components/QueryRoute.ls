@@ -71,7 +71,7 @@ module.exports = React.create-class do
             popup, queries-in-between, dialog, remote-document, cache, from-cache, 
             executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
-        } = @state
+        } = @state        
 
         # MENU ITEMS
         toggle-popup = (popup-name, button-left, button-width) ~~>
@@ -282,6 +282,7 @@ module.exports = React.create-class do
                             resizable: true
                         }
                     ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
+
                         div {class-name: \editor, key: editor-id},
 
                             # EDITABLE TITLE
@@ -304,7 +305,7 @@ module.exports = React.create-class do
                                 on-change: (value) ~>
                                     <~ @set-state {"#{editor-id}" : value}
                                     @save-to-client-storage-debounced!
-                            } <<< ui-protocol[data-source-cue.type]?[camelize "#{editor-id}-editor-settings"]!
+                            } <<< ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!
                             
                             # RESIZE HANDLE
                             if resizable 
@@ -511,7 +512,8 @@ module.exports = React.create-class do
     # save :: (Document -> Void) -> Void
     save: (callback) !->
         if @changes-made!.length == 0
-            return callback @document-from-state! if !!callback
+            callback @document-from-state! if !!callback
+            return
 
         uid = generate-uid! 
         {query-id, tree-id, parent-id}:document = @document-from-state!
@@ -686,7 +688,7 @@ module.exports = React.create-class do
     get-initial-state: ->
         {
             query-id: null, parent-id: null, branch-id: null, tree-id: null,
-            data-source-cue: {type: \mongodb, kind: \partial-data-source, complete: false}
+            data-source-cue: {query-type: \mongodb, kind: \partial-data-source, complete: false}
             query: ""
             query-title: "Untitled query"
             transformation: ""
@@ -710,6 +712,7 @@ module.exports = React.create-class do
         transformation, presentation, parameters, ui, transpilation,
         client-external-libs
     }?) ->
+        console.log \data-source-cue, data-source-cue
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
             transformation, presentation, parameters, 
