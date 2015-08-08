@@ -1,7 +1,20 @@
-#Setup
-* sudo npm install
-* copy the following to ```config.ls``` :
-```
+# Pipe
+
+Pipe is a Web app for querying any data source, and analyzing and visualizing the result.
+
+# Setup
+* Start an instance of mongodb
+* Start a redis instance (optional, only necessary if you choose `redis-store` for `cache-store`; see below.)
+* `$ git clone https://github.com/Pipend/pipe.git`
+* `$ sudo npm install`
+* Create `config.ls` in the root of the repository with the following content.
+* Update `query-database-connection-string` to the query string of your mongodb instance
+* Configure `connections` hash by specifying the connection details for the databses that you like to connect and query.
+* Configure `cache-store` as instructed in the `config.ls`, you can choose either `redis-store` or `js-store` (in-memory)
+* `$ gulp`
+
+## config.ls
+```livescript
 server-config = {
     connections:
         mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 
@@ -64,4 +77,3 @@ local-config = {} <<< server-config <<< {
 
 module.exports = local-config
 ```
-* run ```gulp```
