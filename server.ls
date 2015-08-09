@@ -42,10 +42,22 @@ app = express!
     ..engine \.html, (require \ejs).__express
     ..set 'view engine', \ejs
     ..use (require \cookie-parser)!
-    ..use body-parser.json!
     ..use (req, res, next) ->        
         req.parsed-query = query-parser req.query if !!req.query
         next!
+    ..use (req, res, next)->
+        return next! if req.method is not \POST
+        body = ""
+        size = 0
+        req.on \data, -> 
+            size += it.length
+            if size > 4e6
+                res.write-head 413, 'Connection': 'close'
+                res.end "File size exceeded"
+            body += it 
+        req.on \end, ->
+            req <<< {body: JSON.parse body}
+            next!
     ..use "/public" express.static "#__dirname/public/"
     ..use "/node_modules" express.static "#__dirname/node_modules/"
 
