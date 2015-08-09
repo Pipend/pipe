@@ -1,6 +1,6 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
-{compile} = require \LiveScript
+{compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
 {id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor} = require \prelude-ls
 {compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, get-all-keys-recursively} = require \./../utils
