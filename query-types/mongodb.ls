@@ -102,6 +102,7 @@ export get-context = ->
         
         # independent of any mongo operations
         date-from-object-id
+        setImmediate
     }
 
 # execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
