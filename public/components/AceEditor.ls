@@ -26,7 +26,6 @@ module.exports = React.create-class {
                 editor.execCommand \startAutocomplete if command.name == "insertstring" and ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
 
         ace-props = {mode: \ace/mode/livescript, theme: \ace/theme/monokai} <<< @.props
-        console.log \props, ace-props
         @.process-props ace-props
 
     component-did-update: (prev-props) ->

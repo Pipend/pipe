@@ -27,7 +27,10 @@ notify = require \notifyjs
 {key} = require \keymaster
 {cancel-event} = require \../utils.ls
 
+# trace :: a -> b -> b
 trace = (a, b) --> console.log a; b
+
+# trace-it :: a -> a
 trace-it = (a) -> console.log a; a
 
 # returns dasherized collection of keywords for auto-completion
@@ -48,8 +51,8 @@ alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 # returns a hash of editor-heights used in get-initial-state and state-from-document
 # editor-heights :: Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
 editor-heights = (query-editor-height = 300, transformation-editor-height = 324, presentation-editor-height = 240) ->
-    # 50 = height of .menu defined in Meny.styl; 40 = height of .editor-title; 5 = height of resize-handle defined in QueryRoute.styl
-    viewport-height = window.inner-height - 50 - 3 * (40 + 5)
+    # 50 = height of .menu defined in Meny.styl; 30 = height of .editor-title;
+    viewport-height = window.inner-height - 50 - 3 * 30
     editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
         s = sum ds
         ds |> map round . (viewport-height *) . (/s)
@@ -289,7 +292,27 @@ module.exports = React.create-class do
                         div {class-name: \editor, key: editor-id},
 
                             # EDITABLE TITLE
-                            div {class-name: \editor-title},
+                            div do 
+                                class-name: \editor-title
+                                on-mouse-down: (e) ~>
+                                    initialY = e.pageY
+                                    initial-heights = ["transformation", "presentation", "query"]
+                                        |> map (p) ~> [p, @state[camelize "#{p}-editor-height"]]
+                                        |> pairs-to-obj
+                                    $ window .on \mousemove, ({pageY}) ~> 
+                                        diff = pageY - initialY
+                                        match editor-id 
+                                            | "transformation" =>
+                                                transformation-editor-height = initial-heights.transformation - diff
+                                                query-editor-height = initial-heights.query + diff
+                                                if transformation-editor-height > 0 and query-editor-height > 0
+                                                    @set-state {transformation-editor-height, query-editor-height}
+                                            | "presentation" =>
+                                                transformation-editor-height = initial-heights.transformation + diff
+                                                presentation-editor-height = initial-heights.presentation - diff
+                                                if transformation-editor-height > 0 and presentation-editor-height > 0
+                                                    @set-state {transformation-editor-height, presentation-editor-height}
+                                    $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
                                 if editable-title 
                                     input do
                                         type: \text
@@ -310,29 +333,6 @@ module.exports = React.create-class do
                                     @save-to-client-storage-debounced!
                             } <<< ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"] @state.transpilation-language
                             
-                            # RESIZE HANDLE
-                            if resizable 
-                                div do
-                                    class-name: \resize-handle
-                                    on-mouse-down: (e) ~>
-                                        initialY = e.pageY
-                                        initial-heights = ["transformation", "presentation", "query"]
-                                            |> map (p) ~> [p, @state[camelize "#{p}-editor-height"]]
-                                            |> pairs-to-obj
-                                        $ window .on \mousemove, ({pageY}) ~> 
-                                            diff = pageY - initialY
-                                            match editor-id 
-                                                | "query" =>
-                                                    transformation-editor-height = initial-heights.transformation - diff
-                                                    query-editor-height = initial-heights.query + diff
-                                                    if transformation-editor-height > 0 and query-editor-height > 0
-                                                        @set-state {transformation-editor-height, query-editor-height}
-                                                | "transformation" =>
-                                                    transformation-editor-height = initial-heights.transformation + diff
-                                                    presentation-editor-height = initial-heights.presentation - diff
-                                                    if transformation-editor-height > 0 and presentation-editor-height > 0
-                                                        @set-state {transformation-editor-height, presentation-editor-height}
-                                        $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
 
                 # RESIZE HANDLE
                 div do
@@ -379,7 +379,7 @@ module.exports = React.create-class do
     
     # update-presentation-size :: a -> Void
     update-presentation-size: !->
-        left = @state.editor-width + 10
+        left = @state.editor-width + 5
         @refs.presentation-container.get-DOM-node!.style <<<
             left: left
             width: window.inner-width - left
@@ -715,7 +715,6 @@ module.exports = React.create-class do
         transformation, presentation, parameters, ui, transpilation,
         client-external-libs
     }?) ->
-        console.log \data-source-cue, data-source-cue
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
             transformation, presentation, parameters, 

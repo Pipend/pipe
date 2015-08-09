@@ -19,6 +19,9 @@
         height 50px
         margin 0 10px 0 8px
 
+    .menu .buttons
+        width -webkit-calc(100% - 70px)
+
     .dialog-container
         align-items center
         background-color rgba(0,0,0,0.4)
@@ -46,41 +49,48 @@
                 box-sizing border-box
                 border-bottom 1px solid rgba(255,255,255,0.1)
                 color #999
+                cursor ns-resize
                 display block
-                font-size 18px
-                height 40px    
-                line-height 40px
+                font-size 16px
+                font-weight lighter
+                height 30px    
+                letter-spacing 0.1em
+                line-height 30px
                 padding 0px 0px 0px 8px
-                vertical-align middle        
+                vertical-align middle
+                -webkit-user-select none
 
                 input
                     appearance none
                     background none
                     border none
                     color white
-                    font-size 18px
+                    font-size 16px
                     font-weight normal
-                    line-height 40px
+                    line-height 30px
                     outline none
                     padding 0px
                     margin 0px
                     vertical-align middle
                     width 100%
-                    height 40px
+                    height 30px
 
             .resize-handle
                 background linear-gradient(to bottom, #505050, #383838)
                 cursor row-resize
+                display none
                 height 5px
 
         > .resize-handle
-            background linear-gradient(to right, #505050, #383838)
-            border-left 1px solid black
-            border-right 1px solid black
+            // background linear-gradient(to right, #505050, #383838)
+            // border-left 1px solid black
+            // border-right 1px solid black
+            background-color #333536
             box-sizing border-box
             cursor ew-resize
-            width 10px
+            width 5px
             height -webkit-calc(100% - 50px)
+            -webkit-user-select none
 
         .presentation-container
             position absolute

@@ -43,7 +43,7 @@ module.exports = React.create-class do
                     button {
                         on-click: ~>
                             @props.on-cancel!
-                    }, "Cencel"
+                    }, "Cancel"
                     button {
                         on-click: ~>
                             @props.on-change {
