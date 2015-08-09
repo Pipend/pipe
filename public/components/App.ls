@@ -1,5 +1,5 @@
 AceEditor = require \./AceEditor.ls
-{gulp-io-port}? = require \../../config.ls
+require! \../../config.ls
 {map} = require \prelude-ls
 {DOM:{button, div}}:React = require \react
 {DefaultRoute, HistoryLocation, Navigation, Route, RouteHandler, State} = Router = require \react-router
@@ -21,7 +21,7 @@ App = React.create-class {
             React.create-element RouteHandler, {
                 params: @.get-params!
                 query: @.get-query!
-                auto-reload: !!gulp-io-port
+                auto-reload: !!config?.gulp?.reload-port
             }
             div {class-name: \building}, \Building... if @.state.building
 
@@ -29,8 +29,8 @@ App = React.create-class {
         {building: false}
 
     component-did-mount: ->
-        if !!gulp-io-port
-            (require \socket.io-client) "http://localhost:#{gulp-io-port}"
+        if !!config?.gulp?.reload-port
+            (require \socket.io-client) "http://localhost:#{config.gulp.reload-port}"
                 ..on \build-start, ~> @.set-state {building: true}
                 ..on \build-complete, -> window.location.reload!
 

@@ -1,20 +1,21 @@
-browserify = require \browserify
-{browserify-debug-mode, gulp-io-port}? = require \./config
-gulp = require \gulp
-gulp-browserify = require \gulp-browserify 
-gulp-livescript = require \gulp-livescript
-gulp-rename = require \gulp-rename
-gulp-util = require \gulp-util
-nodemon = require \gulp-nodemon
-run-sequence = require \run-sequence
-streamify = require \gulp-streamify
-stylus = require \gulp-stylus
-uglify = require \gulp-uglify
-nib = require \nib
+require! \browserify
+require! \./config
+require! \gulp
+require! \gulp-browserify 
+require! \gulp-if
+require! \gulp-livescript
+require! \gulp-rename
+require! \gulp-util
+require! \gulp-nodemon
+require! \run-sequence
+require! \gulp-streamify
+require! \gulp-stylus
+require! \gulp-uglify
+require! \nib
 {obj-to-pairs, filter, fold, map, group-by, Obj, sort-by, take, head} = require \prelude-ls
-if !!gulp-io-port
+if !!config?.gulp?.reload-port
     io = (require \socket.io)!
-        ..listen gulp-io-port
+        ..listen config.gulp.reload-port
 source = require \vinyl-source-stream
 watchify = require \watchify
 
@@ -26,7 +27,7 @@ emit-with-delay = (event) ->
 # COMPONENTS STYLES
 gulp.task \build:components:styles, ->
     gulp.src <[./public/components/*.styl]>
-    .pipe stylus {use: nib!, compress: true}
+    .pipe gulp-stylus {use: nib!, compress: true}
     .pipe gulp.dest './public/components'
     .on \end, -> emit-with-delay \build-complete if !!io
 
@@ -36,23 +37,24 @@ gulp.task \watch:components:styles, ->
 # PRESENTATION STYLES
 gulp.task \build:presentation:styles, ->
     gulp.src <[./public/presentation/*.styl]>
-    .pipe stylus {use: nib!, compress: true}
+    .pipe gulp-stylus {use: nib!, compress: true}
     .pipe gulp.dest './public/presentation'
 
 gulp.task \watch:presentation:styles, ->
     gulp.watch <[./public/presentation/*.styl]>, <[build:presentation:styles]>
 
 create-bundler = (entries) ->
-    bundler = browserify {} <<< watchify.args <<< {debug: true} 
+    bundler = browserify {} <<< watchify.args <<< {debug: !config.gulp.minify}
         ..add entries
         ..transform {global: false}, 'browserify-shim'
-        ..transform \liveify
+        ..transform \liveify        
     watchify bundler    
 
 bundle = (bundler, {file, directory}:output) ->
     bundler.bundle!
         .on \error, -> gulp-util.log arguments
         .pipe source file
+        .pipe gulp-if config.gulp.minify, (gulp-streamify gulp-uglify!)
         .pipe gulp.dest directory
 
 # COMPONENTS SCRIPTS
@@ -82,12 +84,11 @@ gulp.task \watch:presentation:scripts, ->
     presentation-bundler.on \time, (time) -> gulp-util.log "presentation.js built in #{time / 1000} seconds"
 
 gulp.task \dev:server, ->
-    nodemon {        
+    gulp-nodemon do
         exec-map: ls: \lsc
         ext: \ls
         ignore: <[gulpfile.ls README.md *.sublime-project public/*]>
         script: \./server.ls
-    }
 
 gulp.task \build, <[build:components:styles build:components:scripts build:presentation:styles build:presentation:scripts]>
 gulp.task \watch, <[watch:components:styles watch:components:scripts watch:presentation:styles watch:presentation:scripts]>

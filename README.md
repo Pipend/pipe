@@ -74,10 +74,14 @@ server-config = {
             socket-options:
                 keep-alive: 1
     query-database-connection-string: \mongodb://localhost:27017/pipe
+    gulp:
+        minify: true        
 }
 
 local-config = {} <<< server-config <<< {
-    gulp-io-port: 4082
+    gulp:
+        minify: false
+        reload-port: 4082
 }
 
 module.exports = local-config

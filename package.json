@@ -55,6 +55,7 @@
     "browserify-shim": "^3.8.9",
     "gulp": "^3.8.11",
     "gulp-browserify": "^0.5.1",
+    "gulp-if": "^1.2.5",
     "gulp-livescript": "^2.3.0",
     "gulp-nodemon": "^2.0.2",
     "gulp-react": "^3.0.1",

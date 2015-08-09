@@ -3,7 +3,7 @@ DataSourceCuePopup = require \./DataSourceCuePopup.ls
 {default-type} = require \../../config.ls
 Menu = require \./Menu.ls
 {all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type, difference, each} = require \prelude-ls
-{DOM:{div, input, label, span, select, option, button, script}}:React = require \react
+{DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -77,7 +77,7 @@ module.exports = React.create-class do
             popup, queries-in-between, dialog, remote-document, cache, from-cache, 
             executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
-        } = @state        
+        } = @state
 
         # MENU ITEMS
         toggle-popup = (popup-name, button-left, button-width) ~~>
@@ -180,7 +180,7 @@ module.exports = React.create-class do
                         |> filter ({show}) -> (typeof show == \undefined) or show
                         |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
                 }
-                div {class-name: \logo, on-click: ~> @transition-to "/"}
+                a class-name: \logo, href: \/
 
             # POPUPS 
 
