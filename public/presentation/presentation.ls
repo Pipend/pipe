@@ -4,10 +4,10 @@ $ = require \jquery-browserify
 window.d3 = require \d3
 require \nvd3 
 
-# the first require is used by browserify to import the LiveScript module
-# the second require is defined in the LiveScript module and exports the object
-require \LiveScript
-{compile} = require \LiveScript
+# the first require is used by browserify to import the livescript module
+# the second require is defined in the livescript module and exports the object
+require \livescript
+{compile} = require \livescript
 
 # the first require is used by browserify to import the prelude-ls module
 # the second require is defined in the prelude-ls module and exports the object

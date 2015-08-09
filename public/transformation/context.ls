@@ -41,7 +41,7 @@ module.exports = ->
 
         fill-range
 
-        compile-livescript: (require \LiveScript).compile
+        compile-livescript: (require \livescript).compile
 
         object-id-from-date
         

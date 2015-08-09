@@ -153,5 +153,5 @@ module.exports = ->
         json
         csv
         fill-intervals
-        compile-livescript: (require \LiveScript).compile
+        compile-livescript: (require \livescript).compile
     }
