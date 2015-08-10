@@ -1,9 +1,22 @@
-AceEditor = require \./AceEditor.ls
-DataSourceCuePopup = require \./DataSourceCuePopup.ls
-{default-type} = require \../../config.ls
-Menu = require \./Menu.ls
+ace-language-tools = require \brace/ext/language_tools 
+require! \../client-storage.ls
+window.d3 = require \d3
+$ = require \jquery-browserify
+{key} = require \keymaster
+require! \notifyjs
 {all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type, difference, each} = require \prelude-ls
-{DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
+presentation-context = require \../presentation/context.ls
+transformation-context = require \../transformation/context.ls
+{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
+_ = require \underscore
+{create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
+{Navigation} = require \react-router
+AceEditor = create-factory require \./AceEditor.ls
+ConflictDialog = create-factory require \./ConflictDialog.ls
+DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
+Menu = create-factory require \./Menu.ls
+SettingsDialog = create-factory require \./SettingsDialog.ls
+SharePopup = create-factory require \./SharePopup.ls
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
@@ -11,21 +24,6 @@ ui-protocol =
     curl: require \../query-types/curl/ui-protocol.ls
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
-$ = require \jquery-browserify
-window.d3 = require \d3
-{compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
-transformation-context = require \../transformation/context.ls
-presentation-context = require \../presentation/context.ls
-SharePopup = require \./SharePopup.ls
-{Navigation} = require \react-router
-client-storage = require \../client-storage.ls
-ConflictDialog = require \./ConflictDialog.ls
-SettingsDialog = require \./SettingsDialog.ls
-_ = require \underscore
-ace-language-tools = require \brace/ext/language_tools 
-notify = require \notifyjs
-{key} = require \keymaster
-{cancel-event} = require \../utils.ls
 
 # trace :: a -> b -> b
 trace = (a, b) --> console.log a; b
@@ -56,11 +54,9 @@ editor-heights = (query-editor-height = 300, transformation-editor-height = 324,
     editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
         s = sum ds
         ds |> map round . (viewport-height *) . (/s)
-    {
-        query-editor-height: editor-heights.0
-        transformation-editor-height: editor-heights.1
-        presentation-editor-height: editor-heights.2
-    }
+    query-editor-height: editor-heights.0
+    transformation-editor-height: editor-heights.1
+    presentation-editor-height: editor-heights.2
 
 module.exports = React.create-class do
 
@@ -73,7 +69,7 @@ module.exports = React.create-class do
     render: ->
         {
             query-id, branch-id, tree-id, data-source-cue, query, query-title, 
-            transformation, presentation, parameters, editor-width, popup-left, 
+            transformation, presentation, parameters, tags, editor-width, popup-left, 
             popup, queries-in-between, dialog, remote-document, cache, from-cache, 
             executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
@@ -172,103 +168,104 @@ module.exports = React.create-class do
         div {class-name: \query-route},
 
             # MENU
-            React.create-element do 
-                Menu
-                {
-                    ref: \menu
-                    items: menu-items 
-                        |> filter ({show}) -> (typeof show == \undefined) or show
-                        |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
-                }
+            Menu do 
+                ref: \menu
+                items: menu-items 
+                    |> filter ({show}) -> (typeof show == \undefined) or show
+                    |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
                 a class-name: \logo, href: \/
 
-            # POPUPS 
+            # POPUPS
 
             # left-from-width :: Number -> Number
             left-from-width = (width) ~>
                 x = popup-left - width / 2
                 max-x = (x + width)
-                viewport-width = @get-DOM-node!.offset-width
-                diff = max-x - viewport-width
+                diff = max-x - window.inner-width # react complains when using refs.ref.get-DOM-node!.viewport-width
                 if diff > 0 then x - diff else x
 
             switch popup
             | \data-source-cue-popup =>
-                React.create-element do
-                    DataSourceCuePopup
-                    {
-                        left: left-from-width
-                        data-source-cue: data-source-cue
-                        on-change: (data-source-cue) ~> 
-                            <~ @set-state {data-source-cue}
-                            @save-to-client-storage-debounced!
-                    }
+                DataSourceCuePopup do
+                    left: left-from-width
+                    data-source-cue: data-source-cue
+                    on-change: (data-source-cue) ~> 
+                        <~ @set-state {data-source-cue}
+                        @save-to-client-storage-debounced!
 
             | \parameters-popup =>
-                div {class-name: 'parameters-popup popup', style: {left: left-from-width 400}},
-                    React.create-element AceEditor, do
+                div do 
+                    class-name: 'parameters-popup popup'
+                    style: left: left-from-width 400
+                    key: \parameters-popup
+                    AceEditor do
                         editor-id: "parameters-editor"
                         value: @state.parameters
                         width: 400
                         height: 300
                         on-change: (value) ~> 
-                            <~ @set-state {parameters : value}
+                            <~ @set-state parameters : value
                             @save-to-client-storage-debounced!
 
             | \share-popup =>
                 [err, parameters-object] = compile-and-execute-livescript parameters, {}
-                React.create-element do 
-                    SharePopup
-                    {
-                        host: window.location.host
-                        left: left-from-width
-                        query-id
-                        branch-id
-                        parameters: if !!err then {} else parameters-object
-                        data-source-cue
-                    }
+                SharePopup do 
+                    host: window.location.host
+                    left: left-from-width
+                    query-id: query-id
+                    branch-id: branch-id
+                    parameters: if !!err then {} else parameters-object
+                    data-source-cue: data-source-cue
 
+            | \tags-popup =>
+                div do 
+                    class-name: 'tags-popup popup'
+                    style: left: left-from-width 400
+                    key: \tags-popup
+                    AceEditor do
+                        editor-id: \tags-editor
+                        value: tags.join ', '
+                        mode: \ace/mode/text
+                        wrap: true
+                        width: 400
+                        height: 100
+                        on-change: (value) ~>
+                            <~ @set-state tags: value.split ', '
+                            @save-to-client-storage-debounced!
 
             # DIALOGS
             if !!dialog
                 div {class-name: \dialog-container},
                     match dialog
                     | \save-conflict =>
-                        React.create-element do 
-                            ConflictDialog
-                            {
-                                queries-in-between
-                                on-cancel: ~> @set-state {dialog: null, queries-in-between: null}
-                                on-resolution-select: (resolution) ~>
-                                    uid = generate-uid!
-                                    match resolution
-                                    | \new-commit => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
-                                    | \fork => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
-                                    | \reset => @set-state (@state-from-document remote-document)
-                                    @set-state {dialog: null, queries-in-between: null}
-                            }
+                        ConflictDialog do 
+                            queries-in-between: queries-in-between
+                            on-cancel: ~> @set-state {dialog: null, queries-in-between: null}
+                            on-resolution-select: (resolution) ~>
+                                uid = generate-uid!
+                                match resolution
+                                | \new-commit => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
+                                | \fork => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
+                                | \reset => @set-state (@state-from-document remote-document)
+                                @set-state {dialog: null, queries-in-between: null}
                     | \settings =>
-                      React.create-element SettingsDialog,
-                        {
+                        SettingsDialog do
                             initial-urls: @state.client-external-libs
                             initial-transpilation-language: @state.transpilation-language
                             on-change: ({urls, transpilation-language}) ~>
-                                @set-state {
+                                @set-state do
                                     client-external-libs: urls
                                     transpilation-language: transpilation-language
                                     dialog: null
-                                }
                                 @save-to-client-storage-debounced!
-                            on-cancel: ~> @set-state {
-                              dialog: null
-                            }
-                        } 
-
-
+                            on-cancel: ~> @set-state dialog: null
+                        
             div {class-name: \content},
 
                 # EDITORS
-                div {class-name: \editors, style: {width: editor-width}},
+                div do 
+                    class-name: \editors
+                    style: width: editor-width
                     [
                         {
                             editor-id: \query
@@ -324,9 +321,10 @@ module.exports = React.create-class do
                                     title
 
                             # ACE EDITOR
-                            React.create-element AceEditor, {
+                            AceEditor {
                                 editor-id: "#{editor-id}-editor"
                                 value: @state[editor-id]
+                                width: @state.editor-width
                                 height: @state["#{editor-id}EditorHeight"]
                                 on-change: (value) ~>
                                     <~ @set-state {"#{editor-id}" : value}
@@ -346,10 +344,10 @@ module.exports = React.create-class do
                             @update-presentation-size!
                         $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
                 
-                div {
+                # PRESENTATION CONTAINER
+                div do
                     ref: camelize \presentation-container
                     class-name: "presentation-container #{if !!executing-op then 'executing' else ''}"
-                },
 
                     # PRESENTATION: operations on this div are not controlled by react
                     div {ref: \presentation, class-name: \presentation}
@@ -369,7 +367,8 @@ module.exports = React.create-class do
                             * title: 'Execution time'
                               value: "#{execution-duration / 1000} seconds"
                               show: !execution-error
-                        div {class-name: \status-bar},
+                        div do 
+                            class-name: \status-bar
                             items 
                                 |> filter -> (typeof it.show == \undefined) or !!it.show
                                 |> map ({title, value}) ->
@@ -463,7 +462,7 @@ module.exports = React.create-class do
                         | _ => []
                     <~ @set-state {from-cache, execution-end-time, execution-duration, keywords-from-query-result}
                     if document[\webkitHidden]
-                        notification = new notify do 
+                        notification = new notifyjs do 
                             'Pipe: query execution complete'
                             body: "Completed execution of (#{@state.query-title}) in #{@state.execution-duration / 1000} seconds"
                             notify-click: -> window.focus!
@@ -508,7 +507,7 @@ module.exports = React.create-class do
         return [] if !@state.remote-document
 
         unsaved-document = @document-from-state!
-        <[query transformation presentation parameters queryTitle dataSourceCue]>
+        <[query transformation presentation parameters queryTitle dataSourceCue tags]>
             |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
 
     # converts the current UIState to Document & POST's it as a "save" request to the server
@@ -592,6 +591,23 @@ module.exports = React.create-class do
             ...
         ace-language-tools.set-completers (@default-completers |> map (.protocol))
 
+        # auto completion for tags
+        $.ajax do 
+            url: \/apis/tags
+            content-type: 'application/json; charset=utf-8'
+            data-type: \json
+            success: (keywords) ~>
+                @default-completers.push do 
+                    protocol:
+                        get-completions: (editor, , , prefix, callback) ~>
+                            console.log \eci, editor.container.id
+                            if editor.container.id == \tags-editor
+                                callback null, (convert-to-ace-keywords keywords, \tags, prefix)
+                {protocol}? = (@completers ? []) |> find -> it.data-source-cue `is-equal-to-object` (@state?.data-source-cue ? {})
+                ace-language-tools.set-completers do 
+                    (if !!protocol then [protocol] else []) ++ (@default-completers |> map (.protocol))
+
+
         # data loss prevent on crash
         @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
         window.onbeforeunload = ~> 
@@ -605,7 +621,7 @@ module.exports = React.create-class do
 
         # load the document based on the url
         @load @props
-        notify.request-permission! if notify.needs-permission
+        notifyjs.request-permission! if notifyjs.needs-permission
 
         # selects presentation content only
         key 'command + a', (e) ~> 
@@ -697,6 +713,7 @@ module.exports = React.create-class do
             transformation: ""
             presentation: ""
             parameters: ""
+            tags: []
             editor-width: 550
             dialog: false
             popup: null
@@ -713,11 +730,12 @@ module.exports = React.create-class do
     state-from-document: ({
         query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
         transformation, presentation, parameters, ui, transpilation,
-        client-external-libs
+        client-external-libs, tags
     }?) ->
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
             transformation, presentation, parameters, 
+            tags: tags ? []
             editor-width: ui?.editor?.width or @state.editor-width
             transpilation-language: transpilation?.query ? "livescript"
             client-external-libs: client-external-libs ? []
@@ -732,7 +750,7 @@ module.exports = React.create-class do
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query,
             transformation, presentation, parameters, editor-width, query-editor-height,
             transformation-editor-height, presentation-editor-height, transpilation-language, 
-            client-external-libs
+            client-external-libs, tags
         } = @state
         {
             query-id
@@ -748,6 +766,7 @@ module.exports = React.create-class do
             query
             transformation
             presentation
+            tags
             client-external-libs
             parameters
             ui:

@@ -6,7 +6,7 @@ express = require \express
 md5 = require \MD5
 moment = require \moment
 {MongoClient} = require \mongodb
-{any, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, Str, sort-by, values, partition, camelize, sort} = require \prelude-ls
+{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
@@ -456,6 +456,19 @@ app.post \/apis/keywords, (req, res) ->
         {query-type}:data-source <- bindP (extract-data-source req.body)
         (require "./query-types/#{query-type}").keywords data-source
     if !!err then die res, err else res.end pretty result
+
+# api :: tags
+app.get \/apis/tags, (req, res) ->
+    err, results <- query-database .collection \queries .aggregate do 
+        * $match: tags: $exists: true 
+        * $project: tags: 1
+        * $unwind: \$tags    
+    res.end do 
+        results
+            |> map (.tags)
+            |> unique
+            |> sort
+            |> -> JSON.stringify it   
 
 app.listen http-port
 console.log "listening for connections on port: #{http-port}"

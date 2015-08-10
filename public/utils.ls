@@ -61,14 +61,16 @@ export date-from-object-id = (object-id) -> new Date (parse-int (object-id.subst
 export is-equal-to-object = (o1, o2) ->
     return o1 == o2 if <[Boolan Number String]> |> any -> is-type it, o1
     return false if (typeof o1 == \undefined || o1 == null) || (typeof o2 == \undefined || o2 == null)
-    (keys o1) |> all (key) ->
-        if is-type \Object o1[key]
-            o1[key] `is-equal-to-object` o2[key]
-        else if is-type \Array o1[key]
-            return false if o1.length != o2.length
-            [1 to o1.length] |> -> all o1[it] `is-equal-to-object` o2[it]
-        else
-            o1[key] == o2[key]
+    return false if (typeof! o1) != (typeof! o2)
+    if typeof! o1 == \Array
+        return false if o1.length != o2.length
+        [0 til o1.length] |> all (index) -> o1[index] `is-equal-to-object` o2[index]
+    else
+        (keys o1) |> all (key) ->
+            if (is-type \Object, o1[key]) or (is-type \Array, o1[key])
+                o1[key] `is-equal-to-object` o2[key]
+            else
+                o1[key] == o2[key]
 
 
 # get-all-keys-recursively :: (k -> v -> Bool) -> Map k, v -> [String]
