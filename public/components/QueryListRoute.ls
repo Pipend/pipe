@@ -74,6 +74,7 @@ module.exports = React.create-class {
         branches: [], tags: [], selected-tags: [], tag-search: "", query-title-search: ""
 
     component-did-mount: ->
+        document.title = 'Queries'
         $.get \/apis/branches, (branches) ~> @set-state do
             branches: branches
             tags: branches 

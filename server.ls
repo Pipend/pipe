@@ -6,11 +6,13 @@ express = require \express
 md5 = require \MD5
 moment = require \moment
 {MongoClient} = require \mongodb
-{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
+{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
+Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
 phantom = require \phantom
 url-parser = (require \url).parse
 querystring = require \querystring
-{execute, transform, extract-data-source, compile-parameters, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
+{execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
+get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -41,8 +43,9 @@ app = express!
     ..set \views, __dirname + \/
     ..engine \.html, (require \ejs).__express
     ..set 'view engine', \ejs
+    ..use (require \serve-favicon) __dirname + '/public/images/favicon.png'
     ..use (require \cookie-parser)!
-    ..use (req, res, next) ->        
+    ..use (req, res, next) ->
         req.parsed-query = query-parser req.query if !!req.query
         next!
     ..use (req, res, next)->

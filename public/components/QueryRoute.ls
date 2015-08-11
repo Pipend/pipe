@@ -78,6 +78,8 @@ module.exports = React.create-class do
             execution-duration
         } = @state
 
+        document.title = query-title
+
         # MENU ITEMS
         toggle-popup = (popup-name, button-left, button-width) ~~>
             @set-state do
