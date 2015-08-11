@@ -18,12 +18,12 @@ App = React.create-class {
 
     render: ->
         div null,
-            React.create-element RouteHandler, {
-                params: @.get-params!
-                query: @.get-query!
+            React.create-element do 
+                RouteHandler
+                params: @get-params!
+                query: @get-query!
                 auto-reload: !!config?.gulp?.reload-port
-            }
-            div {class-name: \building}, \Building... if @.state.building
+            div {class-name: \building}, \Building... if @state.building
 
     get-initial-state: ->
         {building: false}
@@ -31,7 +31,7 @@ App = React.create-class {
     component-did-mount: ->
         if !!config?.gulp?.reload-port
             (require \socket.io-client) "http://localhost:#{config.gulp.reload-port}"
-                ..on \build-start, ~> @.set-state {building: true}
+                ..on \build-start, ~> @set-state building: true
                 ..on \build-complete, -> window.location.reload!
 
 }

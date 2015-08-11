@@ -27,7 +27,7 @@ emit-with-delay = (event) ->
 # COMPONENTS STYLES
 gulp.task \build:components:styles, ->
     gulp.src <[./public/components/*.styl]>
-    .pipe gulp-stylus {use: nib!, compress: true}
+    .pipe gulp-stylus "include css": true, use: nib!, compress: true
     .pipe gulp.dest './public/components'
     .on \end, -> emit-with-delay \build-complete if !!io
 
@@ -47,8 +47,8 @@ create-bundler = (entries) ->
     bundler = browserify {} <<< watchify.args <<< {debug: !config.gulp.minify}
         ..add entries
         ..transform {global: false}, 'browserify-shim'
-        ..transform \liveify        
-    watchify bundler    
+        ..transform \liveify
+    watchify bundler
 
 bundle = (bundler, {file, directory}:output) ->
     bundler.bundle!

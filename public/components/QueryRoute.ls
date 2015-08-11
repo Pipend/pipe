@@ -15,6 +15,7 @@ AceEditor = create-factory require \./AceEditor.ls
 ConflictDialog = create-factory require \./ConflictDialog.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 Menu = create-factory require \./Menu.ls
+ReactSelectize = create-factory require \react-selectize
 SettingsDialog = create-factory require \./SettingsDialog.ls
 SharePopup = create-factory require \./SharePopup.ls
 ui-protocol =
@@ -69,9 +70,9 @@ module.exports = React.create-class do
     render: ->
         {
             query-id, branch-id, tree-id, data-source-cue, query, query-title, 
-            transformation, presentation, parameters, tags, editor-width, popup-left, 
-            popup, queries-in-between, dialog, remote-document, cache, from-cache, 
-            executing-op, displayed-on, execution-error, execution-end-time, 
+            transformation, presentation, parameters, existing-tags, tags, editor-width, 
+            popup-left, popup, queries-in-between, dialog, remote-document, cache,  
+            from-cache, executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
         } = @state
 
@@ -220,18 +221,19 @@ module.exports = React.create-class do
             | \tags-popup =>
                 div do 
                     class-name: 'tags-popup popup'
-                    style: left: left-from-width 400
-                    key: \tags-popup
-                    AceEditor do
-                        editor-id: \tags-editor
-                        value: tags.join ', '
-                        mode: \ace/mode/text
-                        wrap: true
+                    style: 
+                        left: left-from-width 400
                         width: 400
-                        height: 100
-                        on-change: (value) ~>
-                            <~ @set-state tags: value.split ', '
+                        overflow: \visible
+                    key: \tags-popup
+                    ReactSelectize do 
+                        add-options: true
+                        values: tags
+                        options: existing-tags
+                        on-change: ~> 
+                            <~ @set-state tags: it
                             @save-to-client-storage-debounced!
+                        on-options-change: ~> @set-state existing-tags: it
 
             # DIALOGS
             if !!dialog
@@ -596,17 +598,9 @@ module.exports = React.create-class do
             url: \/apis/tags
             content-type: 'application/json; charset=utf-8'
             data-type: \json
-            success: (keywords) ~>
-                @default-completers.push do 
-                    protocol:
-                        get-completions: (editor, , , prefix, callback) ~>
-                            console.log \eci, editor.container.id
-                            if editor.container.id == \tags-editor
-                                callback null, (convert-to-ace-keywords keywords, \tags, prefix)
-                {protocol}? = (@completers ? []) |> find -> it.data-source-cue `is-equal-to-object` (@state?.data-source-cue ? {})
-                ace-language-tools.set-completers do 
-                    (if !!protocol then [protocol] else []) ++ (@default-completers |> map (.protocol))
-
+            success: (existing-tags) ~> 
+                @set-state do 
+                    existing-tags: existing-tags |> map -> {label: it, value: it}
 
         # data loss prevent on crash
         @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
@@ -713,6 +707,7 @@ module.exports = React.create-class do
             transformation: ""
             presentation: ""
             parameters: ""
+            existing-tags: []
             tags: []
             editor-width: 550
             dialog: false

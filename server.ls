@@ -465,7 +465,7 @@ app.get \/apis/tags, (req, res) ->
         * $unwind: \$tags    
     res.end do 
         results
-            |> map (.tags)
+            |> map (.tags) >> (.to-lower-case!) >> (.trim!)
             |> unique
             |> sort
             |> -> JSON.stringify it   

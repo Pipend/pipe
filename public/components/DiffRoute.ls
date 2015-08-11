@@ -15,16 +15,19 @@ module.exports = React.create-class {
 
         # (Show a) => a -> String
         show = -> 
-            match typeof! it
+            switch typeof! it
             | \String => it
-            | \Object => JSON.stringify it, null, 4
+            | \Object \Array => JSON.stringify it, null, 4
             | _ => typeof! it
 
+        console.log left-document?.tags, right-document?.tags
+
         div {class-name: \diff-route},
-            <[query transformation presentation parameters dataSourceCue]>
+            <[query transformation presentation parameters dataSourceCue tags]>
                 |> filter ~> !!right-document?[it] or !!left-document?[it]
                 |> filter ~> !(right-document?[it] `is-equal-to-object` left-document?[it])
                 |> map ~>
+                    console.log it, left-document[it], right-document[it]
                     base-text-lines = string-as-lines show left-document[it]
                     new-text-lines = string-as-lines show right-document[it]
                     opcodes = (new SequenceMatcher base-text-lines, new-text-lines) .get_opcodes!
