@@ -1,15 +1,21 @@
 {map, id} = require \prelude-ls
+{fill-intervals} = require \./_utils.ls
+fill-intervals-f = fill-intervals
 
 module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do 
-    (view, result, {x, y, key, values, y-axis, x-axis, transition-duration, reduce-x-ticks, rotate-labels, show-controls, group-spacing, show-legend}, continuation) !-->
+    (view, result, {x, y, key, values, y-axis, x-axis, transition-duration, reduce-x-ticks, rotate-labels, show-controls, group-spacing, show-legend, fill-intervals}, continuation) !-->
 
         <- nv.add-graph
 
-        result := result |> map (-> {key: (key it), values: (values it)})
+        result := result |> map (r) -> {
+            key: (key r)
+            values: (values r) |> (map (d) -> [(x d), (y d)]) |> if fill-intervals is not false then (-> fill-intervals-f it, if fill-intervals is true then 0 else fill-intervals) else id
+        }
+
 
         chart = nv.models.multi-bar-chart!
-            .x x
-            .y y
+            .x (.0)
+            .y (.1)
             # .transition-duration transition-duration
             .reduce-x-ticks reduce-x-ticks
             .rotate-labels rotate-labels
@@ -21,12 +27,10 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
             ..x-axis.tick-format x-axis.format
             ..y-axis.tick-format y-axis.format
 
+        <- continuation chart, result
+
         plot-chart view, result, chart
         
-        <- (continuation ? (cb) -> cb!) chart, result
-
-        #chart.update!
-
     {
         key: (.key)
         values: (.values)
@@ -42,5 +46,6 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
         show-controls: true
         group-spacing: 0.1 # Distance between each group of bars.
         show-legend: true
+        fill-intervals: false
 
     }
