@@ -4,10 +4,12 @@ window.d3 = require \d3
 $ = require \jquery-browserify
 {key} = require \keymaster
 require! \notifyjs
-{all, any, camelize, concat-map, dasherize, filter, find, keys, last, map, sum, round, obj-to-pairs, pairs-to-obj, unique, take, is-type, difference, each} = require \prelude-ls
+{all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
+last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by} = require \prelude-ls
 presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
-{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
+{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, 
+is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 _ = require \underscore
 {create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
 {Navigation} = require \react-router
@@ -550,11 +552,22 @@ module.exports = React.create-class do
             local-document = client-storage.get-document query-id
             $.getJSON url
                 ..done (document) ~>
-                    # gets the state from the document, and stores a copy of it under the key "remote-document"
-                    # state.remote-document is used to check if the client copy has diverged
-                    remote-document = document
-                    <~ @set-state {} <<< (@state-from-document (if !!local-document then local-document else remote-document)) <<< {remote-document}
+                    
+                    # load local-document if present otherwise load the remote document
+                    document-to-load = if !!local-document then local-document else document
+                    state-from-document = @state-from-document document-to-load
+                    <~ @set-state {} <<< state-from-document <<< 
+
+                        # existing-tags must also include tags saved on client storage 
+                        existing-tags: ((@state.existing-tags ? []) ++ (state-from-document.tags |> map -> label: it, value: it))
+                            |> unique-by (.value)
+                            |> sort-by (.label)
+                        
+                        # state.remote-document is used to check if the client copy has diverged
+                        remote-document: document
+
                     @update-presentation-size!
+
                 ..fail ({response-text}?) ~> 
                     alert "unable to load query: #{response-text}"
                     window.location.href = \/
@@ -600,7 +613,9 @@ module.exports = React.create-class do
             data-type: \json
             success: (existing-tags) ~> 
                 @set-state do 
-                    existing-tags: existing-tags |> map -> {label: it, value: it}
+                    existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
+                        |> unique-by (.value)
+                        |> sort-by (.label)
 
         # data loss prevent on crash
         @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
