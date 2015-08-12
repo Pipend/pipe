@@ -41,6 +41,10 @@ module.exports = React.create-class {
                 range.setStart range.start.row, 0
                 line = editor.session.getTextRange range
                 editor.execCommand \startAutocomplete if command.name == "insertstring" and ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
+            ..session.on \changeMode, (e, session) ~>
+                if "ace/mode/javascript" == session.getMode!.$id
+                    if !!session.$worker
+                        session.$worker.send "setOptions", [ { "-W095": false, "-W025": false }]
         @process-props @props
 
     # component-did-update :: Props -> Void
