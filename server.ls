@@ -1,3 +1,4 @@
+fs = require \fs
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 body-parser = require \body-parser
 {http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
@@ -48,8 +49,8 @@ app = express!
     ..use (req, res, next) ->
         req.parsed-query = query-parser req.query if !!req.query
         next!
-    ..use (req, res, next)->
-        return next! if req.method is not \POST
+    ..use (req, res, next) ->
+        return next! if (req.method is not \POST or (req.url.index-of "/import") > 0)
         body = ""
         size = 0
         req.on \data, -> 
@@ -472,6 +473,69 @@ app.get \/apis/tags, (req, res) ->
             |> unique
             |> sort
             |> -> JSON.stringify it   
+
+
+Busboy = require \busboy
+JSONStream = require "JSONStream"
+
+app.post \/apis/queryTypes/:queryType/import_, (req, res) ->
+    i = 0
+    req.on \data, (data) ->
+        console.log "--------chunk---------"
+        console.log data.toString \utf8
+        console.log "--------^^^^^---------"
+        i := i + 1
+        if i > 1
+            res.end "duck it"
+            req.destroy!
+    req.on \end, ->
+        console.log \end, it
+        res.end "done"
+
+app.post \/apis/queryTypes/:queryType/import, (req, res) ->
+
+    upload = (data-source-cue, file, resolved, rejected) ->
+        {timeout}:data-source <- bindP (extract-data-source data-source-cue)
+        [req, res] |> each (.connection.set-timeout timeout ? 90000)        
+        (require "./query-types/#{query-type}").import-stream file, data-source, resolved, rejected
+
+
+    queryType = req.params.queryType
+    doc = null
+
+    exception = null
+    busboy = new Busboy headers: req.headers
+        ..on \file, (fieldname, file, filename, encoding, mimetype) ->
+            console.log \file, fieldname, filename, encoding, mimetype
+            console.log \doc, doc
+
+
+            err, res <- to-callback upload do 
+                doc.document.data-source-cue
+                file
+                (result) ->
+                    console.log ":) resolved", result
+                    res.end "resolved"
+                (error) ->
+                    console.log "^:% rejected", error
+                    res.end error.toString!
+                    req.destroy!
+
+
+            
+        ..on \field, (fieldname, val, fieldnameTruncated, valTruncated) ->
+            console.log \field, fieldname, val, fieldnameTruncated, valTruncated
+            if "doc" == fieldname
+                doc := JSON.parse val
+
+        busboy.on \finish, ->
+            console.log "%%%%%%%% busboy finished, we shouldn't be here"
+            #res.end "finished"
+
+    req.pipe busboy
+
+
+
 
 app.listen http-port
 console.log "listening for connections on port: #{http-port}"

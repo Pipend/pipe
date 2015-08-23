@@ -9,3 +9,4 @@ migrations/
 node_modules/
 public/snapshots/
 tmp/
+imports/

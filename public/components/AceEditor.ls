@@ -44,7 +44,7 @@ module.exports = React.create-class {
             ..session.on \changeMode, (e, session) ~>
                 if "ace/mode/javascript" == session.getMode!.$id
                     if !!session.$worker
-                        session.$worker.send "setOptions", [ { "-W095": false, "-W025": false }]
+                        session.$worker.send "setOptions", [ { "-W095": false, "-W025": false } ]
         @process-props @props
 
     # component-did-update :: Props -> Void

@@ -176,7 +176,6 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                 aggregation-type: 'computation'
                 computation: ->
                     query := query.substring (query.index-of '\n') + 1 # remove the directive line
-                    console.log query
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("f = #{query}")
                         | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, console, new-promise, bindP, from-error-value-callback}
@@ -233,3 +232,73 @@ export default-document = ->
         presentation: "json"
         parameters: ""
     }
+
+JSONStream = require "JSONStream"
+
+export import-stream = (file, data-source, resolved, rejected) !->
+
+    err, result <- to-callback execute-mongo-database-query-function do
+        data-source
+        (db) ->
+
+            collection = db.collection \imported
+
+            resolve, reject <- new-promise
+
+            stream = JSONStream.parse "*"
+            file.pipe stream
+            i = 0
+            buffer = []
+            stream
+                ..on \data, (data) ->
+                    i := i + 1
+                    buffer.push data
+                    if i > 99
+                        copy = buffer
+                        buffer := []
+                        i := 0
+
+                        stream.pause!
+
+                        err, _ <- collection.insert copy, {w: 1}
+                        if !!err
+                            console.log "----------------Error in Insertion------------"
+                            console.log err
+                            console.log "----------------------------------------------"
+                            
+
+                            reject err
+                            # rejected err
+                            
+                            #stream.end!
+                        else
+                            stream.resume!
+                 
+                ..on \error, ->
+                    console.log "&&& JSON error"
+
+                ..on \end, ->
+                    copy = buffer
+                    buffer := []
+                    i := 0
+
+                    console.log "file ended #i"
+
+                    if copy.length > 0
+                        err, _ <- collection.insert copy, {w: 1}
+                        if !!err
+                            reject err
+                            rejected err
+                        else
+                            resolve "done inserting"
+                            #resolved "done inserting"
+                    else
+                        resolve "done inserting"
+                        #resolved "done insterting"
+
+    if !!err
+        console.log "...err"
+        rejected err
+    else
+        resolved result
+                    
