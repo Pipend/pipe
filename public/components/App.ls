@@ -9,6 +9,7 @@ DiffRoute = require \./DiffRoute.ls
 QueryRoute = require \./QueryRoute.ls
 QueryListRoute = require \./QueryListRoute.ls
 TreeRoute = require \./TreeRoute.ls
+ImportRoute = require \./ImportRoute.ls
 
 App = React.create-class {
 
@@ -42,6 +43,7 @@ handler <- Router.run do
         React.create-element Route, {name: \existing-query, path: "/branches/:branchId/queries/:queryId" handler: QueryRoute}
         React.create-element Route, {name: \diff, path: "/branches/:branchId/queries/:queryId/diff", handler: DiffRoute}
         React.create-element Route, {name: \tree, path: "/branches/:branchId/queries/:queryId/tree", handler: TreeRoute}
+        React.create-element Route, {name: \import, path: "/import" handler: ImportRoute}
         React.create-element DefaultRoute, {handler: QueryListRoute}
     HistoryLocation
 

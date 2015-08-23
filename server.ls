@@ -50,7 +50,7 @@ app = express!
         req.parsed-query = query-parser req.query if !!req.query
         next!
     ..use (req, res, next) ->
-        return next! if (req.method is not \POST or (req.url.index-of "/import") > 0)
+        return next! if (req.method is not \POST or ((req.url.index-of "apis") > 0 and (req.url.index-of "/import") > 0))
         body = ""
         size = 0
         req.on \data, -> 
@@ -94,6 +94,7 @@ json = -> JSON.stringify it
     \/branches/:branchId/queries/:queryId
     \/branches/:branchId/queries/:queryId/diff
     \/branches/:branchId/queries/:queryId/tree
+    \/import
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
@@ -494,10 +495,10 @@ app.post \/apis/queryTypes/:queryType/import_, (req, res) ->
 
 app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
-    upload = (data-source-cue, file, resolved, rejected) ->
+    upload = (data-source-cue, file) ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
         [req, res] |> each (.connection.set-timeout timeout ? 90000)        
-        (require "./query-types/#{query-type}").import-stream file, data-source, resolved, rejected
+        (require "./query-types/#{query-type}").import-stream file, data-source
 
 
     queryType = req.params.queryType
@@ -510,17 +511,14 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
             console.log \doc, doc
 
 
-            err, res <- to-callback upload do 
-                doc.document.data-source-cue
-                file
-                (result) ->
-                    console.log ":) resolved", result
-                    res.end "resolved"
-                (error) ->
-                    console.log "^:% rejected", error
+            upload doc.document.data-source-cue, file 
+                ..then (result) ->
+                    res.end <| JSON.stringify result
+
+                ..catch (error) ->
+                    res.status 502
                     res.end error.toString!
                     req.destroy!
-
 
             
         ..on \field, (fieldname, val, fieldnameTruncated, valTruncated) ->
@@ -529,7 +527,6 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
                 doc := JSON.parse val
 
         busboy.on \finish, ->
-            console.log "%%%%%%%% busboy finished, we shouldn't be here"
             #res.end "finished"
 
     req.pipe busboy

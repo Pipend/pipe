@@ -235,15 +235,15 @@ export default-document = ->
 
 JSONStream = require "JSONStream"
 
-export import-stream = (file, data-source, resolved, rejected) !->
+export import-stream = (file, data-source) ->
 
-    err, result <- to-callback execute-mongo-database-query-function do
+    execute-mongo-database-query-function do
         data-source
         (db) ->
 
-            collection = db.collection \imported
-
             resolve, reject <- new-promise
+
+            collection = db.collection data-source.collection
 
             stream = JSONStream.parse "*"
             file.pipe stream
@@ -253,52 +253,37 @@ export import-stream = (file, data-source, resolved, rejected) !->
                 ..on \data, (data) ->
                     i := i + 1
                     buffer.push data
-                    if i > 99
+                    if 0 == (i % 100)
                         copy = buffer
                         buffer := []
-                        i := 0
 
                         stream.pause!
 
                         err, _ <- collection.insert copy, {w: 1}
                         if !!err
-                            console.log "----------------Error in Insertion------------"
-                            console.log err
-                            console.log "----------------------------------------------"
-                            
-
-                            reject err
-                            # rejected err
-                            
-                            #stream.end!
+                            reject err                            
+                            # stream.end!
                         else
                             stream.resume!
                  
-                ..on \error, ->
-                    console.log "&&& JSON error"
+                ..on \error, (err) ->
+                    console.log "JSON Stream Error", err
+                    reject err
+                    # stream.end!
+
 
                 ..on \end, ->
                     copy = buffer
                     buffer := []
-                    i := 0
-
-                    console.log "file ended #i"
 
                     if copy.length > 0
                         err, _ <- collection.insert copy, {w: 1}
                         if !!err
                             reject err
-                            rejected err
                         else
-                            resolve "done inserting"
-                            #resolved "done inserting"
+                            resolve {inserted: i}
                     else
-                        resolve "done inserting"
-                        #resolved "done insterting"
+                        resolve {inserted: i}
 
-    if !!err
-        console.log "...err"
-        rejected err
-    else
-        resolved result
+
                     
