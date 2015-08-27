@@ -234,6 +234,57 @@ export default-document = ->
     }
 
 JSONStream = require "JSONStream"
+csv-parse = require "csv-parse"
+
+import-json = (file, data-source) ->
+    execute-mongo-database-query-function do
+        data-source
+        (db) ->
+
+            resolve, reject <- new-promise
+
+            collection = db.collection data-source.collection
+
+            stream = JSONStream.parse "*"
+            file.pipe stream
+            i = 0
+            buffer = []
+            stream
+                ..on \data, (data) ->
+                    i := i + 1
+                    buffer.push data
+                    if 0 == (i % 100)
+                        copy = buffer
+                        buffer := []
+
+                        stream.pause!
+
+                        err, _ <- collection.insert copy, {w: 1}
+                        if !!err
+                            reject err                            
+                            # stream.end!
+                        else
+                            stream.resume!
+                 
+                ..on \error, (err) ->
+                    console.log "JSON Stream Error", err
+                    reject err
+                    # stream.end!
+
+
+                ..on \end, ->
+                    copy = buffer
+                    buffer := []
+
+                    if copy.length > 0
+                        err, _ <- collection.insert copy, {w: 1}
+                        if !!err
+                            reject err
+                        else
+                            resolve {inserted: i}
+                    else
+                        resolve {inserted: i}
+
 
 export import-stream = (file, data-source) ->
 
@@ -242,6 +293,18 @@ export import-stream = (file, data-source) ->
         (db) ->
 
             resolve, reject <- new-promise
+
+            parse = csv-parse {comment: '#', relax: true, skip_empty_lines: true, trim: true, auto_parse: true, columns: true}
+
+            parse.on \data, (data) ->
+                console.log \data, data
+
+            file.pipe parse
+
+            set-timeout do
+                -> resolve "L)"
+                2000
+            return
 
             collection = db.collection data-source.collection
 

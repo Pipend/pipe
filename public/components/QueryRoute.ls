@@ -419,8 +419,10 @@ module.exports = React.create-class do
                 | 'livescript' => compile-and-execute-livescript 
                 | 'javascript' => compile-and-execute-javascript
             
+            stream = require \stream
+            util = require \util
 
-            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
+            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {stream, util}
             return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
             
             try

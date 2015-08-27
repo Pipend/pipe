@@ -5,6 +5,9 @@ DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 $ = require \jquery-browserify
 client-storage = require \../client-storage.ls
 {is-equal-to-object} = require \../utils.ls
+{readFile, readMinNBytes, readNLines, readTakeN} = require \../lazy-file-reader.ls
+csv-parse = require \csv-parse
+JSONStream = require "JSONStream"
 
 save-to-client-storage = (state) ->
     client-storage.save-document "import-data-source-cue", state.data-source-cue
@@ -37,7 +40,17 @@ module.exports = React.create-class {
                 input {
                     type: \file
                     on-change: (e) ~>
-                        @set-state {file: e.target.files[0]}
+                        file = e.target.files[0]
+                        @set-state {file}
+                        reader = (readFile 16, file) |> readMinNBytes 1024 |> readNLines 3 |> readTakeN 1
+                        reader.once "readable", ~>
+                            console.log csv-parse, JSONStream
+                            content = reader.read!.toString!
+                            console.log content
+                            @set-state {console: content, message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first byte:"}
+                        reader.once "end", ->
+                            console.log "reader ended"
+                            reader.close!
                 }, null
                 button {
                     type: \submit
@@ -63,18 +76,14 @@ module.exports = React.create-class {
                                     switch 
                                     | 200 == xhr.status =>
                                         @set-state {state: "uploaded", message: xhr.responseText}
-                                        console.log "done", xhr.responseText
                                     | otherwise =>
                                         @set-state {state: "error", message: xhr.responseText}
-                                        console.log "error", xhr.responseText
                                     
                                 ..onerror = (e) ~>
                                     @set-state {state: "error", message: "Unhandled error"}
-                                    console.log "error", e
                                     
                                 ..send form-data
                         else
-                            # TODO: show an error
                             @set-state {state: "error", message: "Please select a file"}
 
 
@@ -82,6 +91,7 @@ module.exports = React.create-class {
                         e.prevent-default!
                 }, "Upload!"
             div {class-name: "message"}, @state.message
+            div {class-name: "console"}, @state.console
 
             
 
@@ -94,6 +104,7 @@ module.exports = React.create-class {
         load-from-client-storage {
             state: "initial" # | uploading | uploaded | error
             message: null
+            console: null
             data-source-cue: null
             file: null
         }
