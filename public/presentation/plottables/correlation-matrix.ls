@@ -1,7 +1,7 @@
 {map, id, filter, Obj, pairs-to-obj} = require \prelude-ls
 
 module.exports = ({Plottable, d3, plot-chart, nv}) -> new Plottable do
-    (view, result, {traits, category}, continuation) !->
+    (view, result, {traits, category, onselected, ondeselected}, continuation) !->
 
         if !traits
             traits := Obj.keys result.0
@@ -115,13 +115,22 @@ module.exports = ({Plottable, d3, plot-chart, nv}) -> new Plottable do
 
         brushmove = (p) ->
             e = brush.extent!
-            svg.select-all \circle .classed \hidden, (d) ->
-                e[0][0] > d[p.x] or d[p.x] > e[1][0]
-                or e[0][1] > d[p.y] or d[p.y] > e[1][1]
+            svg.select-all \circle 
+                ..classed \hidden, (d) ->
+                    e[0][0] > d[p.x] or d[p.x] > e[1][0]
+                    or e[0][1] > d[p.y] or d[p.y] > e[1][1]
+
 
         brushend = ->
             if brush.empty!
                 svg.select-all \.hidden .classed \hidden, false
+                if !!ondeselected
+                    svg.select ".cell" .select-all "circle:not(.hidden)" .call (d) ->
+                        ondeselected d.data!, d
+            else
+                if !!onselected
+                    svg.select ".cell" .select-all "circle:not(.hidden)" .call (d) ->
+                        onselected d.data!, d
 
         brush = d3.svg.brush!
             .x x

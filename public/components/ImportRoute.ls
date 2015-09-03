@@ -42,12 +42,12 @@ module.exports = React.create-class {
                     on-change: (e) ~>
                         file = e.target.files[0]
                         @set-state {file}
-                        reader = (readFile 16, file) |> readMinNBytes 1024 |> readNLines 3 |> readTakeN 1
-                        reader.once "readable", ~>
+                        reader = (readFile 16, file) |> readMinNBytes 1024 |> readNLines 10 |> readTakeN 1
+                        reader.on "readable", ~>
                             console.log csv-parse, JSONStream
-                            content = reader.read!.toString!
-                            console.log content
-                            @set-state {console: content, message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first byte:"}
+                            content = reader.read! ? "" .toString!
+                            console.log content.toString!
+                            @set-state {console: content.toString!, message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first byte or first 10 lines:"}
                         reader.once "end", ->
                             console.log "reader ended"
                             reader.close!

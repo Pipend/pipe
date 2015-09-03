@@ -50,7 +50,7 @@ splitReader = (splitter, reader) -->
             next!
         .._flush = (next) ->
             @push incompleteLine
-            next!
+            #next!
         ..close = ->
             reader.close!
           
@@ -144,6 +144,8 @@ readTakeN = (n, reader) -->
                 #@close!
             else
                 next!
+        .._flush = (next) ->
+            reader._flush next
     tstream.close = ->
         reader.close!
     reader.pipe tstream
