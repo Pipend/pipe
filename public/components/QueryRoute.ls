@@ -422,7 +422,7 @@ module.exports = React.create-class do
             stream = require \stream
             util = require \util
 
-            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {stream, util}
+            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {stream, util, highland: (require \highland), JSONStream: (require "JSONStream")}
             return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
             
             try

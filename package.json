@@ -27,6 +27,7 @@
     "ejs": "^2.3.1",
     "express": "^4.12.2",
     "gulp-uglify": "^1.2.0",
+    "highland": "^2.5.1",
     "hiredis": "^0.4.0",
     "jquery-browserify": "^1.8.1",
     "jsdifflib": "^1.1.0",

@@ -106,22 +106,22 @@ readNLines = (n, reader) -->
         reader
 
 # Int -> StreamReader -> StreamReader
-# require explicit close even in pipe
+# requires explicit close even in pipe
 readMinNBytes = (n, reader) -->
     total = 0
     tstream = new stream.Transform!
         .._transform = (chunk, enc, next) ->
             if !chunk
-                console.log "no chunk"
+                #console.log "no chunk"
                 @push null
                 @emit "end"
                 #@close!
             else
-                content = chunk.toString!
-                total += content.length
-                @push content
+                #content = chunk.toString!
+                total += chunk.length
+                @push chunk
                 if total >= n
-                    console.log "total > n", total, n
+                    #console.log "total > n", total, n
                     #@push null
                     @emit "end"
                     #@close!
@@ -136,8 +136,8 @@ readTakeN = (n, reader) -->
     total = 0
     tstream = new stream.Transform!
         .._transform = (chunk, enc, next) ->
-            content = chunk.toString!
-            @push content
+            #content = chunk.toString!
+            @push chunk #content
             total += 1
             if total >= n
                 @emit "end"
