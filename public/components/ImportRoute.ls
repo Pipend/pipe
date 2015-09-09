@@ -4,7 +4,7 @@ AceEditor = create-factory require \./AceEditor.ls
 ace-language-tools = require \brace/ext/language_tools 
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by} = require \prelude-ls
+last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by, Obj} = require \prelude-ls
 $ = require \jquery-browserify
 client-storage = require \../client-storage.ls
 {is-equal-to-object, compile-and-execute-livescript} = require \../utils.ls
@@ -63,17 +63,30 @@ module.exports = React.create-class {
                     type: \file
                     on-change: (e) ~>
                         file = e.target.files[0]
+                        {transformation, default-transformations} = @state
                         @set-state {file}
-                        reader = (readFile 4048, file) |> readMinNBytes (1024 * 1000) |> readNLines 10 |> readTakeN 1
-                        reader .on "readable", ~>
-                            # console.log csv-parse, JSONStream
-                            content = reader.read! ? "" .toString!
-                            # console.log content.toString!
-                            @set-state {console: content.toString!, message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first byte or first 10 lines:"}
-                        reader.once "end", ->
-                            console.log "reader ended"
-                            reader.close!
+                        st = readFile 1024, file
+                        reader = highland st
+                            .take 10
+                            .split!
+                            .take 10
+                            .reduce1 (a, b) -> "#a\n#b"
+                            .each (d) ~>
+                                @set-state {
+                                    console: d, 
+                                    message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first 10 byte or first 10 lines:"
+                                    transformation: do ->
+                                        if transformation in Obj.values default-transformations
+                                            default-transformations[file.type] ? default-transformations["_"]
+                                        else
+                                            transformation
+                                }
+                            .done "end", ->
+                                console.log "reader ended"
+                                st.close!
                 }, null
+                div {class-name: "message"}, @state.message
+                div {class-name: "console"}, @state.console
                 div do
                     { 
                         class-name: 'import-editor'
@@ -83,7 +96,7 @@ module.exports = React.create-class {
                     AceEditor do
                         editor-id: "import-editor"
                         value: @state.transformation
-                        width: 400
+                        width: '400'
                         height: 300
                         on-change: (value) ~> 
                             <~ @set-state transformation : value
@@ -96,20 +109,30 @@ module.exports = React.create-class {
                         @set-state {parsed: []}
 
                         {file, transformation} = @state
-                        reader = (readFile 4048, file) |> readMinNBytes (1024 * 100) 
 
-                        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland} <<< (require \prelude-ls)
+                        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
                         if !!err
                             alert err.toString!
                             return
 
-                        #reader = (reader.pipe (JSONStream.parse "*")) #|> readTakeN 10
-                        reader = transformationf reader
-                        reader.on "data", (d) ~>
-                            console.log d
-                            {parsed} = @state
-                            parsed.push <| JSON.stringify d, null, 4
-                            @set-state {parsed}
+
+                        st = readFile 1024, file
+                        reader = highland st
+                            .take 10
+                            .pipe transformationf
+                            .pipe highland.pipeline (s) ->
+                                s
+                                    .map (o) -> JSON.stringify o, null, 4
+                                    .batch 10
+                                    .take 1
+                            .each (d) ~>
+                                console.log d
+                                @set-state {parsed: d}
+                            .done ->
+                                console.log "done"
+                                st.close!
+
+
                 }, "Parse (Preview)"
                 button {
                     type: \submit
@@ -149,8 +172,6 @@ module.exports = React.create-class {
                         e.stop-propagation!
                         e.prevent-default!
                 }, "Upload!"
-            div {class-name: "message"}, @state.message
-            div {class-name: "console"}, @state.console
             div {class-name: "parsed console"}, (@state.parsed ? []).map (p) ->
                 div { }, p
 
@@ -162,7 +183,7 @@ module.exports = React.create-class {
         console.log @.props
 
         do ->
-            transformation-keywords = ([JSONStream, highland, (require \prelude-ls)] |> concat-map keywords-from-object) ++ alphabet
+            transformation-keywords = ([JSONStream, csv-parse, highland, (require \prelude-ls)] |> concat-map keywords-from-object) ++ alphabet
             @default-completers =
                 * protocol: 
                     get-completions: (editor, , , prefix, callback) ~>
@@ -184,7 +205,18 @@ module.exports = React.create-class {
             parsed: []
             data-source-cue: null
             file: null
-            transformation: "(stream) -> stream.pipe JSONStream.parse '*'"
+            default-transformations:
+                "application/json": "JSONStream.parse '*'"
+                "text/csv": """csv-parse {
+                        comment: '#',
+                        relax: true,
+                        skip_empty_lines: true,
+                        trim: true,
+                        auto_parse: true,
+                        columns: true
+                    }"""
+                "_": "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
+            transformation: "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
         }
 
 }
