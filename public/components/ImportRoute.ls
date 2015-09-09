@@ -1,7 +1,8 @@
-{create-factory, DOM:{div, h1, table, input, form, button}}:React = require \react
+{create-factory, DOM:{div, h1, table, input, form, button, a}}:React = require \react
 ace-language-tools = require \brace/ext/language_tools 
 AceEditor = create-factory require \./AceEditor.ls
 ace-language-tools = require \brace/ext/language_tools 
+Menu = create-factory require \./Menu.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
 last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by, Obj} = require \prelude-ls
@@ -45,135 +46,144 @@ module.exports = React.create-class {
     render: ->
 
         div {class-name: "import-route #{@state.state}"},
-            h1 {}, "Import"
 
-            div {
-                style: 
-                    position: \relative
-                    height: \250px
-            },
-                DataSourceCuePopup do
-                    left: -> 0
-                    data-source-cue: @state.data-source-cue
-                    on-change: (data-source-cue) ~> 
-                        <~ @set-state {data-source-cue}
-                        save-to-client-storage @state
-            form {},
-                input {
-                    type: \file
-                    on-change: (e) ~>
-                        file = e.target.files[0]
-                        {transformation, default-transformations} = @state
-                        @set-state {file}
-                        st = readFile 1024, file
-                        reader = highland st
-                            .take 10
-                            .split!
-                            .take 10
-                            .reduce1 (a, b) -> "#a\n#b"
-                            .each (d) ~>
-                                @set-state {
-                                    console: d, 
-                                    message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first 10 byte or first 10 lines:"
-                                    transformation: do ->
-                                        if transformation in Obj.values default-transformations
-                                            default-transformations[file.type] ? default-transformations["_"]
-                                        else
-                                            transformation
-                                }
-                            .done "end", ->
-                                console.log "reader ended"
-                                st.close!
-                }, null
-                div {class-name: "message"}, @state.message
-                div {class-name: "console"}, @state.console
-                div do
-                    { 
-                        class-name: 'import-editor'
-                        style: position: \relative
-                        key: "import-editor"
+            Menu do 
+                ref: \menu
+                items: do ~>
+                    a = 
+                        * label: \Parse
+                          icon: \e
+                          enabled: true
+                          hotkey: "command + enter"
+                          show: true
+                          action: ~>
+                            @action_parse!
+                        * label: \...
+                    |> filter ({show}) -> (typeof show == \undefined) or show
+                a class-name: \logo, href: \/
+
+            div do
+                {
+                    style: display: \flex
+                }
+
+                div do 
+                    {
+
                     }
-                    AceEditor do
-                        editor-id: "import-editor"
-                        value: @state.transformation
-                        width: '400'
-                        height: 300
-                        on-change: (value) ~> 
-                            <~ @set-state transformation : value
-                            #@save-to-client-storage-debounced!
-                button {
-                    on-click: (e) ~>
-                        e.stop-propagation!
-                        e.prevent-default!
 
-                        @set-state {parsed: []}
+                    div {},
+                        input {
+                            type: \file
+                            on-change: (e) ~>
+                                file = e.target.files[0]
+                                {transformation, default-transformations} = @state
+                                @set-state {file}
+                                st = readFile 1024, file
+                                reader = highland st
+                                    .take 10
+                                    .split!
+                                    .take 10
+                                    .reduce1 (a, b) -> "#a\n#b"
+                                    .each (d) ~>
+                                        @set-state {
+                                            console: d, 
+                                            message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first 10 byte or first 10 lines:"
+                                            transformation: do ->
+                                                if transformation in Obj.values default-transformations
+                                                    default-transformations[file.type] ? default-transformations["_"]
+                                                else
+                                                    transformation
+                                        }
+                                    .done "end", ->
+                                        console.log "reader ended"
+                                        st.close!
+                        }, null
+                        div do
+                            { 
+                                class-name: 'import-editor'
+                                style: position: \relative
+                                key: "import-editor"
+                            }
+                            AceEditor do
+                                editor-id: "import-editor"
+                                value: @state.transformation
+                                width: '400'
+                                height: 300
+                                on-change: (value) ~> 
+                                    <~ @set-state transformation : value
+                                    #@save-to-client-storage-debounced!
+                        
+                        div do 
+                            {
+                                style: 
+                                    position: \relative
+                                    height: \250px
+                            }
+                            DataSourceCuePopup do
+                                left: -> 0
+                                data-source-cue: @state.data-source-cue
+                                on-change: (data-source-cue) ~> 
+                                    <~ @set-state {data-source-cue}
+                                    save-to-client-storage @state
 
-                        {file, transformation} = @state
+                        button {
+                            on-click: (e) ~>
+                                e.stop-propagation!
+                                e.prevent-default!
 
-                        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
-                        if !!err
-                            alert err.toString!
-                            return
-
-
-                        st = readFile 1024, file
-                        reader = highland st
-                            .take 10
-                            .pipe transformationf
-                            .pipe highland.pipeline (s) ->
-                                s
-                                    .map (o) -> JSON.stringify o, null, 4
-                                    .batch 10
-                                    .take 1
-                            .each (d) ~>
-                                console.log d
-                                @set-state {parsed: d}
-                            .done ->
-                                console.log "done"
-                                st.close!
-
-
-                }, "Parse (Preview)"
-                button {
-                    type: \submit
-                    disabled: "uploading" == @state.state
-                    on-click: (e) ~>
-                        form-data = new FormData!
-
-                        {file, data-source-cue} = @state
-
-                        if !!file 
-
-                            doc = 
-                                document:
-                                    data-source-cue: data-source-cue
-
-                            form-data.append "doc", JSON.stringify doc
-                            form-data.append "file", file
-
-                            @set-state {state: "uploading"}
-                            xhr = new XMLHttpRequest!
-                                ..open 'POST', "/apis/queryTypes/mongodb/import", true
-                                ..onload = (e) ~>
-                                    switch 
-                                    | 200 == xhr.status =>
-                                        @set-state {state: "uploaded", message: xhr.responseText}
-                                    | otherwise =>
-                                        @set-state {state: "error", message: xhr.responseText}
-                                    
-                                ..onerror = (e) ~>
-                                    @set-state {state: "error", message: "Unhandled error"}
-                                    
-                                ..send form-data
-                        else
-                            @set-state {state: "error", message: "Please select a file"}
+                                @action_parse!
 
 
-                        e.stop-propagation!
-                        e.prevent-default!
-                }, "Upload!"
-            div {class-name: "parsed console"}, (@state.parsed ? []).map (p) ->
-                div { }, p
+                        }, "Parse (Preview)"
+                        button {
+                            type: \submit
+                            disabled: "uploading" == @state.state
+                            on-click: (e) ~>
+                                form-data = new FormData!
+
+                                {file, data-source-cue} = @state
+
+                                if !!file 
+
+                                    doc = 
+                                        document:
+                                            data-source-cue: data-source-cue
+
+                                    form-data.append "doc", JSON.stringify doc
+                                    form-data.append "file", file
+
+                                    @set-state {state: "uploading"}
+                                    xhr = new XMLHttpRequest!
+                                        ..open 'POST', "/apis/queryTypes/mongodb/import", true
+                                        ..onload = (e) ~>
+                                            switch 
+                                            | 200 == xhr.status =>
+                                                @set-state {state: "uploaded", message: xhr.responseText}
+                                            | otherwise =>
+                                                @set-state {state: "error", message: xhr.responseText}
+                                            
+                                        ..onerror = (e) ~>
+                                            @set-state {state: "error", message: "Unhandled error"}
+                                            
+                                        ..send form-data
+                                else
+                                    @set-state {state: "error", message: "Please select a file"}
+
+
+                                e.stop-propagation!
+                                e.prevent-default!
+                        }, "Upload!"
+
+                div do
+                    {
+
+                    }
+                    div {class-name: "message"}, @state.message
+                    div {class-name: "console"}, @state.console
+            
+                    div {class-name: "parsed console"}, (@state.parsed ? []).map (p) ->
+                        div { }, p
 
             
 
@@ -218,5 +228,32 @@ module.exports = React.create-class {
                 "_": "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
             transformation: "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
         }
+
+    action_parse: ->
+        @set-state {parsed: []}
+
+        {file, transformation} = @state
+
+        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
+        if !!err
+            alert err.toString!
+            return
+
+
+        st = readFile 1024, file
+        reader = highland st
+            .take 10
+            .pipe transformationf
+            .pipe highland.pipeline (s) ->
+                s
+                    .map (o) -> JSON.stringify o, null, 4
+                    .batch 10
+                    .take 1
+            .each (d) ~>
+                console.log d
+                @set-state {parsed: d}
+            .done ->
+                console.log "done"
+                st.close!
 
 }
