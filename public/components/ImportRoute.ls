@@ -166,6 +166,8 @@ module.exports = React.create-class {
                                         ..onerror = (e) ~>
                                             @set-state {state: "error", message: "Unhandled error"}
                                             
+                                        ..upload.onprogress = (e) ~>
+                                            @set-state {upload-progress: (e.loaded / e.total)}
                                         ..send form-data
                                 else
                                     @set-state {state: "error", message: "Please select a file"}
@@ -174,6 +176,10 @@ module.exports = React.create-class {
                                 e.stop-propagation!
                                 e.prevent-default!
                         }, "Upload!"
+                        Progress {
+                            progress: @state.upload-progress
+                            height: 10
+                        }
 
                 div do
                     {
@@ -190,7 +196,6 @@ module.exports = React.create-class {
 
         
     component-did-mount: -> 
-        console.log @.props
 
         do ->
             transformation-keywords = ([JSONStream, csv-parse, highland, (require \prelude-ls)] |> concat-map keywords-from-object) ++ alphabet
@@ -227,6 +232,7 @@ module.exports = React.create-class {
                     }"""
                 "_": "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
             transformation: "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
+            upload-progress: 0
         }
 
     action_parse: ->
@@ -257,3 +263,48 @@ module.exports = React.create-class {
                 st.close!
 
 }
+
+
+
+Progress = create-factory do -> 
+    
+    last-update = null
+
+    React.create-class {
+
+        display-name: \Progress
+
+        render: ->
+            div do  
+                {
+                    style:
+                        display: 'inline-block'
+                        position: 'fixed'
+                        top: 0
+                        left: 0
+                        width: "#{@props.progress * 100}%"
+                        maxWidth: '100% !important'
+                        height: "#{@props.height}px"
+                        boxShadow: '1px 1px 1px rgba(0,0,0,0.4)'
+                        borderRadius: '0 1px 1px 0'
+                        WebkitTransition: "#{@state.speed}s width, #{@state.speed}s background-color"
+                        transition: "#{@state.speed}s width, #{@state.speed}s background-color"
+                        background-image:  'linear-gradient(to right, #4cd964, #5ac8fa, #007aff, #34aadc, #5856d6, #FF2D55)'
+                        background-size: "100vw #{@props.height}px"
+                }
+                @props.progress
+
+        component-will-receive-props: (props) !->
+            return if !props.progress
+
+            now = new Date!.valueOf!
+            if last-update != null
+                speed = (now - last-update) / 1000
+                @set-state {speed: speed}
+            last-update := now
+
+
+        get-initial-state: ->
+            speed: 0
+
+    }

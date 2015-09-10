@@ -16,6 +16,7 @@ module.exports = React.create-class {
                     ref = label.replace /\s/g, '' .to-lower-case!
                     
                     action-listener = (e) ~>
+                        <~ set-timeout _, 0
                         {offset-left, offset-width}:anchor-tag = @.refs[ref].get-DOM-node!
                         action offset-left, offset-width
                         cancel-event e

@@ -6,6 +6,9 @@ config = require \./../config
 {compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 Promise = require \bluebird
+csv-parse = require \csv-parse
+JSONStream = require "JSONStream"
+highland = require "highland"
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
@@ -233,8 +236,6 @@ export default-document = ->
         parameters: ""
     }
 
-JSONStream = require "JSONStream"
-csv-parse = require "csv-parse"
 
 import-json = (file, data-source) ->
     execute-mongo-database-query-function do
@@ -294,8 +295,40 @@ export import-stream = (file, data-source) ->
 
             resolve, reject <- new-promise
 
+            collection = db.collection data-source.collection
+
             parse = csv-parse {comment: '#', relax: true, skip_empty_lines: true, trim: true, auto_parse: true, columns: true}
 
+
+            reader = highland file
+                .pipe parse
+                .pipe highland.pipeline (s) -> 
+                    s.batch 100
+                .through do ->
+                    i = 0
+                    tr = new require "stream" .Transform {objectMode: true}
+                        .._transform = (chunk, enc, next) ->
+                            err, _ <~ collection.insert chunk, {w: 1}
+                            if !!err
+                                @emit "error", err
+                            else
+                                @push chunk.length
+                                next!
+                .stopOnError (err) ->
+                    console.log "error", err
+                    reject err
+                .reduce1 (+)
+                .each (chunk) -> 
+                    process.stdout.write "#{chunk}\n"
+                    resolve {inserted: chunk}
+                .done ->
+                    console.log "done"
+                    # st.close!
+
+
+
+
+            return 
             parse.on \data, (data) ->
                 console.log \data, data
 
