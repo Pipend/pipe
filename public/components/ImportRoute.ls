@@ -1,4 +1,4 @@
-{create-factory, DOM:{div, h1, table, input, form, button, a}}:React = require \react
+{create-factory, DOM:{div, h1, table, input, form, button, a, span, label}}:React = require \react
 ace-language-tools = require \brace/ext/language_tools 
 AceEditor = create-factory require \./AceEditor.ls
 ace-language-tools = require \brace/ext/language_tools 
@@ -65,13 +65,15 @@ module.exports = React.create-class {
             div do
                 {
                     style: display: \flex
+                    class-name: "content"
                 }
 
                 div do 
                     {
-
+                        class-name: \editors
                     }
 
+                    div { class-name: \editor-title }, "Import a file"
                     div {},
                         input {
                             type: \file
@@ -83,12 +85,13 @@ module.exports = React.create-class {
                                 reader = highland st
                                     .take 10
                                     .split!
-                                    .take 10
                                     .reduce1 (a, b) -> "#a\n#b"
                                     .each (d) ~>
                                         @set-state {
+                                            status: "file-selected"
                                             console: d, 
-                                            message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes, here's the first 10 byte or first 10 lines:"
+                                            message: "Your file (#{file.name}; #{file.type}) is #{d3.format ',' <| file.size} bytes. " + 
+                                                if file.size >= (10*1024) then "Here's its first 10 kilobytes:" else "Here it is:"
                                             transformation: do ->
                                                 if transformation in Obj.values default-transformations
                                                     default-transformations[file.type] ? default-transformations["_"]
@@ -96,9 +99,9 @@ module.exports = React.create-class {
                                                     transformation
                                         }
                                     .done "end", ->
-                                        console.log "reader ended"
                                         st.close!
                         }, null
+                        div { class-name: \editor-title }, "Parser:"
                         div do
                             { 
                                 class-name: 'import-editor'
@@ -114,11 +117,12 @@ module.exports = React.create-class {
                                     <~ @set-state transformation : value
                                     #@save-to-client-storage-debounced!
                         
+                        div { class-name: \editor-title }, "Select a destination"
                         div do 
                             {
                                 style: 
                                     position: \relative
-                                    height: \250px
+                                    height: \200px
                             }
                             DataSourceCuePopup do
                                 left: -> 0
@@ -126,70 +130,102 @@ module.exports = React.create-class {
                                 on-change: (data-source-cue) ~> 
                                     <~ @set-state {data-source-cue}
                                     save-to-client-storage @state
-
-                        button {
-                            on-click: (e) ~>
-                                e.stop-propagation!
-                                e.prevent-default!
-
-                                @action_parse!
-
-
-                        }, "Parse (Preview)"
                         button {
                             type: \submit
-                            disabled: "uploading" == @state.state
+                            class-name: "simple-button"
+                            disabled: "file-parsed" != @state.status
                             on-click: (e) ~>
                                 form-data = new FormData!
 
-                                {file, data-source-cue} = @state
+                                {file, data-source-cue, transformation} = @state
 
                                 if !!file 
 
                                     doc = 
-                                        document:
-                                            data-source-cue: data-source-cue
+                                        data-source-cue: data-source-cue
+                                        parser:
+                                            transformation
+
 
                                     form-data.append "doc", JSON.stringify doc
                                     form-data.append "file", file
 
-                                    @set-state {state: "uploading"}
+                                    @set-state {status: "uploading", upload-progress: 0}
                                     xhr = new XMLHttpRequest!
                                         ..open 'POST', "/apis/queryTypes/mongodb/import", true
                                         ..onload = (e) ~>
                                             switch 
                                             | 200 == xhr.status =>
-                                                @set-state {state: "uploaded", message: xhr.responseText}
+                                                @set-state {
+                                                    status: "done"
+                                                    server-message: 
+                                                        message: do ->
+                                                            res = JSON.parse xhr.responseText
+                                                            "#{d3.format ',' <| res.inserted} records inserted"
+                                                        type: "success"
+                                                }
                                             | otherwise =>
-                                                @set-state {state: "error", message: xhr.responseText}
+                                                @set-state {
+                                                    status: "error"
+                                                    server-message: 
+                                                        message: xhr.responseText
+                                                        type: "error"
+                                                    upload-progress: 1
+                                                }
                                             
                                         ..onerror = (e) ~>
-                                            @set-state {state: "error", message: "Unhandled error"}
+                                            @set-state {status: "error", message: "Unhandled error"}
                                             
                                         ..upload.onprogress = (e) ~>
-                                            @set-state {upload-progress: (e.loaded / e.total)}
+                                            progress = e.loaded / e.total
+                                            @set-state {
+                                                upload-progress: progress
+                                                status: if progress < 0.9 then "uploading" else "importing"
+                                            } <<< if progress = 1 then {server-message: {message: "Importing...", type: "info"}} else {}
                                         ..send form-data
                                 else
-                                    @set-state {state: "error", message: "Please select a file"}
+                                    @set-state {status: "error", message: "Please select a file"}
 
 
                                 e.stop-propagation!
                                 e.prevent-default!
                         }, "Upload!"
+                        div {
+                            class-name: "server-message #{@state.server-message?.type}"
+                        }, @state.server-message?.message
                         Progress {
                             progress: @state.upload-progress
+                            error: "error" == @state.status
                             height: 10
                         }
 
                 div do
+                    class-name: \resize-handle
+                    ""
+                div do
                     {
-
+                        class-name: "presentation-container"
                     }
                     div {class-name: "message"}, @state.message
-                    div {class-name: "console"}, @state.console
+                    div {class-name: "raw console"}, @state.console
             
-                    div {class-name: "parsed console"}, (@state.parsed ? []).map (p) ->
+                    if @state.error then div {class-name: "parsed console error"}, @state.error else div {class-name: "parsed console"}, (@state.parsed ? []).map (p) ->
                         div { }, p
+                    div do 
+                        {
+                            class-name: "status-bar"
+                        }
+                        do ~>
+                            items = 
+                                * title: 'Status'
+                                  value: @state.status
+                                ...
+                            items
+                            |> map ({title, value}) -> 
+                                div null, 
+                                    label null, title
+                                    span null, value
+
 
             
 
@@ -214,9 +250,9 @@ module.exports = React.create-class {
 
     get-initial-state: -> 
         load-from-client-storage {
-            state: "initial" # | uploading | uploaded | error
             message: null
             console: null
+            server-message: null
             parsed: []
             data-source-cue: null
             file: null
@@ -233,34 +269,45 @@ module.exports = React.create-class {
                 "_": "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
             transformation: "highland.pipeline (s) -> \n    s.through JSONStream.parse '*'"
             upload-progress: 0
+            error: null
+            status: "initial" # inital | file-selected | file-parsed | uploading | importing | uploaded
         }
 
     action_parse: ->
-        @set-state {parsed: []}
+        @set-state {parsed: [], error: null}
 
         {file, transformation} = @state
 
+        if !file 
+            @set-state {error: "Please first select a file.", status: "initial"}
+            return 
+
         [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
         if !!err
-            alert err.toString!
+            @set-state {error: "Error in parsing the parser script.\n#{err.toString!}", status: "file-selected"}
             return
 
 
         st = readFile 1024, file
-        reader = highland st
-            .take 10
-            .pipe transformationf
-            .pipe highland.pipeline (s) ->
-                s
-                    .map (o) -> JSON.stringify o, null, 4
-                    .batch 10
-                    .take 1
-            .each (d) ~>
-                console.log d
-                @set-state {parsed: d}
-            .done ->
-                console.log "done"
-                st.close!
+        try 
+            reader = highland st
+                .take 10
+                .pipe transformationf
+                .pipe highland.pipeline (s) ->
+                    s
+                        .map (o) -> JSON.stringify o, null, 4
+                        .map (-> [it])
+                        .reduce [], (++)
+                        #.batch 10
+                        #.take 1
+                .stopOnError (err) ->
+                    @set-state {error: "Error in parsing your file.\n#{err.toString!}", status: "file-selected"}
+                .each (d) ~>
+                    @set-state {parsed: d, status: "file-parsed"}
+                .done ->
+                    st.close!
+        catch ex
+            @set-state {error: "Error in parsing your file.\n#{ex.toString!}", status: "file-selected"}
 
 }
 
@@ -278,7 +325,7 @@ Progress = create-factory do ->
             div do  
                 {
                     style:
-                        display: 'inline-block'
+                        display: 'inline-block' # @state.display
                         position: 'fixed'
                         top: 0
                         left: 0
@@ -287,12 +334,13 @@ Progress = create-factory do ->
                         height: "#{@props.height}px"
                         boxShadow: '1px 1px 1px rgba(0,0,0,0.4)'
                         borderRadius: '0 1px 1px 0'
-                        WebkitTransition: "#{@state.speed}s width, #{@state.speed}s background-color"
-                        transition: "#{@state.speed}s width, #{@state.speed}s background-color"
-                        background-image:  'linear-gradient(to right, #4cd964, #5ac8fa, #007aff, #34aadc, #5856d6, #FF2D55)'
+                        WebkitTransition: "#{@state.speed}s width, #{@state.speed}s background-color" + if @props.progress == 1 then ", #{3}s opacity" else ""
+                        transition: "#{@state.speed}s width, #{@state.speed}s background-color" + if @props.progress == 1 then ", #{3}s opacity" else ""
+                        background-image:  if @props.error then 'linear-gradient(to right, #D1D94C, #E09A32, #C79616, #F17F1D, #E46019, #FF2D55)' else 'linear-gradient(to right, #4cd964, #5ac8fa, #007aff, #34aadc, #5856d6, #FF2D55)'
                         background-size: "100vw #{@props.height}px"
+                        opacity: if @props.progress == 1 then 0 else 1
+                    title: d3.format "%" <| @props.progress
                 }
-                @props.progress
 
         component-will-receive-props: (props) !->
             return if !props.progress
@@ -300,11 +348,19 @@ Progress = create-factory do ->
             now = new Date!.valueOf!
             if last-update != null
                 speed = (now - last-update) / 1000
-                @set-state {speed: speed}
+                @set-state {speed: speed, display: 'inline-block'}
+            else
+                @set-state {display: 'inline-block'}
             last-update := now
+
+            if props.progress == 1
+                last-update := null
+                <~ set-timeout _, 3000
+                @set-state {display: 'none', speed: 0}
 
 
         get-initial-state: ->
             speed: 0
+            display: 'inline-block'
 
     }

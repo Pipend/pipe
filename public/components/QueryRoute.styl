@@ -6,19 +6,12 @@
 @import 'SharePopup'
 @import '../../node_modules/react-selectize/src/ReactSelectize.css'
 @import '../presentation/presentation'
+@import 'QueryAndImportRoute'
+
 
 .query-route
-    
     .logo
-        background-image url("/public/images/pipe-logo.svg")
-        background-position center
-        background-repeat no-repeat
-        background-size 100%
-        cursor pointer
-        font-size 28px
-        width 60px
-        height 50px
-        margin 0 10px 0 8px
+        logo()
 
     .menu .buttons
         width -webkit-calc(100% - 70px)
@@ -36,9 +29,7 @@
         z-index 10
 
     .content
-        background #272822
-        font-size 1vh
-        white-space nowrap
+        route-content()
 
         > div
             display inline-block
@@ -46,20 +37,8 @@
          
         .editors .editor
             .editor-title
-                background #1d1f20
-                box-sizing border-box
-                border-bottom 1px solid rgba(255,255,255,0.1)
-                color #999
+                editor-title()
                 cursor ns-resize
-                display block
-                font-size 16px
-                font-weight lighter
-                height 30px    
-                letter-spacing 0.1em
-                line-height 30px
-                padding 0px 0px 0px 8px
-                vertical-align middle
-                -webkit-user-select none
 
                 input
                     appearance none
@@ -83,15 +62,7 @@
                 height 5px
 
         > .resize-handle
-            // background linear-gradient(to right, #505050, #383838)
-            // border-left 1px solid black
-            // border-right 1px solid black
-            background-color #333536
-            box-sizing border-box
-            cursor ew-resize
-            width 5px
-            height -webkit-calc(100% - 50px)
-            -webkit-user-select none
+            resize-handle()
 
         .presentation-container
             position absolute
@@ -120,24 +91,7 @@
                 bottom: 25px
             
             .status-bar
-                background #1d1f20
-                border-top 1px solid rgba(255,255,255,0.1)
-                color white
-                display flex 
-                flex-direction row
-                flex-wrap nowrap
-                font-size 12px
-                position absolute
-                bottom 0px
-                width 100%
-                height 24px
-
-                > div 
-                    padding 5px 10px
-                    label:after
-                        content ": "
-                    span
-                        color #0099ff
+                status-bar()
                         
     .tags-popup .control
         background-color white

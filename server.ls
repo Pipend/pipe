@@ -14,6 +14,7 @@ url-parser = (require \url).parse
 querystring = require \querystring
 {execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
 get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
+highland = require \highland
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -495,10 +496,10 @@ app.post \/apis/queryTypes/:queryType/import_, (req, res) ->
 
 app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
-    upload = (data-source-cue, file) ->
+    upload = (data-source-cue, parser, file) ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
         [req, res] |> each (.connection.set-timeout timeout ? 90000)        
-        (require "./query-types/#{query-type}").import-stream file, data-source
+        (require "./query-types/#{query-type}").import-stream file, parser, data-source
 
 
     queryType = req.params.queryType
@@ -510,12 +511,13 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
             console.log \file, fieldname, filename, encoding, mimetype
             console.log \doc, doc
 
-
-            upload doc.document.data-source-cue, file 
+            upload doc.data-source-cue, doc.parser, file
                 ..then (result) ->
+                    res.set \Content-type, \application/json
                     res.end <| JSON.stringify result
 
                 ..catch (error) ->
+                    res.set \Content-type, \text/plain
                     res.status 502
                     res.end error.toString!
                     req.destroy!

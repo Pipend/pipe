@@ -1,15 +1,87 @@
+@import 'QueryAndImportRoute'
+@import 'Menu'
+
 .import-route
-    .popup.data-source-cue-popup
-        position static
-    .console
-        font-family andalemono
-        font-size smaller
-        margin 0
-        word-wrap break-word
-        white-space pre
-        height 100px
-        overflow auto
-        padding 1em
+    .logo
+        logo()
+
+.import-route .content
+    route-content()
+    display flex
+
+    color: white
+
+    .editors
+        .editor-title
+            editor-title()
+            
+        input[type="file"]
+            margin: 1em 0 1em 1em
+
+        .popup.data-source-cue-popup
+            position static
+            
+        button[type="submit"]
+            width 80%
+            height 2.5em
+            margin auto
+            display block
+            
+        .server-message
+            margin 2em auto 0 auto
+            font-size 1.2vh
+            display block
+            width 80%
+            &.error
+                color: #FFCC00
+            &.success
+                color: #8BBC2B
+        
+
+    .resize-handle
+        resize-handle()
+        flex-grow: 0
+        flex-basis: 4px
+        
+    .presentation-container
+        flex-grow: 1
+        font-size  1.1vh
+        font-family "Andale Mono",monospace
+        display flex
+        overflow auto;
+        // align-items center
+        flex-direction column
+        align-content space-between
+        > div
+            flex-shrink 1
+        > div.message
+            flex-basis 2em
+            flex-grow 0
+        > div.console
+            flex-grow 1
+            &.raw
+                flex-basis 250px
+                border-bottom dashed 2px
+                padding 0 0 1em 0
+                margin 0 0 1em 0
+                color #A2A293
+            &.parsed
+                flex-basis 500px
+                color #c4c5b4
+        
+
+        
+        .console
+            word-wrap break-word
+            white-space pre
+            overflow auto
+            font-family "Andale Mono", monospace
+            font-size 1.1vh
+            
+        .status-bar
+            status-bar()
+            position initial
+            width auto
     &.error
         .console
             background-color #FFF5F5

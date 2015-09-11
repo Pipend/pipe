@@ -287,7 +287,7 @@ import-json = (file, data-source) ->
                         resolve {inserted: i}
 
 
-export import-stream = (file, data-source) ->
+export import-stream = (file, parser, data-source) ->
 
     execute-mongo-database-query-function do
         data-source
@@ -295,91 +295,38 @@ export import-stream = (file, data-source) ->
 
             resolve, reject <- new-promise
 
-            collection = db.collection data-source.collection
-
-            parse = csv-parse {comment: '#', relax: true, skip_empty_lines: true, trim: true, auto_parse: true, columns: true}
-
-
-            reader = highland file
-                .pipe parse
-                .pipe highland.pipeline (s) -> 
-                    s.batch 100
-                .through do ->
-                    i = 0
-                    tr = new require "stream" .Transform {objectMode: true}
-                        .._transform = (chunk, enc, next) ->
-                            err, _ <~ collection.insert chunk, {w: 1}
-                            if !!err
-                                @emit "error", err
-                            else
-                                @push chunk.length
-                                next!
-                .stopOnError (err) ->
-                    console.log "error", err
-                    reject err
-                .reduce1 (+)
-                .each (chunk) -> 
-                    process.stdout.write "#{chunk}\n"
-                    resolve {inserted: chunk}
-                .done ->
-                    console.log "done"
-                    # st.close!
-
-
-
-
-            return 
-            parse.on \data, (data) ->
-                console.log \data, data
-
-            file.pipe parse
-
-            set-timeout do
-                -> resolve "L)"
-                2000
-            return
 
             collection = db.collection data-source.collection
 
-            stream = JSONStream.parse "*"
-            file.pipe stream
-            i = 0
-            buffer = []
-            stream
-                ..on \data, (data) ->
-                    i := i + 1
-                    buffer.push data
-                    if 0 == (i % 100)
-                        copy = buffer
-                        buffer := []
+            [err, transformationf] = compile-and-execute-livescript parser, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
+            reject err if !!err
 
-                        stream.pause!
+            parse = transformationf
 
-                        err, _ <- collection.insert copy, {w: 1}
-                        if !!err
-                            reject err                            
-                            # stream.end!
-                        else
-                            stream.resume!
-                 
-                ..on \error, (err) ->
-                    console.log "JSON Stream Error", err
+            # parse = csv-parse {comment: '#', relax: true, skip_empty_lines: true, trim: true, auto_parse: true, columns: true}
+
+            file.pipe highland.pipeline (s) -> 
+                rs = s.pipe parse 
+                rs.on "error", (err) ->
                     reject err
-                    # stream.end!
 
-
-                ..on \end, ->
-                    copy = buffer
-                    buffer := []
-
-                    if copy.length > 0
-                        err, _ <- collection.insert copy, {w: 1}
-                        if !!err
-                            reject err
-                        else
-                            resolve {inserted: i}
-                    else
-                        resolve {inserted: i}
-
-
-                    
+                rs
+                    .pipe highland.pipeline (s) -> s.batch 100
+                    .through do ->
+                        tr = new require "stream" .Transform {objectMode: true}
+                            .._transform = (chunk, enc, next) ->
+                                err, res <~ collection.insert chunk, {w: 1}
+                                if !!err
+                                    @emit "error", err
+                                else
+                                    @push chunk.length
+                                    next!
+                    .stopOnError (err) ->
+                        console.log "error", err
+                        reject err
+                    .reduce1 (+)
+                    .each (chunk) -> 
+                        process.stdout.write "#{chunk}\n"
+                        resolve {inserted: chunk}
+                    .done ->
+                        console.log "done"
