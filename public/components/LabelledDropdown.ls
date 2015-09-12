@@ -6,7 +6,6 @@ module.exports = React.create-class do
 
     render: ->
         {disabled, value, options} = @props
-        console.log value
         div null,
             label null, @props.label
             SimpleSelect do 
