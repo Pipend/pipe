@@ -16,9 +16,11 @@ module.exports = React.create-class {
                     ref = label.replace /\s/g, '' .to-lower-case!
                     
                     action-listener = (e) ~>
-                        <~ set-timeout _, 0
-                        {offset-left, offset-width}:anchor-tag = @.refs[ref].get-DOM-node!
-                        action offset-left, offset-width
+                        set-timeout do 
+                            ~>
+                                {offset-left, offset-width}:anchor-tag = @.refs[ref].get-DOM-node!
+                                action offset-left, offset-width
+                            0
                         cancel-event e
 
                     if !!hotkey
