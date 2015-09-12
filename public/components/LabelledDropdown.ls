@@ -6,13 +6,16 @@ module.exports = React.create-class do
 
     render: ->
         {disabled, value, options} = @props
+        console.log value
         div null,
             label null, @props.label
             SimpleSelect do 
                 disabled: disabled
                 value: 
-                    label: (options ? []) |> find (.value == value) |> (?.label)
-                    value: value
+                    | typeof value == \undefined => undefined
+                    | _ =>
+                        label: (options ? []) |> find (.value == value) |> (?.label)
+                        value: value
                 restore-on-backspace: -> it.label.substr 0, it.label.length - 1
                 render-value: (, {label}) ~>
                     div class-name: \simple-value,
