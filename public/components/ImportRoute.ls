@@ -120,9 +120,6 @@ module.exports = React.create-class {
                         div { class-name: \editor-title }, "Select a destination"
                         div do 
                             {
-                                style: 
-                                    position: \relative
-                                    height: \200px
                             }
                             DataSourceCuePopup do
                                 left: -> 0
@@ -141,6 +138,7 @@ module.exports = React.create-class {
 
                                 if !!file 
 
+                                    debugger
                                     doc = 
                                         data-source-cue: data-source-cue
                                         parser:
