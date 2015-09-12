@@ -236,7 +236,6 @@ export default-document = ->
         parameters: ""
     }
 
-
 import-json = (file, data-source) ->
     execute-mongo-database-query-function do
         data-source

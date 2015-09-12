@@ -16,7 +16,7 @@ module.exports = React.create-class {
         # replace the selected values with "-({value})" if they are not found in their corresponding collections        
         [connections, databases, collections] = [[connection-name, connections], [database, databases], [collection, collections]]
             |> map ([value, options]) ->
-                (if typeof (options |> find (.value == value)) == \undefined then [{label: "- (#{value})", value}] else []) ++ (options |> sort-by (.label))
+                (if typeof (options |> find (.value == value)) == \undefined and typeof value == \string then [{label: "- (#{value})", value}] else []) ++ (options |> sort-by (.label))
 
         div {class-name: 'mongodb partial data-source-cue'}, 
             [

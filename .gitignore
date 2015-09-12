@@ -4,6 +4,7 @@
 *.xml
 .DS_Store
 config.ls
+npm-debug.log
 rough
 migrations/
 node_modules/

@@ -5,7 +5,7 @@ $ = require \jquery-browserify
 {key} = require \keymaster
 require! \notifyjs
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by} = require \prelude-ls
+last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by} = require \prelude-ls
 presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
 {cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, 
@@ -17,7 +17,7 @@ AceEditor = create-factory require \./AceEditor.ls
 ConflictDialog = create-factory require \./ConflictDialog.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 Menu = create-factory require \./Menu.ls
-ReactSelectize = create-factory require \react-selectize
+MultiSelect = create-factory (require \react-selectize).MultiSelect
 SettingsDialog = create-factory require \./SettingsDialog.ls
 SharePopup = create-factory require \./SharePopup.ls
 ui-protocol =
@@ -81,10 +81,12 @@ module.exports = React.create-class do
         document.title = query-title
 
         # MENU ITEMS
-        toggle-popup = (popup-name, button-left, button-width) ~~>
+
+        # toggle-popup :: String -> Number -> Number -> Void
+        toggle-popup = (popup, button-left, button-width) !~~>
             @set-state do
                 popup-left: button-left + button-width / 2
-                popup: if @state.popup == popup-name then '' else popup-name
+                popup: if @state.popup == popup then '' else popup
 
         saved-query = !!@props.params.branch-id and !(@props.params.branch-id in <[local localFork]>) and !!@props.params.query-id
 
@@ -126,7 +128,7 @@ module.exports = React.create-class do
             * label: \Cancel
               icon: \ca
               show: !!executing-op
-              action: ~> $.get "/apis/ops/#{executing-op}/cancel"
+              action: ~> $.get "/apis/ops/#{executing-op}/cancel"            
             * label: 'Data Source'
               icon: \d
               pressed: \data-source-cue-popup == popup
@@ -168,7 +170,9 @@ module.exports = React.create-class do
                   $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
             * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
             * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
-
+            * label: 'Ops Manager'
+              icon: \o
+              action: ~> window.open "/ops", \_blank
 
         div {class-name: \query-route},
 
@@ -230,14 +234,16 @@ module.exports = React.create-class do
                         width: 400
                         overflow: \visible
                     key: \tags-popup
-                    ReactSelectize do 
-                        add-options: true
-                        values: tags
+                    MultiSelect do 
+                        create-from-search: (, tags, search) ->   
+                            return null if search.length == 0 or search in map (.label), tags
+                            label: search, value: search
+                        values: tags 
                         options: existing-tags
-                        on-change: ~> 
-                            <~ @set-state tags: it
+                        on-values-change: (tags, callback) ~> 
+                            <~ @set-state {tags}
                             @save-to-client-storage-debounced!
-                        on-options-change: ~> @set-state existing-tags: it
+                            callback!
 
             # DIALOGS
             if !!dialog
@@ -563,8 +569,8 @@ module.exports = React.create-class do
                     <~ @set-state {} <<< state-from-document <<< 
 
                         # existing-tags must also include tags saved on client storage 
-                        existing-tags: ((@state.existing-tags ? []) ++ (state-from-document.tags |> map -> label: it, value: it))
-                            |> unique-by (.value)
+                        existing-tags: ((@state.existing-tags ? []) ++ state-from-document.tags)
+                            |> unique-by (.label)
                             |> sort-by (.label)
                         
                         # state.remote-document is used to check if the client copy has diverged
@@ -618,7 +624,7 @@ module.exports = React.create-class do
             success: (existing-tags) ~> 
                 @set-state do 
                     existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
-                        |> unique-by (.value)
+                        |> unique-by (.label)
                         |> sort-by (.label)
 
         # data loss prevent on crash
@@ -655,7 +661,7 @@ module.exports = React.create-class do
         # return if the document with the new changes to props is already loaded
         return if props.params.branch-id == @state.branch-id and props.params.query-id == @state.query-id
 
-        @load props    
+        @load props
 
     # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
@@ -703,40 +709,49 @@ module.exports = React.create-class do
 
         # client-external-libs
         do ~>
-            addUrls = @state.client-external-libs `difference` prev-state.client-external-libs
-
-            removeUrls = prev-state.client-external-libs `difference` @state.client-external-libs
-
-            addUrls |> each (url) ->
+            urls-to-add = @state.client-external-libs `difference` prev-state.client-external-libs
+            urls-to-add |> each (url) ->
                 script = document.create-element "script"
                     ..src = url
                 document.head.append-child script
 
-            removeUrls |> each (url) ->
+            urls-to-remove = prev-state.client-external-libs `difference` @state.client-external-libs
+            urls-to-remove |> each (url) ->
                 $ "head > script[src='#{url}'" .remove!
-
+        
     # React class method
     # get-initial-state :: a -> UIState
     get-initial-state: ->
         {
-            query-id: null, parent-id: null, branch-id: null, tree-id: null,
-            data-source-cue: {query-type: \mongodb, kind: \partial-data-source, complete: false}
+            cache: true # user checked the cache checkbox
+            from-cache: false # latest result is from-cache (it is returned by the server on execution)
+            dialog: null # String (name of the dialog to display)
+            popup: null # String (name of the popup to display)
+            executing-op: "" # String (alphanumeric op-id of the currently running query)
+
+            # TAGS POPUP
+            existing-tags: [] # [String] (fetched from /apsi/tags)            
+
+            # DOCUMENT
+            query-id: null
+            parent-id: null
+            branch-id: null
+            tree-id: null
+            data-source-cue: 
+                query-type: \mongodb
+                kind: \partial-data-source
+                complete: false
             query: ""
             query-title: "Untitled query"
             transformation: ""
             presentation: ""
             parameters: ""
-            existing-tags: []
             tags: []
             editor-width: 550
-            dialog: false
-            popup: null
-            cache: true # user checked the cache checkbox
-            from-cache: false # latest result is from-cache (it is returned by the server on execution)
-            executing-op: 0
             keywords-from-query-result: []
             transpilation-language: 'livescript' # javascript or livescript
             client-external-libs: []
+
         } <<< editor-heights!
 
     # converting the document to a flat object makes it easy to work with 
@@ -749,7 +764,7 @@ module.exports = React.create-class do
         {
             query-id, parent-id, branch-id, tree-id, data-source-cue, query-title, query
             transformation, presentation, parameters, 
-            tags: tags ? []
+            tags: (tags ? []) |> map ~> label: it, value: it
             editor-width: ui?.editor?.width or @state.editor-width
             transpilation-language: transpilation?.query ? "livescript"
             client-external-libs: client-external-libs ? []
@@ -780,7 +795,7 @@ module.exports = React.create-class do
             query
             transformation
             presentation
-            tags
+            tags: map (.label), tags
             client-external-libs
             parameters
             ui:

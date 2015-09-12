@@ -1,20 +1,21 @@
-fs = require \fs
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
-body-parser = require \body-parser
+require! \body-parser
+Busboy = require \busboy
 {http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
-express = require \express
+require! \express
 {create-read-stream, readdir} = require \fs
+require! \highland
+require! \JSONStream
 md5 = require \MD5
-moment = require \moment
+require! \moment
 {MongoClient} = require \mongodb
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
-phantom = require \phantom
+require! \phantom
 url-parser = (require \url).parse
-querystring = require \querystring
+require! \querystring
 {execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
 get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
-highland = require \highland
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -96,6 +97,7 @@ json = -> JSON.stringify it
     \/branches/:branchId/queries/:queryId/diff
     \/branches/:branchId/queries/:queryId/tree
     \/import
+    \/ops
 ]> |> each (route) ->
     app.get route, (req, res) -> res.render \public/index.html
 
@@ -275,12 +277,44 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 # executes the query object present in req.body
 # /apis/execute
 app.post \/apis/execute, (req, res) ->
-    {op-id, document:{data-source-cue, query, parameters, transpilation}, cache}? = req.body
+
+    console.log \post/apis/execute
+
+    # increae the request / response timeout
+    [req, res] |> each (.connection.set-timeout timeout ? 90000)
+
+    # pattern match the required fields
+    {op-id, document, cache}? = req.body
+    {data-source-cue, query, parameters, transpilation} = document
+
     err, result <- to-callback do ->
+
+        # convert document.data-source-cue to data-source used by the execute method
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
-        [req, res] |> each (.connection.set-timeout timeout ? 90000)        
-        execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id
-    if !!err then die res, err else res.end json result
+        
+        # execute the query and emit the op-started on socket.io
+        op <- bindP do
+            execute do 
+                query-database
+                data-source
+                query
+                transpilation?.query
+                parameters
+                cache
+                op-id
+                document: document
+                url: req.url
+        io.emit \op-started, [Date.now!, op]
+        op.cancellable-promise
+
+    if !!err 
+        io.emit \op-ended, [Date.now!, op-id, \failed]
+        die res, err
+
+    else 
+        io.emit \op-ended, [Date.now!, op-id, \completed]
+        res.end json result
+
 
 # partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
 partition-data-source-cue-params = (query) ->
@@ -318,7 +352,9 @@ partition-data-source-cue-params = (query) ->
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
-            {result} <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id)
+            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id)
+            io.emit \op-started, [Date.now!, op]
+            {result} <- bindP op.cancellable-promise
             return returnP ((res) -> res.end json result) if display == \query
 
             transformed-result <- bindP (transform result, transformation, parameters)
@@ -334,8 +370,12 @@ app.get \/apis/ops, (req, res) ->
 
 # api :: cancel op
 app.get \/apis/ops/:opId/cancel, (req, res) ->
-    [status, err] = cancel-op req.params.op-id
-    if status then res.end \cancelled else die res, err
+    [err, op] = cancel-op req.params.op-id
+    if !!err
+        die res, err
+    else
+        io.emit \op-ended, [Date.now!, op?.op-id, \cancelled]
+        res.end \cancelled 
 
 # api :: export query
 # export a screenshot of the result
@@ -374,7 +414,9 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         if format in text-formats
             err, transformed-result <- to-callback do ->
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                {result} <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id)
+                op <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id)
+                io.emit \op-started, [Date.now!, op]
+                {result} <- bindP op.cancellable-promise
                 transformed-result <- bindP (transform result, transformation, parsed-query-string)
                 returnP transformed-result
             return die res, err if !!err
@@ -476,10 +518,6 @@ app.get \/apis/tags, (req, res) ->
             |> sort
             |> -> JSON.stringify it   
 
-
-Busboy = require \busboy
-JSONStream = require "JSONStream"
-
 app.post \/apis/queryTypes/:queryType/import_, (req, res) ->
     i = 0
     req.on \data, (data) ->
@@ -533,8 +571,14 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
     req.pipe busboy
 
+server = app.listen http-port
 
+# emit all the running ops to the client
+io = (require \socket.io) server
+    ..on \connect, (connection) ->
+        connection.emit \running-ops, [Date.now!, filter (-> !!it.parent-op-id), running-ops!]
+        set-interval do 
+            -> connection.emit \sync, Date.now!
+            5000
 
-
-app.listen http-port
 console.log "listening for connections on port: #{http-port}"
