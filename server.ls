@@ -46,8 +46,9 @@ app = express!
     ..set \views, __dirname + \/
     ..engine \.html, (require \ejs).__express
     ..set 'view engine', \ejs
+    ..use (require \cors)!
     ..use (require \serve-favicon) __dirname + '/public/images/favicon.png'
-    ..use (require \cookie-parser)!
+    ..use (require \cookie-parser)!    
     ..use (req, res, next) ->
         req.parsed-query = query-parser req.query if !!req.query
         next!
