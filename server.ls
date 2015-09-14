@@ -342,7 +342,7 @@ partition-data-source-cue-params = (query) ->
         err, f <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
-            {query-id, data-source-cue, query, transpilation, transformation, presentation} <- bindP do ->
+            {query-id, data-source-cue, query, transpilation, transformation, presentation}:document <- bindP do ->
                 return (get-query-by-id query-database, query-id) if !!query-id
                 get-latest-query-in-branch query-database, branch-id
 
@@ -353,7 +353,7 @@ partition-data-source-cue-params = (query) ->
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
-            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id)
+            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id, {document, url: req.url})
             io.emit \op-started, [Date.now!, op]
             {result} <- bindP op.cancellable-promise
             return returnP ((res) -> res.end json result) if display == \query
@@ -415,7 +415,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         if format in text-formats
             err, transformed-result <- to-callback do ->
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                op <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id)
+                op <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id, {document, url: req.url})
                 io.emit \op-started, [Date.now!, op]
                 {result} <- bindP op.cancellable-promise
                 transformed-result <- bindP (transform result, transformation, parsed-query-string)
