@@ -137,6 +137,7 @@ plottables = {
     heatmap: (require \./plottables/heatmap.ls) {Plottable, d3, plot}
     multi-chart: (require \./plottables/multi-chart.ls) {Plottable, d3, nv, plot-chart, plot}
     funnel: (require \./plottables/funnel.ls) {Plottable, d3, nv, plot-chart, plot}
+    funnel1: (require \./plottables/funnel1.ls) {Plottable, d3}
 } <<< (require \./plottables/layout.ls) {Plottable, d3, nv, plot-chart, plot}
 
 # all functions defined here are accessibly by the presentation code
