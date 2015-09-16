@@ -28,15 +28,17 @@ export execute = (query-database, data-source, query, transpilation, parameters)
             run-query: (query-id, parameters) -->
                 {data-source-cue, query, transformation, transpilation}:result <- bindP (get-query-by-id query-database, query-id)
                 data-source <- bindP (extract-data-source data-source-cue)
-                {result} <- bindP utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!
-                transform result, transformation, parameters
+                {cancellable-promise}:op <- bindP (utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!, {})
+                result <- bindP cancellable-promise
+                transform result.result, transformation, parameters
 
             # run-latest-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
             run-latest-query: (branch-id, parameters) -->
                 {data-source-cue, query, transformation, transpilation}:result <- bindP (get-latest-query-in-branch query-database, branch-id)
                 data-source <- bindP (extract-data-source data-source-cue)
-                {result} <- bindP (utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!)
-                transform result, transformation, parameters
+                {cancellable-promise}:op <- bindP (utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!, {})
+                result <- bindP cancellable-promise
+                transform result.result, transformation, parameters
                 
         }
     return (new-promise (, rej) -> rej err) if !!err
