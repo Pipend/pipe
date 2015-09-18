@@ -286,7 +286,7 @@ import-json = (file, data-source) ->
                         resolve {inserted: i}
 
 
-export import-stream = (file, parser, data-source) ->
+export import-stream = (file, parser, data-source, response) ->
 
     execute-mongo-database-query-function do
         data-source
@@ -294,10 +294,13 @@ export import-stream = (file, parser, data-source) ->
 
             resolve, reject <- new-promise
 
+            done = false
+
 
             collection = db.collection data-source.collection
 
-            [err, transformationf] = compile-and-execute-livescript parser, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
+            {ObjectID} = require \mongodb
+            [err, transformationf] = compile-and-execute-livescript parser, {JSONStream, highland, csv-parse, ObjectID} <<< (require \prelude-ls)
             reject err if !!err
 
             parse = transformationf
@@ -307,25 +310,35 @@ export import-stream = (file, parser, data-source) ->
             file.pipe highland.pipeline (s) -> 
                 rs = s.pipe parse 
                 rs.on "error", (err) ->
+                    console.log "file > parse error", err
+                    <- set-timeout _, 500
+                    return if done
+                    done := true
                     reject err
 
                 rs
-                    .pipe highland.pipeline (s) -> s.batch 100
+                    .pipe highland.pipeline (s) -> s.batch 1024
                     .through do ->
                         tr = new require "stream" .Transform {objectMode: true}
                             .._transform = (chunk, enc, next) ->
+                                return if done
+
                                 err, res <~ collection.insert chunk, {w: 1}
                                 if !!err
                                     @emit "error", err
                                 else
+                                    return if done
                                     @push chunk.length
+                                    response.write "{\"written\": #{chunk.length}}\n"
                                     next!
                     .stopOnError (err) ->
-                        console.log "error", err
+                        console.log "stopOnError", err
+                        done := true
                         reject err
                     .reduce1 (+)
                     .each (chunk) -> 
+                        return if done
                         process.stdout.write "#{chunk}\n"
                         resolve {inserted: chunk}
                     .done ->
-                        console.log "done"
+                        done := true

@@ -519,27 +519,15 @@ app.get \/apis/tags, (req, res) ->
             |> sort
             |> -> JSON.stringify it   
 
-app.post \/apis/queryTypes/:queryType/import_, (req, res) ->
-    i = 0
-    req.on \data, (data) ->
-        console.log "--------chunk---------"
-        console.log data.toString \utf8
-        console.log "--------^^^^^---------"
-        i := i + 1
-        if i > 1
-            res.end "duck it"
-            req.destroy!
-    req.on \end, ->
-        console.log \end, it
-        res.end "done"
-
 app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
     upload = (data-source-cue, parser, file) ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
         [req, res] |> each (.connection.set-timeout timeout ? 90000)        
-        (require "./query-types/#{query-type}").import-stream file, parser, data-source
+        (require "./query-types/#{query-type}").import-stream file, parser, data-source, res
 
+    res.set 'Transfer-Encoding', 'chunked'
+    res.set \Content-type, \application/json
 
     queryType = req.params.queryType
     doc = null
@@ -552,13 +540,10 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
             upload doc.data-source-cue, doc.parser, file
                 ..then (result) ->
-                    res.set \Content-type, \application/json
                     res.end <| JSON.stringify result
 
                 ..catch (error) ->
-                    res.set \Content-type, \text/plain
-                    res.status 502
-                    res.end error.toString!
+                    res.end <| JSON.stringify error: error.toString!
                     req.destroy!
 
             

@@ -4,8 +4,8 @@ AceEditor = create-factory require \./AceEditor.ls
 ace-language-tools = require \brace/ext/language_tools 
 Menu = create-factory require \./Menu.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
-{all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by, Obj} = require \prelude-ls
+{all, any, foldr, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
+last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by, initial, last, Obj} = require \prelude-ls
 $ = require \jquery-browserify
 client-storage = require \../client-storage.ls
 {is-equal-to-object, compile-and-execute-livescript} = require \../utils.ls
@@ -137,43 +137,74 @@ module.exports = React.create-class {
                                 {file, data-source-cue, transformation} = @state
 
                                 if !!file 
-
-                                    debugger
                                     doc = 
                                         data-source-cue: data-source-cue
                                         parser:
                                             transformation
 
-
                                     form-data.append "doc", JSON.stringify doc
                                     form-data.append "file", file
 
+                                    server-error-state = (error, written) ~>
+                                        @set-state {
+                                            status: "error"
+                                            server-message: 
+                                                message: "#{error}\n#{d3.format ',' <| written} records inserted"
+                                                type: "error"
+                                            upload-progress: 1
+                                        }
+
                                     @set-state {status: "uploading", upload-progress: 0}
+                                    written = 0
                                     xhr = new XMLHttpRequest!
                                         ..open 'POST', "/apis/queryTypes/mongodb/import", true
                                         ..onload = (e) ~>
+                                            console.log \xhr, xhr.responseText
                                             switch 
                                             | 200 == xhr.status =>
-                                                @set-state {
-                                                    status: "done"
-                                                    server-message: 
-                                                        message: do ->
-                                                            res = JSON.parse xhr.responseText
-                                                            "#{d3.format ',' <| res.inserted} records inserted"
-                                                        type: "success"
-                                                }
+                                                latest = (xhr.responseText ? "")
+                                                    |> (.split '\n')
+                                                    |> filter (-> !!it)
+                                                    |> last
+                                                    |> JSON.parse
+                                                console.log \latest, latest
+                                                if !!latest.error
+                                                    server-error-state latest.error, written
+                                                else
+                                                    written := latest |> (parse-int) . (.inserted)
+
+                                                    @set-state {
+                                                        status: "done"
+                                                        server-message: 
+                                                            message: do ->
+                                                                "#{d3.format ',' <| written} records inserted"
+                                                            type: "success"
+                                                    }
                                             | otherwise =>
-                                                @set-state {
-                                                    status: "error"
-                                                    server-message: 
-                                                        message: xhr.responseText
-                                                        type: "error"
-                                                    upload-progress: 1
-                                                }
+                                                server-error-state xhr.responseText, written
                                             
                                         ..onerror = (e) ~>
                                             @set-state {status: "error", message: "Unhandled error"}
-                                            
+                                        ..onreadystatechange = (e) ~>
+                                            console.log \readyState, xhr.responseText
+                                            return if xhr.status != 200
+                                            match xhr.readyState
+                                            | 3 =>
+                                                written := (xhr.responseText ? "")
+                                                    |> (.split '\n')
+                                                    |> filter (-> !!it)
+                                                    |> map JSON.parse
+                                                    |> map (parse-int) . (.written) 
+                                                    |> filter (> 0)
+                                                    |> filter (-> !!it)
+                                                    |> foldr (+), 0
+                                                @set-state {
+                                                    server-message:
+                                                        message: "#{d3.format ',' <| written} records inserted..."
+                                                }
+                                            | 4 =>
+
+
                                         ..upload.onprogress = (e) ~>
                                             progress = e.loaded / e.total
                                             @set-state {
@@ -280,7 +311,8 @@ module.exports = React.create-class {
             @set-state {error: "Please first select a file.", status: "initial"}
             return 
 
-        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse} <<< (require \prelude-ls)
+        ObjectID = (-> it)
+        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse, ObjectID} <<< (require \prelude-ls)
         if !!err
             @set-state {error: "Error in parsing the parser script.\n#{err.toString!}", status: "file-selected"}
             return
@@ -290,6 +322,11 @@ module.exports = React.create-class {
         try 
             reader = highland st
                 .take 10
+                .split!
+                .map (-> [it])
+                .reduce [], (++)
+                .map (-> if it.length > 1 then (initial it) else it)
+                .map (.reduce (a, b) -> "#a\n#b")
                 .pipe transformationf
                 .pipe highland.pipeline (s) ->
                     s
