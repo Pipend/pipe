@@ -63,7 +63,7 @@ module.exports = ({Plottable, d3}) ->
     pformat = d3.format '%'
     nformat = d3.format ',f'
     
-    d3.select view .attr \style, "font-size: 12px" .append \svg 
+    d3.select view .append "div" .attr \style, "font-size: 12px" .append \svg 
         .attr \width, width + margin.left + margin.right
         .attr \height, height + margin.top + margin.bottom
         .append \g .attr \style, (-> "transform: translate(#{margin.left}px, #{margin.top}px)")
