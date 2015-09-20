@@ -2,7 +2,7 @@
 {create-factory, DOM:{div}}:React = require \react
 LabelledDropdown = create-factory require \./LabelledDropdown.ls
 LabelledTextField = create-factory require \./LabelledTextField.ls
-SimpleButton = require \./SimpleButton.ls
+SimpleButton = create-factory require \./SimpleButton.ls
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
     mssql: require \../query-types/mssql/ui-protocol.ls
