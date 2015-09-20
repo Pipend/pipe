@@ -124,6 +124,7 @@ module.exports = React.create-class {
                             DataSourceCuePopup do
                                 left: -> 0
                                 data-source-cue: @state.data-source-cue
+                                editable: true
                                 on-change: (data-source-cue) ~> 
                                     <~ @set-state {data-source-cue}
                                     save-to-client-storage @state

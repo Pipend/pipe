@@ -1,22 +1,28 @@
-{DOM:{a, div, input, label, option, select, textarea}}:React = require \react
-LabelledDropdown = require \../../components/LabelledDropdown.ls
+{create-factory, DOM:{a, div, input, label, option, select, textarea}}:React = require \react
+LabelledDropdown = create-factory require \../../components/LabelledDropdown.ls
 {all, camelize, each, find, map, sort, sort-by} = require \prelude-ls
 $ = require \jquery-browserify
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
+    # get-default-props :: a -> Props
+    get-default-props: ->
+        data-source-cue: {} # :: {connection-name :: String, database :: String, collection :: String}
+        editable: false
+
+    # render :: a -> ReactElement
     render: ->
 
         {connection-name, database, collection} = @props.data-source-cue
         
         connections = @state.connections
         databases = @state.databases |> map -> {label: it, value: it}
-        collections = @state.collections |> map -> {label: it, value: it}
+        collections = @state.collections
 
         # replace the selected values with "-({value})" if they are not found in their corresponding collections        
         [connections, databases, collections] = [[connection-name, connections], [database, databases], [collection, collections]]
             |> map ([value, options]) ->
-                (if typeof (options |> find (.value == value)) == \undefined and typeof value == \string then [{label: "- (#{value})", value}] else []) ++ (options |> sort-by (.label))
+                (if typeof (options |> find (.value == value)) == \undefined and typeof value == \string then [{label: value, value, color: \red}] else []) ++ (options |> sort-by (.label))
 
         div {class-name: 'mongodb partial data-source-cue'}, 
             [
@@ -39,20 +45,43 @@ module.exports = React.create-class {
                     value: collection
                     options: collections
                     disabled: @state.loading-collections
+                    editable: @props.editable
                     on-change: (value) ~> @update-props @props, {collection: value}
                 }
-            ] |> map ({name, value, options, disabled, on-change}) ~>
-                React.create-element LabelledDropdown, {key: name, disabled, label: name, value, options, on-change}
+            ] |> map ({name, value, options, disabled, editable, on-change}) ~>
+                LabelledDropdown do
+                    key: name
+                    disabled: disabled 
+                    editable: editable
+                    label: name
+                    value: value
+                    options: options
+                    on-change: (new-value) ~>
+                        <~ do ~> (callback) ~> 
+                            if new-value in map (.label), @state.collections 
+                                callback! 
+                            else 
+                                @set-state do 
+                                    collections: [{label: new-value, value: new-value, color: \green}] ++ @state.collections
+                                    callback
+                        on-change new-value
 
-    get-initial-state: -> {connections: [], databases: [], collections: [], loading-databases: false, loading-collections: false}
+    # get-initial-state :: a -> UIState
+    get-initial-state: -> 
+        connections: [] # :: [{label :: String, value :: String}]
+        databases: [] # :: [String]
+        collections: [] # :: [{label :: String, value :: String, color :: String}]
+        loading-databases: false
+        loading-collections: false
     
-    update-props: (props, changes) ->
+    # update-props :: Props -> Map String, String -> Void
+    update-props: (props, changes) !->
         new-data-source-cue = {} <<< props.data-source-cue <<< changes
         complete = <[connection-name database collection]> |> all ~> 
             !!new-data-source-cue?[camelize it] and (new-data-source-cue[camelize it].index-of '- (') != 0
         props.on-change new-data-source-cue <<< {complete}
 
-    # getJSON :: String -> Map k, v -> p result
+    # getJSON :: String -> Map String, String -> p result
     getJSON: (name, query-string) ->
         @[name].abort! if !!@[name]
         new Promise (res, rej) ~>
@@ -60,15 +89,16 @@ module.exports = React.create-class {
                 ..done -> res it
                 ..fail ({response-text}) -> rej response-text
 
-    # load-database :: String -> p [a]
+    # load-database :: String -> p [Database]
     load-databases: (connection-name) ->
         (@getJSON \databases-request, {connection-name}).then ({databases or []}) -> databases
 
-    # load-collections :: String -> String -> p [a]
+    # load-collections :: String -> String -> p [Collection]
     load-collections: (connection-name, database) ->
-         (@getJSON \collections-request, {connection-name, database}).then ({collections or []}) -> collections
+         (@getJSON \collections-request, {connection-name, database}).then ({collections or []}) -> collections |> map -> label: it, value: it
 
-    component-did-mount: ->
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
         ($.getJSON \/apis/queryTypes/mongodb/connections, '') .done ({connections or []}) ~> @set-state {connections}
 
         # load databases & collections if the connection-name is defined
@@ -80,7 +110,8 @@ module.exports = React.create-class {
             collections <~ (@load-collections connection-name, database).then
             @set-state {loading-collections: false, collections}
 
-    component-will-receive-props: (props) ->
+    # component-will-receive-props :: Props -> Void
+    component-will-receive-props: (props) !->
 
         prev-data-source-cue = @props.data-source-cue
         data-source-cue = props.data-source-cue
@@ -89,7 +120,8 @@ module.exports = React.create-class {
             @set-state {loading-collections: true}
             collections <~ (@load-collections connection-name, database).then
             @set-state {loading-collections: false, collections}
-            @update-props props, {collection : collections.0} if !(data-source-cue.collection in collections)
+            if !(data-source-cue.collection in map (.value), collections)
+                @update-props props, {collection : collections.0.value}
 
         # loading databases because connection-name changed
         if prev-data-source-cue?.connection-name != data-source-cue?.connection-name
@@ -112,6 +144,3 @@ module.exports = React.create-class {
         # loading collections because database changed
         else if prev-data-source-cue?.database != data-source-cue?.database
             load-collections data-source-cue.connection-name, data-source-cue.database
-
-
-}

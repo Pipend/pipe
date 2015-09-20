@@ -1,7 +1,7 @@
 {all, camelize, concat-map, filter, keys, obj-to-pairs, map, pairs-to-obj, reject} = require \prelude-ls
-{DOM:{div}}:React = require \react
-LabelledDropdown = require \./LabelledDropdown.ls
-LabelledTextField = require \./LabelledTextField.ls
+{create-factory, DOM:{div}}:React = require \react
+LabelledDropdown = create-factory require \./LabelledDropdown.ls
+LabelledTextField = create-factory require \./LabelledTextField.ls
 SimpleButton = require \./SimpleButton.ls
 ui-protocol =
     mongodb: require \../query-types/mongodb/ui-protocol.ls
@@ -11,10 +11,17 @@ ui-protocol =
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
+    get-default-props: ->
+        editable: false
+        data-source-cue: {} # :: {connection-kind :: String, query-type :: String, complete :: Boolean, ...}
+        # on-change :: DataSourceCue -> Void
+
+    # render :: a -> ReactElement
     render: ->
         
+        # connection-kinds-from-query-type :: String -> [String]
         connection-kinds-from-query-type = (query-type) ->
             {
                 supports-connection-string
@@ -39,11 +46,13 @@ module.exports = React.create-class {
             }? = ui-protocol[query-type].data-source-cue-popup-settings!
             [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it            
 
-        div {class-name: 'data-source-cue-popup popup', style: {left: @props?.left 360}},
+        div do 
+            class-name: 'data-source-cue-popup popup'
+            style: 
+                left: @props?.left 360
 
             # lists all the available query types (like mongodb, mssql, multi, curl, ...)
-            React.create-element do 
-                LabelledDropdown
+            LabelledDropdown do
                 label: 'query type'
                 value: @props.data-source-cue.query-type
                 options: ui-protocol
@@ -61,8 +70,7 @@ module.exports = React.create-class {
 
             # lists all the connection kinds            
             if connection-kinds.length > 0
-                React.create-element do 
-                    LabelledDropdown
+                LabelledDropdown do
                     label: 'conn. kind'
                     value: @props.data-source-cue.connection-kind
                     options: connection-kinds
@@ -80,23 +88,18 @@ module.exports = React.create-class {
                     | _ => \complete-data-source-cue-component
                 component = ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings![camelize data-source-cue-component-name]
                 if !!component
-                    React.create-element do
-                        component
-                        {on-change: @props.on-change, data-source-cue: @props.data-source-cue}
+                    React.create-element component, @props
 
             # render "connection-string" component if the query-type supports it            
             else if ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings!.supports-connection-string
                 div null,
-                    React.create-element do 
-                        LabelledTextField
+                    LabelledTextField do
                         label: 'conn. string'
                         value: @props.data-source-cue.connection-string
                         on-change: (value) ~>
                             @.props.on-change {} <<< @.props.data-source-cue <<< {connection-string: value, complete: false}
-                    React.create-element do 
-                        SimpleButton
+                    SimpleButton do
                         label: \Apply
                         pressed: @props.data-source-cue.complete
                         on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
 
-}
