@@ -1,4 +1,3 @@
-require \d3-funnel
 {id, map, fold, filter, replicate, zip, empty, reverse, concat-map} = require \prelude-ls
 
 to-closed-shape = (result) ->
@@ -12,7 +11,6 @@ module.exports = ({Plottable, d3}) ->
             (.ratio)
         name: (.name)
         size: (.size)
-        
     }
     
     
@@ -66,14 +64,14 @@ module.exports = ({Plottable, d3}) ->
     d3.select view .append "div" .attr \style, "font-size: 12px" .append \svg 
         .attr \width, width + margin.left + margin.right
         .attr \height, height + margin.top + margin.bottom
-        .append \g .attr \style, (-> "transform: translate(#{margin.left}px, #{margin.top}px)")
+        .append \g .attr \transform, (-> "translate(#{margin.left}, #{margin.top})")
         .select-all \g.shape .data shapes
         .enter!
-            ..append \g .attr \class, \shape .attr \style, (-> "transform: translate(#{x it.x}px, 0px)")
+            ..append \g .attr \class, \shape .attr \transform, (-> "translate(#{x it.x}, 0)")
                 ..append \path 
                         ..attr \d, (.points) >> line
                         ..attr \fill, color
-                ..append \g .attr \style, (-> "transform: translate(#{gwidth / 2}px, #{height / 2 + 10}px)")
+                ..append \g .attr \transform, (-> "translate(#{gwidth / 2}, #{height / 2 + 10})")
                     ..append \text
                         ..attr \text-anchor, \middle .attr \dominant-baseline, \central
                         ..attr \dy, \-2em .text (-> it.name)
@@ -83,13 +81,3 @@ module.exports = ({Plottable, d3}) ->
                     ..append \text
                         ..attr \text-anchor, \middle .attr \dominant-baseline, \central
                         ..attr \dy, \2em .text pformat . (.ratio)
-                #..append \g .attr \style, (-> "transform: translate(#{gwidth / 2}px, #{height - 30}px)")
-                    #..append \text
-                        #..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        #..attr \dy, \-2em .text (-> it.name)
-                    #..append \text
-                        #..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        #..attr \dy, \0em .text nformat . (.points.0.y)
-                    #..append \text
-                        #..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        #..attr \dy, \2em .text pformat . (.ratio)
