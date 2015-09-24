@@ -1,14 +1,15 @@
 $ = require \jquery-browserify
-d3 = require \d3
+require! \d3
 {camelize, dasherize, filter, find, fold, group-by, map, Obj, obj-to-pairs, pairs-to-obj, sort-by, unique, unique-by, values} = require \prelude-ls
 {DOM:{div}}:React = require \react
 
-draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actions) -->
+# draw-commit-tree :: DOMElement -> Number -> Number -> [Query] -> [TooltipKey] -> [TooltipAction] -> Void
+draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actions) !-->
 
     d3-element = d3.select element
 
+    # create-commit-tree-json :: [Query] -> Query -> CommitTree
     create-commit-tree-json = (queries, {query-id, branch-id, selected}:query) -->
-
         children = queries 
             |> filter (.parent-id == query-id) 
             |> map (create-commit-tree-json queries)
@@ -86,7 +87,7 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
                         |> map ([{name}, value]) ->  [name, value])
                     ..enter! .append \div .attr \class, \row
                         ..append \label
-                        ..append \span                    
+                        ..append \span
                     ..select \label .text (.0)
                     ..select \span .text (.1)
                     ..exit!.remove!                    
@@ -125,17 +126,25 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
             
             ..exit!.remove!
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
+    display-name: \CommitTree
+
+    # get-default-props :: a -> Props
+    get-default-props: ->
+        queries: []
+        tooltip-actions: []
+        tooltip-keys: []
+        # width :: Number
+        # height :: Number
+
+    # render :: a -> UIState
     render: ->
         div {ref: (camelize \commit-tree), class-name: \commit-tree}
 
-    component-did-update: ->
-        {width, height, queries or [], tooltip-keys or [], tooltip-actions or []}? = @.props
-        draw-commit-tree @.refs.commit-tree.get-DOM-node!, width, height, queries, tooltip-keys, tooltip-actions
-
-}
-
-
+    # component-did-update :: a -> Void
+    component-did-update: !->
+        {width, height, queries, tooltip-keys, tooltip-actions}? = @props
+        draw-commit-tree @refs.commit-tree.get-DOM-node!, width, height, queries, tooltip-keys, tooltip-actions
 
 

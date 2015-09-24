@@ -1,24 +1,28 @@
-Checkbox = require \./Checkbox.ls
+require! \./Checkbox.ls
 {difference, each, filter, map, unique, sort} = require \prelude-ls
 {key} = require \keymaster
 {DOM:{a, div, input}}:React = require \react
 {cancel-event} = require \../utils.ls
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
+    display-name: \Menu
+
+    # render :: a -> ReactElement
     render: ->
-        div {class-name: \menu},            
-            @.props.children
-            div {class-name: \buttons},
-                @.props.items |> map ({pressed, enabled, action, hotkey, icon, label, highlight, type}:item) ~>
+        div class-name: \menu,
+            @props.children
+            div class-name: \buttons,
+                @props.items |> map ({pressed, enabled, action, hotkey, icon, label, highlight, type}:item) ~>
 
                     # using ref for accessing the anchor tag from action listener
                     ref = label.replace /\s/g, '' .to-lower-case!
                     
+                    # action-listener :: Event -> Boolean
                     action-listener = (e) ~>
                         set-timeout do 
                             ~>
-                                {offset-left, offset-width}:anchor-tag = @.refs[ref].get-DOM-node!
+                                {offset-left, offset-width}:anchor-tag = @refs[ref].get-DOM-node!
                                 action offset-left, offset-width
                             0
                         cancel-event e
@@ -39,14 +43,16 @@ module.exports = React.create-class {
                         label
                         
     # remove key listener for deleted menu items
-    component-will-receive-props: (props) ->
+    # component-will-receive-props :: Props -> Void
+    component-will-receive-props: (props) !->
+
+        # get-hotkeys :: Props -> [String]
         get-hotkeys = ({items}) -> 
             (items or [])
                 |> filter -> !!it?.hotkey
                 |> map (.hotkey)
                 |> unique
                 |> sort
-        (get-hotkeys @.props) `difference` get-hotkeys props
-            |> each key.unbind
 
-}
+        (get-hotkeys @props) `difference` get-hotkeys props
+            |> each key.unbind

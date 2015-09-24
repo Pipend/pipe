@@ -1,7 +1,16 @@
 {DOM:{div, input, label}}:React = require \react
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
+    display-name: \LabelledTextField
+
+    # get-default-props :: a -> Props
+    get-default-props: ->
+        label: ""
+        value: ""
+        on-change: (value) !->
+
+    # render :: a -> ReactElement
     render: ->
         div null,
             label null, @props.label
@@ -10,5 +19,3 @@ module.exports = React.create-class {
                 value: @props.value
                 on-change: ({current-target:{value}}) ~>
                     @props.on-change value
-
-}

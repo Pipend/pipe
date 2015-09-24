@@ -6,6 +6,9 @@ module.exports = React.create-class do
 
     display-name: \OpsRoute
 
+    # get-default-props :: a -> Props
+    get-default-props: -> {}
+
     # render :: a -> ReactElement
     render: ->
         div do 
@@ -29,6 +32,7 @@ module.exports = React.create-class do
                 on-sort-order-change: (sort-order) ~> @set-state {sort-order}
                 on-terminate: ({op-id}) ~> $.get "/apis/ops/#{op-id}/cancel"
 
+    # get-initial-state :: a -> UIState
     get-initial-state: ->
         ops: [] # [Op] 
         server-time: 0
@@ -36,7 +40,8 @@ module.exports = React.create-class do
         sort-order: -1
         columns: map camelize, <[op-id parent-op-id query-type query-title query-url api-url creation-time cpu-time]>
 
-    component-did-mount: ->
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
         @socket = (require \socket.io-client).connect force-new: true
             ..on \running-ops, ([server-time, ops]) ~> @set-state server-time: server-time, ops: ops ? []
             ..on \op-started, ([server-time, op]) ~> @set-state server-time: server-time, ops: @state.ops ++ [op]
@@ -46,5 +51,7 @@ module.exports = React.create-class do
             ~> @force-update!
             1000
 
-    component-will-unmount: ->
-        @socket.disconnect! if !!@socket
+    # component-will-unmount :: a -> Void
+    component-will-unmount: !->
+        if !!@socket
+            @socket.disconnect!

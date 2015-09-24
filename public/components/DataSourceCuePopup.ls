@@ -13,6 +13,9 @@ ui-protocol =
 
 module.exports = React.create-class do
 
+    display-name: \DataSourceCuePopup
+
+    # get-default-props :: a -> Props
     get-default-props: ->
         editable: false
         data-source-cue: {} # :: {connection-kind :: String, query-type :: String, complete :: Boolean, ...}

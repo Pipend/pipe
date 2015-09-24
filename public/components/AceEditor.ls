@@ -7,11 +7,11 @@ require \brace/mode/sql
 require \brace/mode/text
 require \brace/ext/searchbox
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
     display-name: \AceEditor
 
-    # get-default-props :: a -> Void
+    # get-default-props :: a -> Props
     get-default-props: ->
         width: 400
         height: 300
@@ -63,5 +63,3 @@ module.exports = React.create-class {
             ..get-session!.set-use-wrap-mode wrap if (typeof wrap != \undefined)
             ..set-theme theme if !!theme
         editor.set-value value, -1 if value != editor.get-value!
-
-}

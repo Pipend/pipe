@@ -7,8 +7,8 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
-        ops: []
-        columns: []
+        ops: [] # :: [Op], Where Op :: {op-id :: String, parent-op-id, query-type, query-titlex, url, creation-time, cpu-time}
+        columns: [] # :: [String]
         on-sort-column-change: ((sort-column) ->)
         on-sort-order-change: ((sort-order) ->)
         sort-column: ""

@@ -1,19 +1,21 @@
-AceEditor = require \./AceEditor.ls
+require! \./AceEditor.ls
 $ = require \jquery-browserify
 {any, concat-map, filter, map, partition, unique, sort} = require \prelude-ls
 {DOM:{a, div, img, input, span}}:React = require \react
 {compile-and-execute-livescript} = require \../utils.ls
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
     display-name: \QueryListRoute
 
+    # render :: a -> ReactElement
     render: ->
         {branches, tags, selected-tags, tag-search, query-title-search} = @state
-        div {class-name: \query-list-route},
+        
+        div class-name: \query-list-route,
 
             # LEFT SIDE MENU
-            div {class-name: \menu}, 
+            div class-name: \menu,
 
                 # NEW QUERY BUTTON
                 a {href: "branches", target: \_blank}, 'New query'
@@ -46,7 +48,7 @@ module.exports = React.create-class {
                                             | _ => [tag] ++ selected-tags
                                 tag
 
-            div {class-name: \queries-container}, 
+            div class-name: \queries-container,
 
                 # QUERY TITLE SEARCH INPUT
                 input do 
@@ -70,10 +72,16 @@ module.exports = React.create-class {
                                     tags |> map (tag) ->
                                         span {class-name: "tag #{if tag in selected-tags then 'selected' else ''}"}, tag
     
+    # get-initial-state :: a -> UIState
     get-initial-state: -> 
-        branches: [], tags: [], selected-tags: [], tag-search: "", query-title-search: ""
+        branches: []
+        tags: []
+        selected-tags: []
+        tag-search: ""
+        query-title-search: ""
 
-    component-did-mount: ->
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
         document.title = 'Queries'
         $.get \/apis/branches, (branches) ~> @set-state do
             branches: branches
@@ -81,5 +89,3 @@ module.exports = React.create-class {
                 |> concat-map -> it?.latest-query?.tags or []
                 |> unique
                 |> sort
-
-}

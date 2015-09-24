@@ -1,19 +1,19 @@
 {filter, map} = require \prelude-ls
-{DOM:{div}}:React = require \react
+{create-factory, DOM:{div}}:React = require \react
 $ = require \jquery-browserify
-CommitTree = require \./CommitTree.ls
+CommitTree = create-factory require \./CommitTree.ls
 
-module.exports = React.create-class {
+module.exports = React.create-class do
 
-    display-name: \DiffRoute
+    display-name: \TreeRoute
 
+    # render :: a -> ReactElement
     render: ->
-        div {class-name: \tree-route},
-            React.create-element do 
-                CommitTree
+        div class-name: \tree-route,
+            CommitTree do
                 width: window.inner-width
                 height: window.inner-height
-                queries: @.state.queries
+                queries: @state.queries
                 tooltip-keys: 
                     * key: \queryId
                       name: 'Query Id'
@@ -24,11 +24,10 @@ module.exports = React.create-class {
                     * key: \creationTime
                       name: \Date
 
-    component-did-mount: -> 
-        queries <~ $.getJSON "/apis/queries/#{@.props.params.query-id}/tree"
-        @.set-state {queries}
+    # component-did-mount :: a -> Void
+    component-did-mount: !-> 
+        queries <~ $.getJSON "/apis/queries/#{@props.params.query-id}/tree"
+        @set-state {queries}
 
-    get-initial-state: ->
-        queries: []
-
-}
+    # get-initial-state :: a -> UIState
+    get-initial-state: -> queries: []

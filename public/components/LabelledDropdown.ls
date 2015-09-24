@@ -1,15 +1,18 @@
-{create-factory, DOM:{div, label, option, select, span}}:React = require \react
+{create-factory, DOM:{div, option, select, span}}:React = require \react
 {find, map, filter} = require \prelude-ls
 SimpleSelect = create-factory (require \react-selectize).SimpleSelect
 
 module.exports = React.create-class do
 
+    display-name: \LabelledDropdown
+
     # get-default-props :: a -> Props
     get-default-props: ->
         disabled: false
         editable: false
-        value: undefined
         options: [] # :: [Item], Where Item :: {label :: String, value :: String, color :: String}
+        on-change: (value) !->
+        value: undefined
 
     # render :: a -> ReactElement
     render: ->
@@ -36,8 +39,8 @@ module.exports = React.create-class do
                 render-option: ({label, color, new-option}?) ~>
                     div class-name: \simple-option,
                         span style: {color}, if !!new-option then "Add #{label} ..." else label
-                uid: ~> "#{it.value}#{it.color}#{@props.disabled}".replace /\s*/g, ''
-                options: options |> filter ->  !!it.value
+                uid: ~> "#{it.value}#{it.color}#{@props.disabled}"
+                options: options |> filter -> !!it.value
                 style: if @props.disabled then {opacity: 0.4} else {}
             } <<< (
                 if @props.editable 
