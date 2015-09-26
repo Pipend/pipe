@@ -1,5 +1,6 @@
 *.css
 *.js
+*.rdb
 *.sublime-workspace
 *.xml
 .DS_Store

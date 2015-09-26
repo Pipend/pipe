@@ -37,7 +37,7 @@ gulp.task \watch:components:styles, ->
 # PRESENTATION STYLES
 gulp.task \build:presentation:styles, ->
     gulp.src <[./public/presentation/*.styl]>
-    .pipe gulp-stylus {use: nib!, compress: true}
+    .pipe gulp-stylus {use: nib!, import: <[nib]>, compress: true, "include css": true}
     .pipe gulp.dest './public/presentation'
 
 gulp.task \watch:presentation:styles, ->

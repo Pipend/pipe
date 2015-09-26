@@ -1,138 +1,130 @@
-.settings
-    color white
-    height 400px
-    
-    .section:not(:first-child)
-        padding-top 20px
-        margin-top 20px
-        border-top solid 1px silver
-        
-    .section.buttons
-        display flex
-        flex-direction row
-        justify-content flex-end
-        .wrapper
-            display flex
-            flex-direction row
-            justify-content space-between
-            width 25%
-            
-            button
-                width: 6em
-                
-            
+@require '../../node_modules/react-selectize/src/SimpleSelect.css'
 
-.client-external-libs-dailog
-    
+.settings-dialog 
+    background-color #303130
+    border-top-left-radius 5px
+    border-top-right-radius 5px
+    box-shadow 0 2px 10px 1px #000000
+    color #f1f1f1
+    font-size 14px
 
-    .element 
+    .header 
+        background-image -webkit-linear-gradient(top, #404143 0%, #333537 52%, #252729 52%, #252729 100%)
+        border-top-left-radius 5px
+        border-top-right-radius 5px
+        height 36px    
         display flex
-        flex-direction row
-        justify-content space-between
         align-items center
-        width 600px
-        margin-bottom 8px
+        font-size 16px
+        padding-left 8px
+        text-shadow 0px -1px 0px black
 
-        &.invalid
-            .auto-complete 
-                background #FFEFEF
+    > .section
+        color #f1f1f1
+        padding 12px 16px
 
-        .x
-            display block
-            width 20px
-            color white
-            text-align center
-            cursor default
+        &.language
+            background-image -webkit-linear-gradient(top, rgba(0, 0, 0, 0.29) 0%, rgba(0, 0, 0, 0.11) 8px, rgba(0, 0, 0, 0.01) 13px, transparent 15px)
 
-        .auto-complete
-            width 100%
-            background none
-            -webkit-user-select none
-            position relative
+        label   
+            display inline-block
+            text-shadow 0px -1px 0px black
 
-            .script-option
-                color #666
-                cursor pointer
-                font-size 0.8em
-                padding 8px 10px
+        &.language label
+            margin 0px 5px 0px 0px
 
-                &.focused
-                    background #f2f9fc
-                    color #333
+        &.libraries label
+            margin 0px 0px 5px 0px
 
-                span.highlight
-                    background rgba(212, 219, 222, 0.7)
+        .libraries
+            border 1px solid rgba(0, 0, 0, 0.3)
+            box-shadow 1px 1px rgba(255, 255, 255, 0.06), 1px 1px rgba(255, 255, 255, 0.06) inset
+            padding 10px
 
+            > div
+                display flex
+                align-items center
+                margin-bottom 8px
 
-            &.disabled
-                pointer-events none
+                .simple-select
+                    margin-right 10px
 
-            .control
-                border 1px solid
-                border-color #d9d9d9 #cccccc #b3b3b3
-                background: white
-                border-radius 4px
-                font-size 0.8em
-                padding 2px 10px 2px 3px
-                -webkit-transition all 0.2s 0s ease
-                position relative
-                z-index 9
+        .simple-select 
+            background-color #eeeeee
+            border 1px solid black
+            box-shadow inset 1px 2px 3px 0 rgba(0, 0, 0, 0.5)
 
-                .placeholder
-                    color #aaaaaa
-                    padding 8px 0px 8px 10px
-                    max-width -webkit-calc(100% - 10px)
-                    overflow hidden
-                    text-overflow ellipsis
-                    white-space nowrap
-                    position absolute
-                    top 0
-                    left 0
+            &.open
+                border-bottom-left-radius 0px
+                border-bottom-right-radius 0px
+
+            .control 
+                border none
+                background-color none
+                height 22px
 
                 input 
-                    background none
-                    border none
-                    outline none 
-                    font-size 1em
-                    margin 2px
-                    padding 4px 0px
-                    vertical-align middle
-                    width 100%
+                    color #202020 !important
+                    padding 0px !important
+                    margin 3px
 
-                .reset
-                    display none
+            .dropdown
+                background-color rgb(73, 73, 73)
+                box-shadow 0px 1px 5px rgba(0,0,0,0.4)
+                border none
 
-                .arrow
-                    display none
+                .option-wrapper.highlight
+                    background-color #262626
 
-            .options
-                background white
-                border 1px solid #ccc
-                border-top none
-                border-bottom-left-radius 4px
-                border-bottom-right-radius 4px
-                box-sizing border-box
-                max-height 200px
-                overflow auto
-                position absolute
-                width 100%
-                z-index 10
+                .simple-option
+                    border 1px solid rgba(0, 0, 0, 0.3)
+                    box-shadow 0px 1px rgba(255, 255, 255, 0.06), 0px 1px rgba(255, 255, 255, 0.06) inset
+                    color white
+                    padding 5px 10px
 
-            &.open 
+                    a 
+                        color #a0b42a
 
-                .control
-                    border-color #b3b3b3 #cccccc #d9d9d9
-                    border-top-left-radius 4px
-                    border-top-right-radius 4px
-                    border-bottom-left-radius 0px
-                    border-bottom-right-radius 0px
-                    
-                    .arrow
-                        border-color transparent transparent #999999
-                        border-width 0 5px 5px
-                        
-    .add 
+            .arrow 
+                top 11px
+
+            .reset 
+                display none
+    
+    .footer 
+        background-color #2b2b2b
+        box-shadow inset 0 1px black, inset 0 2px rgba(255, 255, 255, 0.1)
         display flex
-        align-items flex-end
-        flex-direction column
-        margin-right 20px
+        align-items center
+        justify-content flex-end    
+        height 44px
+
+        > button 
+            margin-right 8px
+
+    .button 
+        border none
+        border-radius 4px
+        box-shadow 0 0px 3px 0 #000000
+        color white
+        cursor pointer
+        min-width 60px
+        outline none
+        padding 4px
+        text-shadow 0px -1px 0px black
+
+        &.green 
+            background-image -webkit-linear-gradient(bottom, #028d00 0%, #49a514 100%)
+            border-top 1px solid #88c464
+
+        &.grey 
+            background-image -webkit-linear-gradient(bottom, #494950 0%, #646468 100%)
+            border-top 1px solid #93939b            
+
+        &.red
+            background-image -webkit-linear-gradient(bottom, #b60000 0%, #cb0000 100%)
+            border-top 1px solid #e47979
+
+
+
+
