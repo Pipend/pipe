@@ -1,4 +1,4 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
+{bindP, from-error-value-callback, new-promise, returnP, sequenceP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
@@ -181,7 +181,7 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     query := query.substring (query.index-of '\n') + 1 # remove the directive line
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("f = #{query}")
-                        | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, console, new-promise, bindP, from-error-value-callback}
+                        | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, sequenceP, console, new-promise, bindP, returnP, from-error-value-callback}
                     execute-mongo-database-query-function do 
                         data-source
                         aggregation-query

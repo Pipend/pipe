@@ -50,7 +50,7 @@ to-callback = (p, callback) !-->
 
 # sequenceP :: (CancellablePromise cp) => [cp a] -> cp [a]
 sequenceP = ([p, ...ps]) ->
-    return returnP p if !p
+    return returnP [] if !p
     a <- bindP p
     as <- bindP (sequenceP ps)
     [a] ++ as
