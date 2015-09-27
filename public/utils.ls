@@ -1,4 +1,4 @@
-base62 = require \base62
+require! \base62
 
 # the first require is used by browserify to import the livescript module
 # the second require is defined in the livescript module and exports the object
@@ -13,11 +13,12 @@ require \prelude-ls
 # this method differs from /utils.ls::compile-and-execute-livescript,
 # it uses the eval function to execute javascript since the "vm" module is unavailable on client-side
 
-export cancel-event = (e) ->
+# cancel-event :: Event -> Void
+export cancel-event = (e) !->
     e.prevent-default!
     e.stop-propagation!
-    # false
 
+# compile-and-execute-livescript :: String -> object -> [String, result]
 export compile-and-execute-livescript = (livescript-code, context) -->
 
     die = (err)->
@@ -41,6 +42,7 @@ export compile-and-execute-livescript = (livescript-code, context) -->
 
     [null, result]
 
+# compile-and-execute-javascript :: String -> object -> [String, result]
 export compile-and-execute-javascript = (code, context) -->
     try 
         str-context = keys context |> map ((k) -> "var #{k} = context.#{k}; ") |> foldr1 (a,b) -> a + b
@@ -55,6 +57,7 @@ export compile-and-execute-javascript = (code, context) -->
     catch err 
         ["javascript runtime error: #{err.to-string!}", null]
 
+# date-from-object-id :: String -> Date
 export date-from-object-id = (object-id) -> new Date (parse-int (object-id.substring 0, 8), 16) * 1000
 
 # two objects are equal if they have the same keys & values
@@ -80,6 +83,8 @@ export get-all-keys-recursively = (filter-function, object) -->
         return [key] ++ (get-all-keys-recursively filter-function, object[key])  if typeof object[key] == \object
         [key]
 
+# object-id-from-date :: Date -> String
 export object-id-from-date = (date) -> ((floor date.getTime! / 1000).to-string 16) + "0000000000000000"
 
+# generate-uid :: a -> String
 export generate-uid = -> base62.encode Date.now!

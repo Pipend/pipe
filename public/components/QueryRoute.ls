@@ -428,7 +428,12 @@ module.exports = React.create-class do
             stream = require \stream
             util = require \util
 
-            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {stream, util, highland: (require \highland), JSONStream: (require "JSONStream")}
+            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {
+                JSONStream: require \JSONStream
+                highland: require \highland
+                stream
+                util
+            }
             return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
             
             try
@@ -449,8 +454,8 @@ module.exports = React.create-class do
             @set-state {execution-error: false}
 
         # use client cache if the query or its dependencies did not change
-        sdocument = @document-from-state!
-        if cache and !!@cached-execution and (all (~> sdocument[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue transpilation]>)
+        document-from-state = @document-from-state!
+        if cache and !!@cached-execution and (all (~> document-from-state[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue transpilation]>)
             @set-state {executing-op: generate-uid!}
             {result, execution-end-time} = @cached-execution.result-with-metadata
             process-query-result result
