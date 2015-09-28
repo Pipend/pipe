@@ -3,7 +3,7 @@
 fill-intervals-f = fill-intervals
 
 module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do 
-    (view, result, {x, y, key, values, y-axis, x-axis, transition-duration, reduce-x-ticks, rotate-labels, show-controls, group-spacing, show-legend, fill-intervals}, continuation) !-->
+    (view, result, {x, y, key, values, y-axis, x-axis, transition-duration, reduce-x-ticks, rotate-labels, show-controls, group-spacing, show-legend, fill-intervals, margin}, continuation) !-->
 
         <- nv.add-graph
 
@@ -16,12 +16,16 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
         chart = nv.models.multi-bar-chart!
             .x (.0)
             .y (.1)
-            # .transition-duration transition-duration
+            .duration transition-duration
             .reduce-x-ticks reduce-x-ticks
             .rotate-labels rotate-labels
             .show-controls show-controls
             .group-spacing group-spacing
             .show-legend show-legend
+            
+
+        if !!margin
+            chart.margin margin
             
         chart 
             ..x-axis.tick-format x-axis.format
@@ -47,5 +51,6 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
         group-spacing: 0.1 # Distance between each group of bars.
         show-legend: true
         fill-intervals: false
+        margin: null  # {top left right bottom}
 
     }
