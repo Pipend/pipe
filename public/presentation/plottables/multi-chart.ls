@@ -36,7 +36,8 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
         if (typeof options?.y-axis2?.show) == \boolean
             $ view .find \div .toggle-class \hide-y2, !options.y-axis2.show
 
-        #chart.update!
+        <- continuation chart, result
+        chart.update!
 
     {
         key: (.key)
@@ -50,5 +51,5 @@ module.exports = ({Plottable, nv, plot-chart}) -> new Plottable do
             format: id
             show: false
         x-axis:
-            format: id        
+            format: id
     }
