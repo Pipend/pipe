@@ -446,12 +446,28 @@ module.exports = React.create-class do
                 {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
             return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
             
-            try
-                func @refs.presentation.get-DOM-node!, transformed-result
-            catch ex
-                return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
+            view = @refs.presentation.get-DOM-node!
 
-            @set-state {execution-error: false}
+            if 'Function' == typeof! transformed-result.subscribe
+              console.log 'RxJS'
+
+              transformed-result.subscribe do
+                (e) ->
+                    console.info 'stream data: ', e.name
+                    func view, e
+                (e) ->
+                    console.error 'error: ', e
+                ->
+                    console.info 'socket closed'
+
+            else
+
+              try
+                  func view, transformed-result
+              catch ex
+                  return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
+
+              @set-state {execution-error: false}
 
         # use client cache if the query or its dependencies did not change
         document-from-state = @document-from-state!
