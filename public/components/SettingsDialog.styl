@@ -1,4 +1,4 @@
-@require '../../node_modules/react-selectize/src/SimpleSelect.css'
+@require 'ReactSelectize'
 
 .settings-dialog 
     background-color #303130
@@ -9,7 +9,7 @@
     font-size 14px
 
     .header 
-        background-image -webkit-linear-gradient(top, #404143 0%, #333537 52%, #252729 52%, #252729 100%)
+        background-image linear-gradient(top, #404143 0%, #333537 52%, #252729 52%, #252729 100%)
         border-top-left-radius 5px
         border-top-right-radius 5px
         height 36px    
@@ -24,7 +24,7 @@
         padding 12px 16px
 
         &.language
-            background-image -webkit-linear-gradient(top, rgba(0, 0, 0, 0.29) 0%, rgba(0, 0, 0, 0.11) 8px, rgba(0, 0, 0, 0.01) 13px, transparent 15px)
+            background-image linear-gradient(top, rgba(0, 0, 0, 0.29) 0%, rgba(0, 0, 0, 0.11) 8px, rgba(0, 0, 0, 0.01) 13px, transparent 15px)
 
         label   
             display inline-block
@@ -49,47 +49,8 @@
                 .simple-select
                     margin-right 10px
 
-        .simple-select 
-            background-color #eeeeee
-            border 1px solid black
-            box-shadow inset 1px 2px 3px 0 rgba(0, 0, 0, 0.5)
-
-            &.open
-                border-bottom-left-radius 0px
-                border-bottom-right-radius 0px
-
-            .control 
-                border none
-                background-color none
-                height 22px
-
-                input 
-                    color #202020 !important
-                    padding 0px !important
-                    margin 3px
-
-            .dropdown
-                background-color rgb(73, 73, 73)
-                box-shadow 0px 1px 5px rgba(0,0,0,0.4)
-                border none
-
-                .option-wrapper.highlight
-                    background-color #262626
-
-                .simple-option
-                    border 1px solid rgba(0, 0, 0, 0.3)
-                    box-shadow 0px 1px rgba(255, 255, 255, 0.06), 0px 1px rgba(255, 255, 255, 0.06) inset
-                    color white
-                    padding 5px 10px
-
-                    a 
-                        color #a0b42a
-
-            .arrow 
-                top 11px
-
-            .reset 
-                display none
+        .simple-select  .dropdown .simple-option .link
+            color #a0b42a
     
     .footer 
         background-color #2b2b2b
@@ -114,15 +75,15 @@
         text-shadow 0px -1px 0px black
 
         &.green 
-            background-image -webkit-linear-gradient(bottom, #028d00 0%, #49a514 100%)
+            background-image linear-gradient(bottom, #028d00 0%, #49a514 100%)
             border-top 1px solid #88c464
 
         &.grey 
-            background-image -webkit-linear-gradient(bottom, #494950 0%, #646468 100%)
+            background-image linear-gradient(bottom, #494950 0%, #646468 100%)
             border-top 1px solid #93939b            
 
         &.red
-            background-image -webkit-linear-gradient(bottom, #b60000 0%, #cb0000 100%)
+            background-image linear-gradient(bottom, #b60000 0%, #cb0000 100%)
             border-top 1px solid #e47979
 
 

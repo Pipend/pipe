@@ -69,7 +69,7 @@ LibrarySelect = create-factory create-class do
                     div null, 
                         if !!new-option
                             span null, "Add "
-                        a {href: latest, target: \blank}, latest
+                        span class-name: \link, latest
             
             # render-value :: Item -> ReactElement
             render-value: ({latest}?) ~> 
