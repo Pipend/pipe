@@ -27,7 +27,7 @@ emit-with-delay = (event) ->
 # COMPONENTS STYLES
 gulp.task \build:components:styles, ->
     gulp.src <[./public/components/*.styl]>
-    .pipe gulp-stylus "include css": true, use: nib!, compress: true
+    .pipe gulp-stylus {use: nib!, import: <[nib]>, compress: config.gulp.minify, "include css": true}
     .pipe gulp.dest './public/components'
     .on \end, -> emit-with-delay \build-complete if !!io
 
@@ -37,7 +37,7 @@ gulp.task \watch:components:styles, ->
 # PRESENTATION STYLES
 gulp.task \build:presentation:styles, ->
     gulp.src <[./public/presentation/*.styl]>
-    .pipe gulp-stylus {use: nib!, import: <[nib]>, compress: true, "include css": true}
+    .pipe gulp-stylus {use: nib!, import: <[nib]>, compress: config.gulp.minify, "include css": true}
     .pipe gulp.dest './public/presentation'
 
 gulp.task \watch:presentation:styles, ->

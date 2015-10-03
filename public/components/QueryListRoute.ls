@@ -1,9 +1,10 @@
 require! \./AceEditor.ls
 $ = require \jquery-browserify
 {any, concat-map, filter, map, partition, unique, sort} = require \prelude-ls
-{DOM:{a, div, img, input, span}}:React = require \react
+{create-factory, DOM:{a, div, img, input, span}}:React = require \react
+require! \react-router
 {compile-and-execute-livescript} = require \../utils.ls
-
+Link = create-factory react-router.Link
 module.exports = React.create-class do
 
     display-name: \QueryListRoute
@@ -18,12 +19,14 @@ module.exports = React.create-class do
             div class-name: \menu,
 
                 # NEW QUERY BUTTON
-                a {href: "branches", target: \_blank}, 'New query'
+                Link do 
+                    to: \/branches
+                    'New query'
 
                 # LIST OF SELECTED TAGS
                 div do 
                     class-name: \selected-tags
-                    selected-tags.to-string!                
+                    selected-tags.to-string!
 
                 # TAG SEARCH INPUT
                 input do 
@@ -50,31 +53,63 @@ module.exports = React.create-class do
 
             div class-name: \queries-container,
 
-                # QUERY TITLE SEARCH INPUT
-                input do 
-                    type: \text
-                    value: query-title-search
-                    placeholder: 'Search for queries...'
-                    on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
+                div class-name: "controls#{if !!@state.x then ' shadow' else ''}", 
+
+                    div class-name: \title, "Queries"
+
+                    # SEARCH CONTAINER (for icon font)
+                    div class-name: "search-container#{if @state.expand-search then ' expanded' else ''}",
+
+                        # SEARCH INPUT
+                        input do
+                            placeholder: 'Search'
+                            type: \text
+                            value: query-title-search
+                            on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
+                            on-focus: ~> @set-state expand-search: true
+                            on-blur: ~> @set-state expand-search: false
 
                 # LIST OF QUERIES
-                div {class-name: \queries},
+                div do
+                    class-name: \queries
+                    on-scroll: ({current-target}) ~> 
+                        if !@state.x and current-target.scroll-top > 0
+                            @set-state x: true
+
+                        if @state.x and current-target.scroll-top == 0
+                            @set-state x: false
+
+
                     branches 
                         |> filter ({latest-query:{query-title}}) -> (query-title-search.length == 0) or (query-title.to-lower-case!.index-of query-title-search.to-lower-case!) != -1
                         |> filter ({latest-query:{tags or []}}) -> (selected-tags.length == 0) or (tags |> any ~> it in selected-tags)                        
                         |> map ({branch-id, latest-query:{query-id, query-title, tags or []}, snapshot}?) ->
-                            div {class-name: \query},
-                                img {src: snapshot}
-                                a do 
-                                    href: "branches/#{branch-id}/queries/#{query-id}" 
-                                    query-title
-                                div {class-name: \tags},
-                                    tags |> map (tag) ->
-                                        span {class-name: "tag #{if tag in selected-tags then 'selected' else ''}"}, tag
+
+                            # QUERY
+                            Link do
+                                class-name: \query
+                                to: "/branches/#{branch-id}/queries/#{query-id}" 
+
+                                # THUMBNAIL
+                                div do 
+                                    class-name: \thumbnail
+                                    style: 
+                                        background-image: "url(#{snapshot})"
+
+                                # INFO
+                                div class-name: \info,
+                                    div class-name: \title, query-title
+                                    div class-name: \tags,
+                                        tags |> map (tag) ~>
+                                            span do 
+                                                class-name: "tag #{if tag in selected-tags then 'selected' else ''}"
+                                                tag
     
     # get-initial-state :: a -> UIState
     get-initial-state: -> 
         branches: []
+        x: false
+        expand-search: false
         tags: []
         selected-tags: []
         tag-search: ""
