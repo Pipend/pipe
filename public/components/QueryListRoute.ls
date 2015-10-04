@@ -20,10 +20,21 @@ module.exports = React.create-class do
 
                 # NEW QUERY BUTTON
                 Link do 
+                    class-name: \new-query
                     to: \/branches
                     'New query'
 
                 div class-name: \title, \TAGS
+                
+                # SEARCH CONTAINER (for icon font)
+                div class-name: \search-container,
+
+                    # SEARCH INPUT
+                    input do
+                        placeholder: 'Search'
+                        type: \text
+                        value: @state.tag-search
+                        on-change:({current-target: {value}}) ~> @set-state {tag-search: value}
 
                 # LIST OF TAGS
                 div do 
