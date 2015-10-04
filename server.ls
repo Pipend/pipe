@@ -117,10 +117,10 @@ app.get \/queries/:queryId, (req, res) ->
 # /apis/defaultDocuemnt
 app.get \/apis/defaultDocument, (req, res) ->
     {query-type} = config.default-data-source-cue
-    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<< {
+    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<<
         data-source-cue: config.default-data-source-cue
         query-title: 'Untitled query'
-    }
+        tags: []
 
 # api :: list of branches
 # returns a list of branches where each item has the branch-id and the latest-query in that branch

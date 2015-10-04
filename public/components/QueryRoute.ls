@@ -12,7 +12,7 @@ transformation-context = require \../transformation/context.ls
 is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 _ = require \underscore
 {create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
-{History, Lifecycle}:react-router = require \react-router
+{History}:react-router = require \react-router
 Link = create-factory react-router.Link
 AceEditor = create-factory require \./AceEditor.ls
 ConflictDialog = create-factory require \./ConflictDialog.ls
@@ -68,7 +68,7 @@ module.exports = React.create-class do
 
     # History mixin provides replace-state method which is used to update the url when the user saves the query
     # Lifecycle mixin provides route-will-leave method which helps in preventing the user from loosing his work
-    mixins: [History, Lifecycle]
+    mixins: [History]
 
     # get-default-props :: a -> Props
     get-default-props: ->
@@ -189,7 +189,10 @@ module.exports = React.create-class do
                 items: menu-items 
                     |> filter ({show}) -> (typeof show == \undefined) or show
                     |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
-                Link class-name: \logo, to: \/
+                Link class-name: \logo, to: \/, on-click: (e) ~> 
+                    if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
+                        e.prevent-default!
+                        e.stop-propagation!
 
             # POPUPS
 
@@ -692,11 +695,6 @@ module.exports = React.create-class do
                 true
             | _ => false
         @props.prevent-reload and prevent-reload
-
-    # router-will-leave :: a -> String?
-    router-will-leave: -> 
-        if @should-prevent-reload!
-            !(confirm "You have NOT saved your query. Click OK to Stop and save your query.")
 
     # React component life cycle method (invoked before props are set)
     # component-will-receive-props :: Props -> Void

@@ -45,7 +45,7 @@
     "react": "^0.13.1",
     "react-ace": "^1.1.5",
     "react-auto-complete": "^0.0.4",
-    "react-router": "git+https://github.com/furqanZafar/react-router-build",
+    "react-router": "^1.0.0-rc1",
     "react-selectize": "^0.2.5",
     "redis": "^0.12.1",
     "request": "^2.54.0",
