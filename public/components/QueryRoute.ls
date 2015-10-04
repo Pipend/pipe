@@ -752,7 +752,12 @@ module.exports = React.create-class do
                     # SQL \/
                     tables = data.tables |> Obj.keys |> concat-map (-> [it, it.split \. .1])
                     schemas = data.tables |> Obj.keys |> map (.split \. .1) |> unique
-                    tables-hash = data.tables |> obj-to-pairs |> (map ([k, v]) -> [k.to-lower-case!, v]) |> pairs-to-obj
+                    tables-hash = data.tables 
+                        |> obj-to-pairs 
+                        |> concat-map ([k, v]) -> 
+                            k = k.to-lower-case!
+                            [[k, v], [(k.split \. .1), v]]
+                        |> pairs-to-obj
 
                     # SQL /\
 
@@ -767,15 +772,22 @@ module.exports = React.create-class do
                                 auto-complete = keywords ++ alphabet
 
                                 # SQL \/
-                                token = ((text.split " ")?[*-2] ? "").to-lower-case!
+                                token = ((text.split " ")?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!
                                 if token in <[from join]> ++ schemas
                                     # tables
                                     auto-complete := tables ++ auto-complete
                                 else
                                     #columns
 
-                                    #TODO: if token is a table name or alias ...
-                                    auto-complete := ((window.ast-tables ? []) |> concat-map (-> tables-hash[it.name])) ++ auto-complete 
+                                    # if token is a table name or alias
+                                    clean-token = token.split \. .0
+                                    matching-tables = window.ast-tables ? [] |> filter ({name, alias}) -> name == clean-token or alias == clean-token
+
+                                    # else all the table
+                                    if matching-tables.length == 0
+                                        matching-tables = window.ast-tables ? []
+
+                                    auto-complete := (matching-tables |> concat-map (-> tables-hash[it.name])) ++ auto-complete 
                                 # SQL /\
 
                                 console.log \auto-complete, auto-complete
