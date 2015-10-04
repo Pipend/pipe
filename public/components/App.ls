@@ -41,7 +41,8 @@ App = React.create-class do
             {get-load-time-object, record} = (require \spy-web-client) do 
                 url: config.spy.url
                 common-event-properties : ~>
-                    route: (last @props.routes)?.name ? \index
+                    {} <<< viewbag <<< 
+                        route: (last @props.routes)?.name ? \index
 
             # record page-ready event
             get-load-time-object (load-time-object) ~>

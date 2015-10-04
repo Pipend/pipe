@@ -137,8 +137,9 @@ json = -> JSON.stringify it
             session-id: req.session-id
             impression-id: impression-id
             event-type: \visit
-            
-        res.render \public/index.html
+        
+        viewbag = {req.user-id, req.session-id, impression-id}
+        res.render \public/index.html, {viewbag}
 
 # redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId
 app.get \/branches/:branchId, (req, res) ->
