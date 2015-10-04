@@ -1,7 +1,7 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 require! \body-parser
 Busboy = require \busboy
-{http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
+{http-port, mongo-connection-opitons, query-database-connection-string, snapshot-server}:config = require \./config
 require! \express
 {create-read-stream, readdir} = require \fs
 require! \highland
@@ -163,9 +163,7 @@ app.get \/apis/defaultDocument, (req, res) ->
                     {
                         branch-id
                         latest-query
-                        snapshot: (files or [])
-                            |> find -> (it.index-of branch-id) == 0
-                            |> -> if !it then null else "public/snapshots/#{it}"
+                        snapshot: "#{snapshot-server}/public/snapshots/#{branch-id}.png"
                     }
                 |> sort-by (.latest-query.creation-time * -1)
 

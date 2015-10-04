@@ -74,6 +74,7 @@ server-config = {
             socket-options:
                 keep-alive: 1
     query-database-connection-string: \mongodb://localhost:27017/pipe
+    snapshot-server: \http://localhost:4081
     gulp:
         minify: true        
 }
@@ -82,6 +83,7 @@ local-config = {} <<< server-config <<< {
     gulp:
         minify: false
         reload-port: 4082
+    prevent-reload: false
 }
 
 module.exports = local-config

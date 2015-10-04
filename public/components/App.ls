@@ -1,10 +1,12 @@
 require! \./AceEditor.ls
 require! \../../config.ls
+create-browser-history = require \history/lib/createBrowserHistory
 {map} = require \prelude-ls
-{create-factory, DOM:{button, div}}:React = require \react
-{HistoryLocation, Navigation, RouteHandler, State} = Router = require \react-router
-DefaultRoute = create-factory Router.DefaultRoute
-Route = create-factory Router.Route
+{clone-element, create-factory, DOM:{button, div}}:React = require \react
+require! \react-router
+Router = create-factory react-router.Router
+Route = create-factory react-router.Route
+IndexRoute = create-factory react-router.IndexRoute
 
 # routes
 require! \./DiffRoute.ls
@@ -18,16 +20,10 @@ App = React.create-class do
 
     display-name: \App
 
-    mixins: [Navigation, State]
-
     # render :: a -> ReactElement
     render: ->
         div null,
-            React.create-element do 
-                RouteHandler
-                params: @get-params!
-                query: @get-query!
-                auto-reload: !!config?.gulp?.reload-port
+            clone-element @props.children, config
             div {class-name: \building}, \Building... if @state.building
 
     # get-initial-state :: a -> UIState
@@ -40,18 +36,19 @@ App = React.create-class do
                 ..on \build-start, ~> @set-state building: true
                 ..on \build-complete, -> window.location.reload!
 
-handler <- Router.run do  
-    React.create-element Route, {name: \app, path: \/, handler: App},
-        Route name: \new-query, path: "/branches" handler: QueryRoute
-        Route name: \existing-query, path: "/branches/:branchId/queries/:queryId" handler: QueryRoute
-        Route name: \diff, path: "/branches/:branchId/queries/:queryId/diff", handler: DiffRoute
-        Route name: \ops, path: "/ops", handler: OpsRoute
-        Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", handler: TreeRoute
-        Route name: \import, path: "/import" handler: ImportRoute
-        DefaultRoute handler: QueryListRoute
-    HistoryLocation
-
 React.render do 
-    React.create-element handler, null
+    Router do 
+        history: create-browser-history!
+        Route do 
+            name: \app
+            path: \/
+            component: App
+            IndexRoute component: QueryListRoute
+            Route name: \new-query, path: "/branches" component: QueryRoute
+            Route name: \existing-query, path: "/branches/:branchId/queries/:queryId" component: QueryRoute
+            Route name: \diff, path: "/branches/:branchId/queries/:queryId/diff", component: DiffRoute
+            Route name: \ops, path: "/ops", component: OpsRoute
+            Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", component: TreeRoute
+            Route name: \import, path: "/import" component: ImportRoute
     document.body
 

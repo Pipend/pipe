@@ -9,44 +9,70 @@ body
         height 100%
 
     .menu
-        background white
+        background #434745
         border-right 1px solid #eee
+        box-shadow inset -1px 0px 6px 0px rgba(0,0,0,0.2)
         box-sizing border-box
-        padding 10px
+        color #B7B9B9
+        position relative
         width 300px
         
         a
-            color #0099ff
+            color white
+            display inline-flex
+            align-items center
+            justify-content center
             font-size 24px
             text-decoration none
             text-transform capitalize
-        
-        .selected-tags 
-            color green
-            font-size 12px
-            margin 20px 0px 5px 0px
-            &:before 
-                color black
-                content "Selected tags: "
-        
-        input 
-            border 1px solid #ccc
-            margin-bottom 4px
-            outline none
-            padding 8px
-            width 280px
-        
+            margin 50px 20px 0px 20px
+            &:before
+                content '\E212'
+                display inline-block
+                font-size 26px
+                font-family slackicons
+                font-weight lighter
+                margin-right 5px
+                text-align center
+                vertical-align middle
+
+        .title
+            padding 0px 0px 0px 24px
+            margin 30px 0px 8px 0px
+
         .tags 
             overflow auto
-            height 100%
+            width 280px
             .tag 
-                border-radius 8px
+                border-radius 4px
                 cursor pointer
-                margin 2px 0px
-                padding 8px
-                text-shadow 0px 1px 0px white
+                font-size 14px
+                font-style italic
+                padding 3px 5px 3px 40px
+                margin-bottom 4px
+                &:before
+                    background-color #b7b9b9
+                    border-radius 32px
+                    content ""
+                    display inline-block
+                    margin-right 6px
+                    width 8px
+                    height 8px
                 &.selected
-                    background gold
+                    background #D39B46
+                    border-bottom-left-radius 0px
+                    border-top-left-radius 0px
+                    color white
+                    &:before
+                        background-color white
+
+        .copy-right
+            color #ccc
+            font-size 12px
+            text-align right
+            position absolute
+            bottom 24px
+            right 24px
 
     .queries-container
         overflow hidden
@@ -54,7 +80,7 @@ body
         
         .controls
             background-color white
-            padding 30px 30px 40px 30px
+            padding 30px 30px 16px 30px
             position relative
             height 40px
             z-index 1

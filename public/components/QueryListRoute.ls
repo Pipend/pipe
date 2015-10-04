@@ -23,17 +23,7 @@ module.exports = React.create-class do
                     to: \/branches
                     'New query'
 
-                # LIST OF SELECTED TAGS
-                div do 
-                    class-name: \selected-tags
-                    selected-tags.to-string!
-
-                # TAG SEARCH INPUT
-                input do 
-                    type: \text
-                    value: tag-search
-                    placeholder: 'Search for tags...'
-                    on-change:({current-target:{value}}) ~> @set-state {tag-search: value}
+                div class-name: \title, \TAGS
 
                 # LIST OF TAGS
                 div do 
@@ -50,6 +40,10 @@ module.exports = React.create-class do
                                             | selected => selected-tags |> partition (== tag) |> (.1)
                                             | _ => [tag] ++ selected-tags
                                 tag
+                
+                # COPYRIGHT
+                div class-name: \copy-right,
+                    "© #{new Date!.get-full-year!} Pipend Inc."
 
             div class-name: \queries-container,
 
@@ -67,7 +61,7 @@ module.exports = React.create-class do
                             value: query-title-search
                             on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
                             on-focus: ~> @set-state expand-search: true
-                            on-blur: ~> @set-state expand-search: false
+                            on-blur: ~> @set-state expand-search: false                    
 
                 # LIST OF QUERIES
                 div do
