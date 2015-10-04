@@ -27,16 +27,21 @@ export connections = ->
                 value: name
                 default-database: value?.default-database or ''
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
+# keywords :: (CancellablePromise cp) => DataSource -> cp { keywords: [String], tables: Hash {String: [String]} }
 export keywords = (data-source) ->
-    results <- bindP (execute-sql data-source, "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS")    
-    returnP <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN]> ++ (results
-        |> group-by (.TABLE_SCHEMA)
-        |> Obj.map group-by (.TABLE_NAME) 
-        |> Obj.map Obj.map map (.COLUMN_NAME)
-        |> Obj.map obj-to-pairs >> concat-map ([table, columns]) -> [table] ++ do -> columns |> map ("#{table}." +)
-        |> obj-to-pairs
-        |> concat-map (.1))
+    results <- bindP (execute-sql data-source, "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS")
+    tables = results |> (group-by (-> "#{it.TABLE_SCHEMA}.#{it.TABLE_NAME}")) >> (Obj.map map (.COLUMN_NAME))
+    returnP {
+        keywords: <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN (NOLOCK)]>
+        tables: tables
+    }
+    # returnP <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN (NOLOCK)]> ++ (results
+    #     |> group-by (.TABLE_SCHEMA)
+    #     |> Obj.map group-by (.TABLE_NAME) 
+    #     |> Obj.map Obj.map map (.COLUMN_NAME)
+    #     |> Obj.map obj-to-pairs >> concat-map ([table, columns]) -> [table] ++ do -> columns |> map ("#{table}." +)
+    #     |> obj-to-pairs
+    #     |> concat-map (.1))
 
 # get-context :: a -> Context
 export get-context = ->

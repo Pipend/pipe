@@ -5,7 +5,7 @@ $ = require \jquery-browserify
 {key} = require \keymaster
 require! \notifyjs
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by} = require \prelude-ls
+last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj} = require \prelude-ls
 presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
 {cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, 
@@ -453,10 +453,11 @@ module.exports = React.create-class do
 
               transformed-result.subscribe do
                 (e) ->
-                    console.info 'stream data: ', e.name
+                    console.info 'stream data: ', e
                     func view, e
                 (e) ->
                     console.error 'error: ', e
+                    view.innerHTML = e.toString!
                 ->
                     console.info 'socket closed'
 
@@ -688,8 +689,38 @@ module.exports = React.create-class do
     # updates the list of auto-completers if the data-source-cue has changed
     # component-did-update :: Props -> State -> Void
     component-did-update: (prev-props, prev-state) !->
-
         # data source auto complete
+
+        # SQL \/
+
+        tables-from-ast = (ast) ->
+            {type, variant} = ast
+            
+            switch
+            |  type == 'identifier' and variant == 'table' =>
+                [{name: ast.name, alias: ast.alias}]
+            |  type == 'map' and variant == 'join'  =>
+                (tables-from-ast ast.source) ++ if !ast.map then [] else ast.map |> concat-map tables-from-ast
+            | type == 'statement' and variant == 'select' =>
+                (if !ast.from.length then [ast.from] else ast.from) |> concat-map tables-from-ast
+            | type == 'join' =>
+                [{name: ast.source.name, alias: ast.source.alias}] ++ if !ast.source?.from then [] else tables-from-ast ast.source.from
+            | _ => throw "not supported type: #{type}, variant: #{variant} #{JSON.stringify ast, null, 4}"
+
+        query = @state.query
+            .replace  /\s+top\s+\d+\s+/gi, ' '
+            .replace /\s+with\s?\(\s?nolock\s?\)\s+/gi, ' '
+
+        err, ast <~ if !window.sqliteParser then (-> it null, null) else (-> window.sqliteParser query, it)
+        console.log \parse, err, ast, query
+        if !err and !!ast
+            window.ast = ast.statement
+            window.ast-tables = window.ast |> concat-map tables-from-ast 
+            console.log \ast-tables, ast-tables
+
+
+        # SQL /\
+
         do ~>
             {data-source-cue} = @state
 
@@ -714,14 +745,41 @@ module.exports = React.create-class do
                 content-type: 'application/json; charset=utf-8'
                 data-type: \json
                 data: JSON.stringify data-source-cue
-                success: (keywords) ~>
+                success: ({keywords}:data) ~> #TODO: update mongodb and other DataSources
+                    # the type of data depends on the DataSourceCue.
+                    # but it always have a keywords prop: [String]
+
+                    # SQL \/
+                    tables = data.tables |> Obj.keys |> concat-map (-> [it, it.split \. .1])
+                    schemas = data.tables |> Obj.keys |> map (.split \. .1) |> unique
+                    tables-hash = data.tables |> obj-to-pairs |> (map ([k, v]) -> [k.to-lower-case!, v]) |> pairs-to-obj
+
+                    # SQL /\
+
                     completer.protocol =
                         get-completions: (editor, , , prefix, callback) ->
                             range = editor.getSelectionRange!.clone!
                                 ..set-start range.start.row, 0
                             text = editor.session.get-text-range range
                             if editor.container.id == \query-editor
-                                callback null, (convert-to-ace-keywords keywords ++ alphabet, data-source-cue.type, prefix)    
+                                #console.log \component-did-update, \query-editor, text
+
+                                auto-complete = keywords ++ alphabet
+
+                                # SQL \/
+                                token = ((text.split " ")?[*-2] ? "").to-lower-case!
+                                if token in <[from join]> ++ schemas
+                                    # tables
+                                    auto-complete := tables ++ auto-complete
+                                else
+                                    #columns
+
+                                    #TODO: if token is a table name or alias ...
+                                    auto-complete := ((window.ast-tables ? []) |> concat-map (-> tables-hash[it.name])) ++ auto-complete 
+                                # SQL /\
+
+                                console.log \auto-complete, auto-complete
+                                callback null, (convert-to-ace-keywords auto-complete, data-source-cue.type, prefix)    
                     if data-source-cue `is-equal-to-object` @state.data-source-cue
                         ace-language-tools.set-completers [completer.protocol] ++ (@default-completers |> map (.protocol)) 
 
