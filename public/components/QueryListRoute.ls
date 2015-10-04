@@ -24,14 +24,14 @@ module.exports = React.create-class do
                     to: \/branches
                     'New query'
 
-                div class-name: \title, \TAGS
+                div class-name: \title, \Tags
                 
                 # SEARCH CONTAINER (for icon font)
                 div class-name: \search-container,
 
                     # SEARCH INPUT
                     input do
-                        placeholder: 'Search'
+                        placeholder: \Search
                         type: \text
                         value: @state.tag-search
                         on-change:({current-target: {value}}) ~> @set-state {tag-search: value}
@@ -72,7 +72,7 @@ module.exports = React.create-class do
 
             div class-name: \queries-container,
 
-                div class-name: "controls#{if !!@state.x then ' shadow' else ''}", 
+                div class-name: "controls#{if !!@state.shadow then ' shadow' else ''}", 
 
                     div class-name: \title, "Queries"
 

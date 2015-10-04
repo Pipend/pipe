@@ -9,7 +9,7 @@ require! \JSONStream
 md5 = require \MD5
 require! \moment
 {MongoClient} = require \mongodb
-{record-req} = (require \pipend-spy) config.spy.storage-details
+{record-req}? = (require \pipend-spy) config?.spy?.storage-details
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
 require! \phantom
@@ -131,12 +131,13 @@ json = -> JSON.stringify it
         res.cookie \impressionId, impression-id, {httpOnly: false}
 
         # record visit event
-        record-req do 
-            req
-            user-id: req.user-id
-            session-id: req.session-id
-            impression-id: impression-id
-            event-type: \visit
+        if !!record-req and !!config?.spy?.enabled
+            record-req do 
+                req
+                user-id: req.user-id
+                session-id: req.session-id
+                impression-id: impression-id
+                event-type: \visit
         
         viewbag = {req.user-id, req.session-id, impression-id}
         res.render \public/index.html, {viewbag}
