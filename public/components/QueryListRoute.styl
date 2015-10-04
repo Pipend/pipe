@@ -1,6 +1,9 @@
+body 
+    overflow hidden
+
 .query-list-route
-    display flex
-    
+    display flex    
+
     > div
         overflow auto
         height 100%
@@ -10,11 +13,14 @@
         border-right 1px solid #eee
         box-sizing border-box
         padding 10px
+        width 300px
+        
         a
             color #0099ff
             font-size 24px
             text-decoration none
             text-transform capitalize
+        
         .selected-tags 
             color green
             font-size 12px
@@ -22,12 +28,14 @@
             &:before 
                 color black
                 content "Selected tags: "
+        
         input 
             border 1px solid #ccc
             margin-bottom 4px
             outline none
             padding 8px
             width 280px
+        
         .tags 
             overflow auto
             height 100%
@@ -39,49 +47,106 @@
                 text-shadow 0px 1px 0px white
                 &.selected
                     background gold
-        width 300px
 
     .queries-container
-        width -webkit-calc(100% - 300px)
-        > input
-            border none
-            border-bottom 1px solid #ccc
-            box-shadow 0px 4px 1px rgba(0,0,0,0.05)
-            font-size 18px
-            margin-bottom 20px
-            outline none
-            padding 10px 0px
-            position fixed
-            left 320px
-            width -webkit-calc(100% - 340px)
+        overflow hidden
+        width vendor-value(calc(100% - 300px), only: webkit moz official)
+        
+        .controls
+            background-color white
+            padding 30px 30px 40px 30px
+            position relative
+            height 40px
+            z-index 1
+            &.shadow
+                box-shadow 0px 1px 4px rgba(0,0,0,0.2)
+
+            .title
+                float left
+                font-size 24px
+            
+            .search-container
+                float right
+                position relative
+                &:before
+                    content '\E010'
+                    font-family slackicons
+                    font-size 20px
+                    opacity 0.4
+                    transition opacity 0.2s 0s ease
+                    position absolute
+                    left 12px
+                    top -2px
+                    z-index 10
+                
+                input
+                    border 1px solid #e6e6e6
+                    border-radius 32px
+                    box-shadow inset 0px 1px 5px 0px rgba(0,0,0,0.1)
+                    font-size 16px
+                    outline none
+                    padding 8px
+                    text-indent 30px
+                    position relative
+                    top -5px
+                    width 450px
+                    transition width 0.2s 0s ease
+                
+                &.expanded
+                    &:before
+                        opacity 0.75
+                    input
+                        width 650px
+
         .queries
             display flex
             flex-direction row
             flex-wrap wrap
-            margin-top 60px
+            overflow auto
+            position relative
+            width 100%
+            max-height vendor-value(calc(100% - 110px), only: webkit moz official)                
+            z-index 0
+
             .query 
+                background-color #f7f7f7
+                border 1px solid #dbd8d8
+                border-radius 4px
+                border-width 1px 1px 2px 1px
+                box-shadow 0 1px 0 #e7e7e7
+                color #5c5853
+                cursor pointer
                 display flex
                 flex-direction column
-                margin 0px 0px 20px 20px
-                width 320px
-                img 
-                    border 1px solid #ccc
-                    width 320px
-                    height 240px
-                a 
-                    color #0099ff
-                    font-size 14px
-                    text-transform lowercase
-                .tags
-                    .tag
-                        background-color #d0d0d0
-                        border-radius 8px
-                        color #444
-                        display inline-block
-                        margin 8px 2px 0px 2px
+                margin 0px 0px 24px 24px
+                text-decoration none
+                width 370px
+                
+                .thumbnail
+                    background-color white
+                    background-position center
+                    background-repeat no-repeat
+                    background-size contain
+                    width 100%
+                    height 190px
+                
+                .info                    
+                    border-top 1px solid #dbd8d8
+                    
+                    .title
                         padding 8px
-                        text-shadow 0px 1px 0px white    
-                        &:first-child 
-                            margin-left 0px
-                        &.selected
-                            background-color gold
+                    
+                    .tags
+                        display flex
+                        justify-content flex-end   
+                        color #666
+                        font-size 12px
+                        font-style italic
+                        margin 4px
+                        text-shadow 0px 1px 0px white
+                        .tag:not(:last-child):after
+                            content ","
+                            margin-right 4px
+
+
+

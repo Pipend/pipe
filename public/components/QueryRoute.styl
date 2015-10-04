@@ -6,9 +6,10 @@
 @require 'SharePopup'
 @require '../presentation/presentation'
 @require 'QueryAndImportRoute'
-@require '../../node_modules/react-selectize/src/MultiSelect.css'
+@require 'ReactSelectize'
 
 .query-route
+    
     .logo
         logo()
 
@@ -26,6 +27,9 @@
         width 100%
         height 100%
         z-index 10
+
+    .tags-popup .react-selectize .dropdown .option-wrapper.highlight .simple-option
+        color #a0b42a !important
 
     .content
         route-content()
@@ -91,7 +95,3 @@
             
             .status-bar
                 status-bar()
-                        
-    .tags-popup .control
-        background-color white
-
