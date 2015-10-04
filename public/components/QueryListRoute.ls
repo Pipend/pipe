@@ -1,6 +1,6 @@
 require! \./AceEditor.ls
 $ = require \jquery-browserify
-{any, concat-map, filter, map, partition, unique, sort} = require \prelude-ls
+{any, concat-map, filter, map, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
 require! \react-router
 {compile-and-execute-livescript} = require \../utils.ls
@@ -20,20 +20,21 @@ module.exports = React.create-class do
 
                 # NEW QUERY BUTTON
                 Link do 
+                    class-name: \new-query
                     to: \/branches
                     'New query'
 
-                # LIST OF SELECTED TAGS
-                div do 
-                    class-name: \selected-tags
-                    selected-tags.to-string!
+                div class-name: \title, \TAGS
+                
+                # SEARCH CONTAINER (for icon font)
+                div class-name: \search-container,
 
-                # TAG SEARCH INPUT
-                input do 
-                    type: \text
-                    value: tag-search
-                    placeholder: 'Search for tags...'
-                    on-change:({current-target:{value}}) ~> @set-state {tag-search: value}
+                    # SEARCH INPUT
+                    input do
+                        placeholder: 'Search'
+                        type: \text
+                        value: @state.tag-search
+                        on-change:({current-target: {value}}) ~> @set-state {tag-search: value}
 
                 # LIST OF TAGS
                 div do 
@@ -50,6 +51,24 @@ module.exports = React.create-class do
                                             | selected => selected-tags |> partition (== tag) |> (.1)
                                             | _ => [tag] ++ selected-tags
                                 tag
+                
+                div class-name: \buttons, 
+                    
+                    # IMPORT BUTTON
+                    Link do 
+                        class-name: \import
+                        to: \/import
+                        'Import'
+
+                    # TASK MANAGER
+                    Link do 
+                        class-name: \task-manager
+                        to: \/ops
+                        'Task Manager'
+
+                # COPYRIGHT
+                div class-name: \copy-right,
+                    "© #{new Date!.get-full-year!} Pipend Inc."
 
             div class-name: \queries-container,
 
@@ -67,18 +86,17 @@ module.exports = React.create-class do
                             value: query-title-search
                             on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
                             on-focus: ~> @set-state expand-search: true
-                            on-blur: ~> @set-state expand-search: false
+                            on-blur: ~> @set-state expand-search: false                    
 
                 # LIST OF QUERIES
                 div do
                     class-name: \queries
                     on-scroll: ({current-target}) ~> 
-                        if !@state.x and current-target.scroll-top > 0
-                            @set-state x: true
+                        if !@state.shadow and current-target.scroll-top > 0
+                            @set-state shadow: true
 
-                        if @state.x and current-target.scroll-top == 0
-                            @set-state x: false
-
+                        if @state.shadow and current-target.scroll-top == 0
+                            @set-state shadow: false
 
                     branches 
                         |> filter ({latest-query:{query-title}}) -> (query-title-search.length == 0) or (query-title.to-lower-case!.index-of query-title-search.to-lower-case!) != -1
@@ -108,7 +126,7 @@ module.exports = React.create-class do
     # get-initial-state :: a -> UIState
     get-initial-state: -> 
         branches: []
-        x: false
+        shadow: false
         expand-search: false
         tags: []
         selected-tags: []

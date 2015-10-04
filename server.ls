@@ -1,7 +1,7 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 require! \body-parser
 Busboy = require \busboy
-{http-port, mongo-connection-opitons, query-database-connection-string}:config = require \./config
+{http-port, mongo-connection-opitons, query-database-connection-string, snapshot-server}:config = require \./config
 require! \express
 {create-read-stream, readdir} = require \fs
 require! \highland
@@ -9,6 +9,7 @@ require! \JSONStream
 md5 = require \MD5
 require! \moment
 {MongoClient} = require \mongodb
+{record-req} = (require \pipend-spy) config.spy.storage-details
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
 require! \phantom
@@ -49,6 +50,27 @@ app = express!
     ..use (require \cors)!
     ..use (require \serve-favicon) __dirname + '/public/images/favicon.png'
     ..use (require \cookie-parser)!    
+    ..use (req, res, next) ->
+
+        current-time = Date.now!
+
+        # user id (ensure that it is always an integer)                
+        user-id = 
+            | !!req.cookies.user-id => parse-int req.cookies.user-id
+            | _ =>
+                res.cookie \userId, current-time, {maxAge: 100 * 365 * 24 * 60 * 60 * 1000, httpOnly: false}
+                current-time
+
+        # session id (ensure that it is always an integer)        
+        session-id = 
+            | !!req.cookies.session-id => parse-int req.cookies.session-id
+            | _ => 
+                res.cookie \sessionId, current-time, {httpOnly: false} 
+                current-time
+
+        req <<< {user-id, session-id}
+        next!
+
     ..use (req, res, next) ->
         req.parsed-query = query-parser req.query if !!req.query
         next!
@@ -100,7 +122,24 @@ json = -> JSON.stringify it
     \/import
     \/ops
 ]> |> each (route) ->
-    app.get route, (req, res) -> res.render \public/index.html
+    app.get route, (req, res) -> 
+
+        # impression id increments every time the user visits these routes
+        impression-id = 
+            | !!req.cookies?.impression-id => (parse-int req.cookies.impression-id) + 1
+            | _ => 1
+        res.cookie \impressionId, impression-id, {httpOnly: false}
+
+        # record visit event
+        record-req do 
+            req
+            user-id: req.user-id
+            session-id: req.session-id
+            impression-id: impression-id
+            event-type: \visit
+        
+        viewbag = {req.user-id, req.session-id, impression-id}
+        res.render \public/index.html, {viewbag}
 
 # redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId
 app.get \/branches/:branchId, (req, res) ->
@@ -117,10 +156,10 @@ app.get \/queries/:queryId, (req, res) ->
 # /apis/defaultDocuemnt
 app.get \/apis/defaultDocument, (req, res) ->
     {query-type} = config.default-data-source-cue
-    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<< {
+    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<<
         data-source-cue: config.default-data-source-cue
         query-title: 'Untitled query'
-    }
+        tags: []
 
 # api :: list of branches
 # returns a list of branches where each item has the branch-id and the latest-query in that branch
@@ -163,9 +202,7 @@ app.get \/apis/defaultDocument, (req, res) ->
                     {
                         branch-id
                         latest-query
-                        snapshot: (files or [])
-                            |> find -> (it.index-of branch-id) == 0
-                            |> -> if !it then null else "public/snapshots/#{it}"
+                        snapshot: "#{snapshot-server}/public/snapshots/#{branch-id}.png"
                     }
                 |> sort-by (.latest-query.creation-time * -1)
 

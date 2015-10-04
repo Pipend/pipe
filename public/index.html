@@ -7,6 +7,9 @@
         <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
     </head>
     <body>
+        <script type="text/javascript">
+            viewbag = <%- JSON.stringify (viewbag) %>;
+        </script>
         <script type="text/javascript" src="/public/components/App.js"></script>
     </body>
 </html>

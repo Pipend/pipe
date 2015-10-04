@@ -20,7 +20,20 @@ You can query various kind of databases, pipe the result of the query to your al
 
 ## config.ls
 ```livescript
-server-config = {
+
+{rextend} = require \./public/presentation/plottables/_utils.ls
+
+mongo-connection-opitons = 
+    auto_reconnect: true
+    db:
+        w:1
+    server:
+        socket-options:
+            keep-alive: 1
+
+module.exports =
+    
+    # connections :: Map QueryType, (Map Server, ConnectionPrime)
     connections:
         mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 
             local:
@@ -48,6 +61,8 @@ server-config = {
                 user: ''
                 password: ''
                 default-database: ''
+    
+    # default-data-source-cue :: DataSourceCue
     default-data-source:
         connection-kind: \pre-configured
         query-type: \mongodb
@@ -55,36 +70,44 @@ server-config = {
         database: \pipe
         collection: \queries
         complete: true
-    # the js-store uses javascript object for caching & does not persist across application restarts
-    # cache-store:
-    #    type: \js-store
-    #    expires-in: 2 * 24 * 60 * 60 # = 2 days
+    
+    # cache store config
     cache-store:
         type: \redis-store
         host: \localhost
         port: 6379
         database: 10
         expires-in: 2 * 24 * 60 * 60 # = 2 days
+    
+    # the js-store uses javascript object for caching & does not persist across application restarts
+    # cache-store:
+    #    type: \js-store
+    #    expires-in: 2 * 24 * 60 * 60 # = 2 days
+
     http-port: 4081
-    mongo-connection-opitons:
-        auto_reconnect: true
-        db:
-            w:1
-        server:
-            socket-options:
-                keep-alive: 1
+    
+    # query database
     query-database-connection-string: \mongodb://localhost:27017/pipe
+    mongo-connection-opitons: mongo-connection-opitons
+    snapshot-server: \http://localhost:4081
+
+    # gulp config
     gulp:
         minify: true        
-}
-
-local-config = {} <<< server-config <<< {
-    gulp:
-        minify: false
         reload-port: 4082
-}
 
-module.exports = local-config
+    # spy config
+    spy:
+        enabled: true
+        url: \http://localhost:3010/pipe
+        storage-details:
+            * {} <<< mongo-connection-opitons <<< 
+                name: \mongo
+                connection-string: \mongodb://localhost:27017/pipe
+                insert-into:
+                    collection: \events
+            ...
+
 ```
 
 For the screenshot feature make sure you have PhantomJS ≥ 2.0.1 in your PATH.

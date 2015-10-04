@@ -12,7 +12,8 @@ transformation-context = require \../transformation/context.ls
 is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 _ = require \underscore
 {create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
-{Navigation} = require \react-router
+{History}:react-router = require \react-router
+Link = create-factory react-router.Link
 AceEditor = create-factory require \./AceEditor.ls
 ConflictDialog = create-factory require \./ConflictDialog.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
@@ -40,12 +41,19 @@ keywords-from-object = (object) ->
         |> keys 
         |> map dasherize
 
-# takes a collection of keywords & maps them to {name, value, score, meta}
-convert-to-ace-keywords = (keywords, meta, prefix) ->
-    keywords
-        |> map -> {text: it, meta}
-        |> filter -> (it.text.index-of prefix) == 0 
-        |> map ({text, meta}) -> {name: text, value: text, score: 0, meta}
+# takes a collection of keyscores & maps them to {name, value, score, meta}
+# [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
+convert-to-ace-keywords = (keyscores, meta, prefix) ->
+    keyscores
+        |> concat-map ({keywords, score}) -> 
+            keywords 
+            |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
+            |> map (text) ->
+                name: text
+                value: text
+                meta: meta
+                score: score
+            
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
@@ -65,7 +73,13 @@ module.exports = React.create-class do
 
     display-name: \QueryRoute
 
-    mixins: [Navigation]
+    # History mixin provides replace-state method which is used to update the url when the user saves the query
+    # Lifecycle mixin provides route-will-leave method which helps in preventing the user from loosing his work
+    mixins: [History]
+
+    # get-default-props :: a -> Props
+    get-default-props: ->
+        prevent-reload: true
 
     # React class method
     # render :: a -> VirtualDOM
@@ -182,7 +196,10 @@ module.exports = React.create-class do
                 items: menu-items 
                     |> filter ({show}) -> (typeof show == \undefined) or show
                     |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
-                a class-name: \logo, href: \/
+                Link class-name: \logo, to: \/, on-click: (e) ~> 
+                    if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
+                        e.prevent-default!
+                        e.stop-propagation!
 
             # POPUPS
 
@@ -407,7 +424,7 @@ module.exports = React.create-class do
             pre = $ "<pre/>"
             pre.html err.to-string!
             $ @refs.presentation.get-DOM-node! .empty! .append pre
-            @set-state {execution-error: true}
+            @set-state execution-error: true
 
         # process-query-result :: Result -> Void
         process-query-result = (result) !~>
@@ -415,65 +432,65 @@ module.exports = React.create-class do
             # clean existing presentation
             $ @refs.presentation.get-DOM-node! .empty!
 
+            # compile parameters
             if !!parameters and parameters.trim!.length > 0
                 [err, parameters-object] = compile-and-execute-livescript parameters, {}
                 console.log err if !!err
-
             parameters-object ?= {}
 
+            # select the compile method based on the language selected in the settings dialog
             compile = switch transpilation-language
                 | 'livescript' => compile-and-execute-livescript 
                 | 'javascript' => compile-and-execute-javascript
             
-            stream = require \stream
-            util = require \util
-
-            [err, func] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {
+            # compile the transformation code
+            [err, transformation-function] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {
                 JSONStream: require \JSONStream
                 highland: require \highland
-                stream
-                util
+                stream: require \stream
+                util: require \util
             }
             return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
             
+            # execute the transformation code
             try
-                transformed-result = func result
+                transformed-result = transformation-function result
             catch ex
                 return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
-            [err, func] = compile do 
+            # compile the presentation code
+            [err, presentation-function] = compile do 
                 "(#presentation\n)"
                 {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
             return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
             
             view = @refs.presentation.get-DOM-node!
 
-            if 'Function' == typeof! transformed-result.subscribe
-              console.log 'RxJS'
+            # if transformation returns a stream then listen to it and update the presentation
+            if \Function == typeof! transformed-result.subscribe
+                console.log \RxJS
+                transformed-result.subscribe do
+                    (e) ->
+                        console.info 'stream data: ', e
+                        presentation-function view, e
+                    (e) -> 
+                        console.error 'error: ', e
+                        view.innerHTML = e.toString!
+                    -> console.info 'socket closed'
 
-              transformed-result.subscribe do
-                (e) ->
-                    console.info 'stream data: ', e
-                    func view, e
-                (e) ->
-                    console.error 'error: ', e
-                    view.innerHTML = e.toString!
-                ->
-                    console.info 'socket closed'
-
+            # otherwise invoke the presentation function once with the JSON returned from transformation
             else
+                try
+                    presentation-function view, transformed-result
+                catch ex
+                    return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
 
-              try
-                  func view, transformed-result
-              catch ex
-                  return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
-
-              @set-state {execution-error: false}
+            @set-state execution-error: false
 
         # use client cache if the query or its dependencies did not change
         document-from-state = @document-from-state!
         if cache and !!@cached-execution and (all (~> document-from-state[it] `is-equal-to-object` @cached-execution?.document?[it]), <[query parameters dataSourceCue transpilation]>)
-            @set-state {executing-op: generate-uid!}
+            @set-state executing-op: generate-uid!
             {result, execution-end-time} = @cached-execution.result-with-metadata
             process-query-result result
             set-timeout do
@@ -520,7 +537,7 @@ module.exports = React.create-class do
             ..done ({query-id, branch-id}:saved-document) ~>
                 client-storage.delete-document @props.params.query-id
                 @set-state {} <<< (@state-from-document saved-document) <<< {remote-document: saved-document}
-                @transition-to "/branches/#{branch-id}/queries/#{query-id}"
+                @history.replace-state null, "/branches/#{branch-id}/queries/#{query-id}"
                 callback saved-document if !!callback
             ..fail ({response-text}?) ~>
                 [err, queries-in-between]? = do ->
@@ -608,14 +625,14 @@ module.exports = React.create-class do
         return load-document query-id, "/apis/queries/#{query-id}" if !!query-id and !(branch-id in <[local localFork]>)            
         
         # redirect user to /branches/local/queries/:queryId if branchId is undefined
-        return @replace-with "/branches/local/queries/#{generate-uid!}" if typeof branch-id == \undefined
+        return @history.replace-state null, "/branches/local/queries/#{generate-uid!}" if typeof branch-id == \undefined
 
         throw "this case must be handled by express router" if !(branch-id in <[local localFork]>)
 
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
         load-document query-id, \/apis/defaultDocument
 
-    # React component life cycle method (invoked once the component was renderer to the DOM)
+    # React component life cycle method
     # component-did-mount :: a -> Void
     component-did-mount: !->
 
@@ -634,7 +651,7 @@ module.exports = React.create-class do
                         | \transformation-editor => [transformation-keywords ++ keywords-from-query-result, \transformation]
                         | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
                         | _ => [alphabet, editor.container.id]
-                    callback null, (convert-to-ace-keywords keywords, meta, prefix)
+                    callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
             ...
         ace-language-tools.set-completers (@default-completers |> map (.protocol))
 
@@ -649,12 +666,16 @@ module.exports = React.create-class do
                         |> unique-by (.label)
                         |> sort-by (.label)
 
-        # data loss prevent on crash
         @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
-        window.onbeforeunload = ~> 
-            if !@props.auto-reload and @changes-made!.length > 0
-                @save-to-client-storage!
-                return "You have NOT saved your query. Stop and save if your want to keep your query."
+
+        # prevent data loss on page reload / navigation
+        @unload-listener = (e) ~> 
+            if @should-prevent-reload!
+                message = "You have NOT saved your query. Stop and save if your want to keep your query."
+                (e || window.event)?.return-value = message
+                message
+
+        window.add-event-listener \beforeunload, @unload-listener
 
         # update the size of the presentation on resize (based on size of editors)
         $ window .on \resize, ~> @update-presentation-size!
@@ -673,6 +694,16 @@ module.exports = React.create-class do
                 ..remove-all-ranges!
                 ..add-range range
             cancel-event e
+
+    # true indicates the reload must be prevented
+    # should-prevent-reload :: a -> Boolean
+    should-prevent-reload: ->
+        prevent-reload = 
+            | @changes-made!.length > 0 =>
+                @save-to-client-storage!
+                true
+            | _ => false
+        @props.prevent-reload and prevent-reload
 
     # React component life cycle method (invoked before props are set)
     # component-will-receive-props :: Props -> Void
@@ -693,6 +724,7 @@ module.exports = React.create-class do
 
         # SQL \/
 
+        # AST -> [{name, alias}]
         tables-from-ast = (ast) ->
             {type, variant} = ast
             
@@ -715,6 +747,8 @@ module.exports = React.create-class do
         console.log \parse, err, ast, query
         if !err and !!ast
             window.ast = ast.statement
+            # TODO: global
+            # [{name, alias}]
             window.ast-tables = window.ast |> concat-map tables-from-ast 
             console.log \ast-tables, ast-tables
 
@@ -750,15 +784,19 @@ module.exports = React.create-class do
                     # but it always have a keywords prop: [String]
 
                     # SQL \/
+                    # [['schema.table', 'table']]
                     tables = data.tables |> Obj.keys |> concat-map (-> [it, it.split \. .1])
                     schemas = data.tables |> Obj.keys |> map (.split \. .1) |> unique
+                    # {'table': ['columns']}
                     tables-hash = data.tables 
                         |> obj-to-pairs 
                         |> concat-map ([k, v]) -> 
                             k = k.to-lower-case!
                             [[k, v], [(k.split \. .1), v]]
                         |> pairs-to-obj
+                    all-tables = tables |> map (-> name: it)
 
+                    debugger
                     # SQL /\
 
                     completer.protocol =
@@ -769,13 +807,14 @@ module.exports = React.create-class do
                             if editor.container.id == \query-editor
                                 #console.log \component-did-update, \query-editor, text
 
-                                auto-complete = keywords ++ alphabet
+                                auto-complete = [keywords: keywords, score: 1] ++ [keywords: alphabet, score: 0]
 
                                 # SQL \/
+                                # token is either the last word after space or last word after .
                                 token = ((text.split " ")?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!
                                 if token in <[from join]> ++ schemas
                                     # tables
-                                    auto-complete := tables ++ auto-complete
+                                    auto-complete := [keywords: tables, score: 2] ++ auto-complete
                                 else
                                     #columns
 
@@ -787,11 +826,11 @@ module.exports = React.create-class do
                                     if matching-tables.length == 0
                                         matching-tables = window.ast-tables ? []
 
-                                    auto-complete := (matching-tables |> concat-map (-> tables-hash[it.name])) ++ auto-complete 
+                                    auto-complete := [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 3]  ++ auto-complete 
                                 # SQL /\
 
-                                console.log \auto-complete, auto-complete
-                                callback null, (convert-to-ace-keywords auto-complete, data-source-cue.type, prefix)    
+                                console.log \auto-complete, (convert-to-ace-keywords auto-complete, data-source-cue.type, prefix)
+                                callback null, (convert-to-ace-keywords auto-complete, 'server', prefix)    
                     if data-source-cue `is-equal-to-object` @state.data-source-cue
                         ace-language-tools.set-completers [completer.protocol] ++ (@default-completers |> map (.protocol)) 
 
@@ -809,6 +848,10 @@ module.exports = React.create-class do
             urls-to-remove = prev-state.client-external-libs `difference` @state.client-external-libs
             urls-to-remove |> each (url) ->
                 $ "head > script[src='#{url}'" .remove!
+
+    # component-will-unmount :: a -> Void
+    component-will-unmount: ->
+        window.remove-event-listener \beforeunload, @unload-listener if !!@unload-listener
         
     # React class method
     # get-initial-state :: a -> UIState

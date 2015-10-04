@@ -1,10 +1,12 @@
 require! \./AceEditor.ls
 require! \../../config.ls
-{map} = require \prelude-ls
-{create-factory, DOM:{button, div}}:React = require \react
-{HistoryLocation, Navigation, RouteHandler, State} = Router = require \react-router
-DefaultRoute = create-factory Router.DefaultRoute
-Route = create-factory Router.Route
+create-browser-history = require \history/lib/createBrowserHistory
+{last, map} = require \prelude-ls
+{clone-element, create-factory, DOM:{button, div}}:React = require \react
+require! \react-router
+Router = create-factory react-router.Router
+Route = create-factory react-router.Route
+IndexRoute = create-factory react-router.IndexRoute
 
 # routes
 require! \./DiffRoute.ls
@@ -18,16 +20,10 @@ App = React.create-class do
 
     display-name: \App
 
-    mixins: [Navigation, State]
-
     # render :: a -> ReactElement
     render: ->
         div null,
-            React.create-element do 
-                RouteHandler
-                params: @get-params!
-                query: @get-query!
-                auto-reload: !!config?.gulp?.reload-port
+            clone-element @props.children, config
             div {class-name: \building}, \Building... if @state.building
 
     # get-initial-state :: a -> UIState
@@ -40,18 +36,52 @@ App = React.create-class do
                 ..on \build-start, ~> @set-state building: true
                 ..on \build-complete, -> window.location.reload!
 
-handler <- Router.run do  
-    React.create-element Route, {name: \app, path: \/, handler: App},
-        Route name: \new-query, path: "/branches" handler: QueryRoute
-        Route name: \existing-query, path: "/branches/:branchId/queries/:queryId" handler: QueryRoute
-        Route name: \diff, path: "/branches/:branchId/queries/:queryId/diff", handler: DiffRoute
-        Route name: \ops, path: "/ops", handler: OpsRoute
-        Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", handler: TreeRoute
-        Route name: \import, path: "/import" handler: ImportRoute
-        DefaultRoute handler: QueryListRoute
-    HistoryLocation
+        if !!config?.spy?.enabled
+
+            {get-load-time-object, record} = (require \spy-web-client) do 
+                url: config.spy.url
+                common-event-properties : ~>
+                    {} <<< viewbag <<< 
+                        route: (last @props.routes)?.name ? \index
+
+            # record page-ready event
+            get-load-time-object (load-time-object) ~>
+                record do 
+                    event-type: \page-ready
+                    event-args: load-time-object
+
+            # record clicks
+            @click-listener = ({target, type, pageX, pageY}:e?) ~>
+                record do
+                    event-type: \click
+                    event-args:
+                        type: type 
+                        element:
+                            id: target.id
+                            class: target.class-name
+                            client-rect: target.get-bounding-client-rect!
+                            tag: target.tag-name
+                        x: pageX
+                        y: pageY
+            document.add-event-listener \click, @click-listener
+
+    # component-will-unmount :: a -> Void
+    component-will-unmount: !->
+        document.remove-event-listener \click, @click-listener if !!@click-listener
+
 
 React.render do 
-    React.create-element handler, null
+    Router do 
+        history: create-browser-history!
+        Route do 
+            name: \app
+            path: \/
+            component: App
+            IndexRoute component: QueryListRoute
+            Route name: \new-query, path: "/branches" component: QueryRoute
+            Route name: \existing-query, path: "/branches/:branchId/queries/:queryId" component: QueryRoute
+            Route name: \diff, path: "/branches/:branchId/queries/:queryId/diff", component: DiffRoute
+            Route name: \ops, path: "/ops", component: OpsRoute
+            Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", component: TreeRoute
+            Route name: \import, path: "/import" component: ImportRoute
     document.body
-

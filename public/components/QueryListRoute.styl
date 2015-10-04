@@ -8,53 +8,142 @@ body
         overflow auto
         height 100%
 
+    .search-container
+        border-radius 8px
+        position relative
+        &:before
+            content '\E010'
+            font-family slackicons
+            opacity 0.4
+            transition opacity 0.2s 0s ease
+            z-index 1
+        
+        input
+            border 1px solid #e6e6e6
+            border-radius 32px
+            box-shadow inset 0px 1px 5px 0px rgba(0,0,0,0.1)
+            outline none
+            position relative
+            top -5px
+            transition width 0.2s 0s ease
+        
+        &.expanded
+            &:before
+                opacity 0.75
+            input
+                width 650px
+
     .menu
-        background white
+        background #434745
         border-right 1px solid #eee
+        box-shadow inset -1px 0px 6px 0px rgba(0,0,0,0.2)
         box-sizing border-box
-        padding 10px
+        color #B7B9B9
+        position relative
         width 300px
         
-        a
-            color #0099ff
+        a            
+            display flex
+            align-items center
+            justify-content flex-start
             font-size 24px
             text-decoration none
             text-transform capitalize
-        
-        .selected-tags 
-            color green
-            font-size 12px
-            margin 20px 0px 5px 0px
-            &:before 
-                color black
-                content "Selected tags: "
-        
-        input 
-            border 1px solid #ccc
-            margin-bottom 4px
-            outline none
-            padding 8px
-            width 280px
-        
+            &:before
+                display inline-block
+                font-size 24px
+                font-family slackicons
+                font-weight lighter
+                margin-right 6px
+                text-align center
+                vertical-align middle
+
+            &.new-query
+                color white
+                margin 35px 0px 0px 20px
+                &:before
+                    content: '\E212'
+
+
+        .buttons
+            position absolute
+            bottom 70px
+            a
+                color #B7B9B9
+                font-size 16px
+                margin 16px 0px 0px 20px
+                transition color 0.4s 0s ease
+                &:before
+                    font-size 16px
+                &:hover
+                    color white
+
+                &.import:before
+                    content: '\E113'
+
+                &.task-manager:before
+                    content: '\E008'
+                
+
+        .title
+            padding 0px 0px 0px 24px
+            margin 30px 0px 8px 0px
+
+        .search-container
+            margin 16px 0px 0px 35px
+            &:before
+                font-size 19px
+                position absolute
+                left 7px
+                top -6px
+            input
+                font-size 14px
+                padding 4px
+                text-indent 24px
+                width 240px
+
         .tags 
             overflow auto
-            height 100%
-            .tag 
-                border-radius 8px
+            margin-top 4px
+            max-height 650px
+            width 300px
+            .tag
                 cursor pointer
-                margin 2px 0px
-                padding 8px
-                text-shadow 0px 1px 0px white
+                font-size 14px
+                font-style italic
+                padding 3px 5px 3px 40px
+                margin-bottom 4px
+                &:before
+                    background-color #b7b9b9
+                    border-radius 32px
+                    content ""
+                    display inline-block
+                    margin-right 6px
+                    width 8px
+                    height 8px
                 &.selected
-                    background gold
+                    background #D39B46
+                    border-bottom-left-radius 0px
+                    border-top-left-radius 0px
+                    color white
+                    &:before
+                        background-color white
 
+        .copy-right
+            color #ccc
+            font-size 12px
+            text-align right
+            position absolute
+            bottom 24px
+            right 24px
+        
     .queries-container
         overflow hidden
         width vendor-value(calc(100% - 300px), only: webkit moz official)
         
         .controls
             background-color white
-            padding 30px 30px 40px 30px
+            padding 30px 30px 16px 30px
             position relative
             height 40px
             z-index 1
@@ -65,38 +154,19 @@ body
                 float left
                 font-size 24px
             
-            .search-container
-                float right
-                position relative
-                &:before
-                    content '\E010'
-                    font-family slackicons
-                    font-size 20px
-                    opacity 0.4
-                    transition opacity 0.2s 0s ease
-                    position absolute
-                    left 12px
-                    top -2px
-                    z-index 10
-                
-                input
-                    border 1px solid #e6e6e6
-                    border-radius 32px
-                    box-shadow inset 0px 1px 5px 0px rgba(0,0,0,0.1)
-                    font-size 16px
-                    outline none
-                    padding 8px
-                    text-indent 30px
-                    position relative
-                    top -5px
-                    width 450px
-                    transition width 0.2s 0s ease
-                
-                &.expanded
-                    &:before
-                        opacity 0.75
-                    input
-                        width 650px
+        .search-container
+            float right
+            &:before
+                font-size 20px
+                position absolute
+                left 12px
+                top -2px
+
+            input
+                font-size 16px
+                padding 8px
+                text-indent 30px
+                width 450px
 
         .queries
             display flex
@@ -105,7 +175,7 @@ body
             overflow auto
             position relative
             width 100%
-            max-height vendor-value(calc(100% - 110px), only: webkit moz official)                
+            max-height vendor-value(calc(100% - 86px), only: webkit moz official)
             z-index 0
 
             .query 
@@ -144,9 +214,9 @@ body
                         font-style italic
                         margin 4px
                         text-shadow 0px 1px 0px white
-                        .tag:not(:last-child):after
-                            content ","
-                            margin-right 4px
-
-
-
+                        .tag
+                            &:not(:last-child):after
+                                content ","
+                                margin-right 4px
+                            &.selected
+                                color #D39B46
