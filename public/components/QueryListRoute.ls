@@ -1,6 +1,6 @@
 require! \./AceEditor.ls
 $ = require \jquery-browserify
-{any, concat-map, filter, map, partition, unique, sort} = require \prelude-ls
+{any, concat-map, filter, map, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
 require! \react-router
 {compile-and-execute-livescript} = require \../utils.ls
@@ -52,6 +52,20 @@ module.exports = React.create-class do
                                             | _ => [tag] ++ selected-tags
                                 tag
                 
+                div class-name: \buttons, 
+                    
+                    # IMPORT BUTTON
+                    Link do 
+                        class-name: \import
+                        to: \/import
+                        'Import'
+
+                    # TASK MANAGER
+                    Link do 
+                        class-name: \task-manager
+                        to: \/ops
+                        'Task Manager'
+
                 # COPYRIGHT
                 div class-name: \copy-right,
                     "© #{new Date!.get-full-year!} Pipend Inc."

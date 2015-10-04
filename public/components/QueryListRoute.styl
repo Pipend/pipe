@@ -41,24 +41,48 @@ body
         position relative
         width 300px
         
-        .new-query
-            color white
-            display inline-flex
+        a            
+            display flex
             align-items center
-            justify-content center
+            justify-content flex-start
             font-size 24px
             text-decoration none
             text-transform capitalize
-            margin 50px 20px 0px 20px
             &:before
-                content '\E212'
                 display inline-block
-                font-size 26px
+                font-size 24px
                 font-family slackicons
                 font-weight lighter
-                margin-right 5px
+                margin-right 6px
                 text-align center
                 vertical-align middle
+
+            &.new-query
+                color white
+                margin 35px 0px 0px 20px
+                &:before
+                    content: '\E212'
+
+
+        .buttons
+            position absolute
+            bottom 70px
+            a
+                color #B7B9B9
+                font-size 16px
+                margin 16px 0px 0px 20px
+                transition color 0.4s 0s ease
+                &:before
+                    font-size 16px
+                &:hover
+                    color white
+
+                &.import:before
+                    content: '\E113'
+
+                &.task-manager:before
+                    content: '\E008'
+                
 
         .title
             padding 0px 0px 0px 24px
@@ -79,6 +103,7 @@ body
 
         .tags 
             overflow auto
+            max-height 650px
             width 280px
             .tag 
                 border-radius 4px
@@ -149,9 +174,8 @@ body
             overflow auto
             position relative
             width 100%
-            max-height vendor-value(calc(100% - 110px), only: webkit moz official)                
+            max-height vendor-value(calc(100% - 86px), only: webkit moz official)
             z-index 0
-
 
             .query 
                 background-color #f7f7f7
