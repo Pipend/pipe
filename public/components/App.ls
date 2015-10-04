@@ -1,7 +1,7 @@
 require! \./AceEditor.ls
 require! \../../config.ls
 create-browser-history = require \history/lib/createBrowserHistory
-{map} = require \prelude-ls
+{last, map} = require \prelude-ls
 {clone-element, create-factory, DOM:{button, div}}:React = require \react
 require! \react-router
 Router = create-factory react-router.Router
@@ -36,6 +36,39 @@ App = React.create-class do
                 ..on \build-start, ~> @set-state building: true
                 ..on \build-complete, -> window.location.reload!
 
+        if !!config?.spy?.enabled
+
+            {get-load-time-object, record} = (require \spy-web-client) do 
+                url: config.spy.url
+                common-event-properties : ~>
+                    route: (last @props.routes)?.name ? \index
+
+            # record page-ready event
+            get-load-time-object (load-time-object) ~>
+                record do 
+                    event-type: \page-ready
+                    event-args: load-time-object
+
+            # record clicks
+            @click-listener = ({target, type, pageX, pageY}:e?) ~>
+                record do
+                    event-type: \click
+                    event-args:
+                        type: type 
+                        element:
+                            id: target.id
+                            class: target.class-name
+                            client-rect: target.get-bounding-client-rect!
+                            tag: target.tag-name
+                        x: pageX
+                        y: pageY
+            document.add-event-listener \click, @click-listener
+
+    # component-will-unmount :: a -> Void
+    component-will-unmount: !->
+        document.remove-event-listener \click, @click-listener if !!@click-listener
+
+
 React.render do 
     Router do 
         history: create-browser-history!
@@ -51,4 +84,3 @@ React.render do
             Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", component: TreeRoute
             Route name: \import, path: "/import" component: ImportRoute
     document.body
-

@@ -92,12 +92,11 @@ module.exports = React.create-class do
                 div do
                     class-name: \queries
                     on-scroll: ({current-target}) ~> 
-                        if !@state.x and current-target.scroll-top > 0
-                            @set-state x: true
+                        if !@state.shadow and current-target.scroll-top > 0
+                            @set-state shadow: true
 
-                        if @state.x and current-target.scroll-top == 0
-                            @set-state x: false
-
+                        if @state.shadow and current-target.scroll-top == 0
+                            @set-state shadow: false
 
                     branches 
                         |> filter ({latest-query:{query-title}}) -> (query-title-search.length == 0) or (query-title.to-lower-case!.index-of query-title-search.to-lower-case!) != -1
@@ -127,7 +126,7 @@ module.exports = React.create-class do
     # get-initial-state :: a -> UIState
     get-initial-state: -> 
         branches: []
-        x: false
+        shadow: false
         expand-search: false
         tags: []
         selected-tags: []
