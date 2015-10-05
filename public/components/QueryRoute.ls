@@ -44,7 +44,7 @@ keywords-from-object = (object) ->
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
 convert-to-ace-keywords = (keyscores, meta, prefix) ->
-    trace-it do -> keyscores
+    keyscores
         |> concat-map ({keywords, score}) -> 
             keywords 
             |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
@@ -722,38 +722,11 @@ module.exports = React.create-class do
     component-did-update: (prev-props, prev-state) !->
         # data source auto complete
 
-        # SQL \/
-
-        # AST -> [{name, alias}]
-        tables-from-ast = (ast) ->
-            {type, variant} = ast
-            
-            switch
-            |  type == 'identifier' and variant == 'table' =>
-                [{name: ast.name, alias: ast.alias}]
-            |  type == 'map' and variant == 'join'  =>
-                (tables-from-ast ast.source) ++ if !ast.map then [] else ast.map |> concat-map tables-from-ast
-            | type == 'statement' and variant == 'select' =>
-                (if !ast.from.length then [ast.from] else ast.from) |> concat-map tables-from-ast
-            | type == 'join' =>
-                [{name: ast.source.name, alias: ast.source.alias}] ++ if !ast.source?.from then [] else tables-from-ast ast.source.from
-            | _ => throw "not supported type: #{type}, variant: #{variant} #{JSON.stringify ast, null, 4}"
-
-        query = @state.query
-            .replace  /\s+top\s+\d+\s+/gi, ' '
-            .replace /\s+with\s?\(\s?nolock\s?\)\s+/gi, ' '
-
-        err, ast <~ if !window.sqliteParser then (-> it null, null) else (-> window.sqliteParser query, it)
-        console.log \parse, err, ast, query
-        if !err and !!ast
-            window.ast = ast.statement
-            # TODO: global
-            # [{name, alias}]
-            window.ast-tables = window.ast |> concat-map tables-from-ast 
-            console.log \ast-tables, ast-tables
-
-
-        # SQL /\
+        # auto-complete
+        data-source-cue-completer = 
+            if !!@state.data-source-cue-completer-on-change then
+                @state.data-source-cue-completer-on-change @state.query
+            else null
 
         do ~>
             {data-source-cue} = @state
@@ -761,13 +734,22 @@ module.exports = React.create-class do
             # return if the data-source-cue is not complete or there is no change in the data-source-cue
             return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
 
+            #TODO: @state.data-source-query-completer = data-source-cue.query-changed!
+            @set-state {
+                data-source-cue-completer-on-change: data-source-cue.auto-complete-on-query-change!
+            }
+
             # @completers is an array that stores a completer for each data-source-cue
+            # Completer :: {protocol :: object, data-source-cue :: DataSourceCue}
+            # completers :: [Completer]
             @completers = [] if !@completers
 
             # tries to find and return an exiting completer for the current data-source-cue iff the completer has a protocol property
+            # existing-completer :: Completer
             existing-completer = @completers |> find -> it.data-source-cue `is-equal-to-object` data-source-cue
-            return ace-language-tools.set-completers [existing-completer.protocol] ++ (@default-completers |> map (.protocol)) if !!existing-completer?.protocol
-            
+            if !!existing-completer?.protocol
+                return ace-language-tools.set-completers [existing-completer.protocol] ++ (@default-completers |> map (.protocol)) 
+                        
             completer = existing-completer or {data-source-cue}
 
             # aborts any previous on-going requests for keywords before starting a new one
@@ -779,6 +761,8 @@ module.exports = React.create-class do
                 content-type: 'application/json; charset=utf-8'
                 data-type: \json
                 data: JSON.stringify data-source-cue
+                error: (error) ~>
+                    console.error "Error in /api/keywords AJAX", error
                 success: ({keywords}:data) ~> #TODO: update mongodb and other DataSources
                     # the type of data depends on the DataSourceCue.
                     # but it always have a keywords prop: [String]
