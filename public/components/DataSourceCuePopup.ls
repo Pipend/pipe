@@ -103,7 +103,6 @@ module.exports = React.create-class do
                         on-change: (value) ~>
                             @.props.on-change {} <<< @.props.data-source-cue <<< {connection-string: value, complete: false}
                     SimpleButton do
-                        label: \Apply
                         pressed: @props.data-source-cue.complete
                         on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
-
+                        \Apple

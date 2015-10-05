@@ -1,17 +1,40 @@
-.simple-button
-      background linear-gradient(rgb(129, 224, 88), rgb(24, 122, 20))      
-      border 1px solid #000
-      border-radius 4px
-      box-sizing border-box
-      cursor pointer
-      font-size 14px
-      margin-top 4px
-      padding 4px 20px
-      text-align center
-      text-shadow 0px -1px 0px rgba(0,0,0,0.4)
+.simple-button 
+    border none
+    border-radius 4px
+    box-shadow 0 0px 3px 0 #000000
+    color white
+    cursor pointer
+    min-width 60px
+    outline none
+    padding 4px
+    text-shadow 0px -1px 0px black
 
-    &.pressed
-        background green
+    &.green 
+        background-image linear-gradient(bottom, #028d00 0%, #49a514 100%)
+        border-top 1px solid #88c464
 
-    &[disabled], .disablaed
-      background linear-gradient(#5A5959, #9E9E9E)
+        &:hover
+            background-image linear-gradient(bottom, #35a433 0%, #6db743 100%)
+
+        &.pressed, &:active
+            background-image linear-gradient(bottom, #49a514 0%, #028d00 100%)
+
+    &.grey 
+        background-image linear-gradient(bottom, #494950 0%, #646468 100%)
+        border-top 1px solid #93939b
+
+        &:hover
+            background-image linear-gradient(bottom, #5c5c62 0%, #747477 100%)
+
+        &.pressed, &:active
+            background-image linear-gradient(bottom, #646468 0%, #494950 100%)
+
+    &.red
+        background-image linear-gradient(bottom, #b60000 0%, #cb0000 100%)
+        border-top 1px solid #e47979
+
+        &:hover
+            background-image linear-gradient(bottom, #c53333 0%, #d53333 100%)
+
+        &.pressed, &:active
+            background-image linear-gradient(bottom, #cb0000 0%, #b60000 100%)

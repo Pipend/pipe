@@ -1,4 +1,4 @@
-{DOM:{div}}:React = require \react
+{DOM:{button}}:React = require \react
 
 module.exports = React.create-class do
 
@@ -6,12 +6,13 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        color: \green
         pressed: false
         on-click: !->
 
     # render :: a -> UIState
     render: ->
-        div do
-            class-name: "simple-button #{if @props.pressed then \pressed else ''}"
+        button do
+            class-name: "simple-button #{@props.color} #{if @props.pressed then \pressed else ''}"
             on-click: @props.on-click
-            @props.label
+            @props.children

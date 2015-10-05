@@ -279,14 +279,14 @@ module.exports = React.create-class do
                     | \save-conflict =>
                         ConflictDialog do 
                             queries-in-between: queries-in-between
-                            on-cancel: ~> @set-state {dialog: null, queries-in-between: null}
+                            on-cancel: ~> @set-state dialog: null, queries-in-between: null
                             on-resolution-select: (resolution) ~>
                                 uid = generate-uid!
                                 match resolution
                                 | \new-commit => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
                                 | \fork => @POST-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
                                 | \reset => @set-state (@state-from-document remote-document)
-                                @set-state {dialog: null, queries-in-between: null}
+                                @set-state dialog: null, queries-in-between: null
                     | \settings =>
                         SettingsDialog do
                             initial-urls: @state.client-external-libs
@@ -324,7 +324,7 @@ module.exports = React.create-class do
                             resizable: true
                         }
                     ] 
-                    |> filter ({editor-id}) ~> ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!?.visible ? true
+                    # |> filter ({editor-id}) ~> ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!?.visible ? true
                     |> map ({editable-title, editor-id, resizable, title}:editor) ~>
 
                         div {class-name: \editor, key: editor-id},
