@@ -82,7 +82,6 @@ from-web-socket = (address, open-observer) ->
         
         if !!open-observer
             socket.on \connect, ->
-                console.log \connect
                 open-observer.on-next!
                 open-observer.on-completed!
             
@@ -92,24 +91,19 @@ from-web-socket = (address, open-observer) ->
                     name: data.0
                     data: data.1
         
-        socket.on \error, (err) -> 
-            console.log \error, err
+        socket.on \error, (err) ->
             observer.on-error err
 
-        socket.on \reconnect_error, (err) -> 
-            console.log \reconnect_error, err
+        socket.on \reconnect_error, (err) ->
             observer.on-error err
 
-        socket.on \reconnect_failed, -> 
-            console.log \\reconnect_failed, err
+        socket.on \reconnect_failed, ->
             observer.on-error new Error 'reconnection failed'
 
-        socket.io.on \close, -> 
-            console.log \close
+        socket.io.on \close, ->
             observer.on-completed!
 
         !->
-            console.log 'observale.close!'
             socket.close!
             socket.destroy!
 
