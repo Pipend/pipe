@@ -87,7 +87,7 @@ gulp.task \dev:server, ->
     gulp-nodemon do
         exec-map: ls: \lsc
         ext: \ls
-        ignore: <[gulpfile.ls README.md *.sublime-project public/*]>
+        ignore: <[gulpfile.ls README.md *.sublime-project public/* node_modules/* migrations/*]>
         script: \./server.ls
 
 gulp.task \build, <[build:components:styles build:components:scripts build:presentation:styles build:presentation:scripts]>
