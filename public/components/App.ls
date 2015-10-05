@@ -52,17 +52,27 @@ App = React.create-class do
 
             # record clicks
             @click-listener = ({target, type, pageX, pageY}:e?) ~>
+
+                # find-parent-id :: DOMElement -> String
+                find-parent-id = (element) ->
+                    return switch
+                        | element.parent-element == null => \unknown
+                        | typeof element.id == \string and element.id.length > 0 => element.id
+                        | _ => find-parent-id element.parent-element
+
                 record do
                     event-type: \click
                     event-args:
                         type: type 
                         element:
+                            parent-id: find-parent-id target
                             id: target.id
                             class: target.class-name
                             client-rect: target.get-bounding-client-rect!
                             tag: target.tag-name
                         x: pageX
                         y: pageY
+            
             document.add-event-listener \click, @click-listener
 
     # component-will-unmount :: a -> Void

@@ -1,7 +1,11 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
 require! \body-parser
 Busboy = require \busboy
-{http-port, mongo-connection-opitons, query-database-connection-string, snapshot-server}:config = require \./config
+
+# config
+{http-port, mongo-connection-opitons, query-database-connection-string, redis-channels, 
+redis-socket-io-port, snapshot-server}:config = require \./config
+
 require! \express
 {create-read-stream, readdir} = require \fs
 require! \highland
@@ -10,11 +14,17 @@ md5 = require \MD5
 require! \moment
 {MongoClient} = require \mongodb
 {record-req}? = (require \pipend-spy) config?.spy?.storage-details
+
+# prelude
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
+
 require! \phantom
 url-parser = (require \url).parse
 require! \querystring
+require! \redis
+
+# utils
 {execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
 get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
 
@@ -604,5 +614,29 @@ io = (require \socket.io) server
         set-interval do 
             -> connection.emit \sync, Date.now!
             5000
+
+# convert redis channels to websocket events
+if !!redis-channels
+    
+    redis-web-socket = (require \socket.io) redis-socket-io-port
+
+    redis-channels |> each ({connection-string, channels}?) ->
+        
+        # parse the redis connection string redis://host:port
+        [, host, port]? = /redis:\/\/(.*?):(.*?)\/(\d+)?/g.exec connection-string
+        
+        redis-client = redis.create-client port, host, {}
+            ..once \connect, ->
+                
+                channels |> map ({name}) ->
+                    redis-client.subscribe name
+
+                hash = channels 
+                    |> map ({name, event}?) -> [name, event ? name]
+                    |> pairs-to-obj
+
+                redis-client.on \message, (channel, message) -> redis-web-socket.emit hash[channel], message
+
+            ..once \error, (err) -> console.log err
 
 console.log "listening for connections on port: #{http-port}"

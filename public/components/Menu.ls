@@ -16,7 +16,7 @@ module.exports = React.create-class do
                 @props.items |> map ({pressed, enabled, action, hotkey, icon, label, highlight, type}:item) ~>
 
                     # using ref for accessing the anchor tag from action listener
-                    ref = label.replace /\s/g, '' .to-lower-case!
+                    ref = label.replace /\s/g, '-' .to-lower-case!
                     
                     # action-listener :: Event -> Boolean
                     action-listener = (e) ~>
@@ -33,6 +33,7 @@ module.exports = React.create-class do
                     
                     a do 
                         {
+                            id: ref
                             key: ref
                             ref
                             style: (if !!highlight then {border-top: "1px solid #{highlight}"} else {}) <<< (if enabled then {} else {opacity: 0.5})

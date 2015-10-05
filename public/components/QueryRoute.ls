@@ -28,6 +28,7 @@ ui-protocol =
     curl: require \../query-types/curl/ui-protocol.ls
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
+    redis: require \../query-types/redis/ui-protocol.ls
 
 # trace :: a -> b -> b
 trace = (a, b) --> console.log a; b
@@ -88,7 +89,7 @@ module.exports = React.create-class do
         document.title = query-title
 
         # MENU ITEMS
-
+        
         # toggle-popup :: String -> Number -> Number -> Void
         toggle-popup = (popup, button-left, button-width) !~~>
             @set-state do
@@ -97,10 +98,14 @@ module.exports = React.create-class do
 
         saved-query = !!@props.params.branch-id and !(@props.params.branch-id in <[local localFork]>) and !!@props.params.query-id
 
+        # MenuItem :: {label :: String, enabled :: Boolean, highlight :: Boolean, type :: String, hotkey :: String, pressed :: Boolean, action :: a -> Void}
+        # menu-items :: [MenuItem]
         menu-items = 
-            * label: \New, icon: \n, action: ~> window.open "/branches", \_blank
+
+            * label: \New
+              action: ~> window.open "/branches", \_blank
+
             * label: \Fork
-              icon: \f
               enabled: saved-query
               action: ~> 
                 # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
@@ -119,43 +124,46 @@ module.exports = React.create-class do
 
                 # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
                 window.open "/branches/localFork/queries/#{query-id}", \_blank
-            * label: \Save, hotkey: "command + s", icon: \s, action: ~> @save!
+
+            * label: \Save
+              hotkey: "command + s"
+              action: ~> @save!
+
             * label: \Cache
-              icon: \c
               highlight: if from-cache then 'rgba(0,255,0,1)' else null
               toggled: cache
               type: \toggle
               action: ~> @set-state {cache: !cache}
+
             * label: \Execute
-              icon: \e
               enabled: data-source-cue.complete
               hotkey: "command + enter"
               show: !executing-op
               action: ~> @execute!
+
             * label: \Cancel
-              icon: \ca
               show: !!executing-op
               action: ~> $.get "/apis/ops/#{executing-op}/cancel"            
+
             * label: 'Data Source'
-              icon: \d
               pressed: \data-source-cue-popup == popup
               action: toggle-popup \data-source-cue-popup
+
             * label: \Parameters
-              icon: \p
               pressed: \parameters-popup == popup
               action: toggle-popup \parameters-popup
+
             * label: \Tags
-              icon: \t
               pressed: \tags-popup == popup
               action: toggle-popup \tags-popup
+
             * label: \Reset
-              icon: \r
               enabled: saved-query
               action: ~> 
                 <~ @set-state (@state-from-document remote-document)
                 @save-to-client-storage!
+
             * label: \Diff
-              icon: \t
               enabled: saved-query
               highlight: do ~>
                 return null if !saved-query
@@ -164,21 +172,27 @@ module.exports = React.create-class do
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
                 'rgba(255,255,0,1)'
               action: ~> window.open "#{window.location.href}/diff", \_blank
+
             * label: \Share
-              icon: \h
               enabled: saved-query
               pressed: \share-popup == popup
               action: toggle-popup \share-popup
+
             * label: \Snapshot
-              icon: \s
               enabled:saved-query
               action: ~>
                   {branch-id, query-id}:saved-document <~ @save
                   $.get "/apis/branches/#{branch-id}/queries/#{query-id}/export/#{@state.cache}/png/1200/800?snapshot=true"
-            * label: \VCS, icon: \v, enabled: saved-query, action: ~> window.open "#{window.location.href}/tree", \_blank
-            * icon: \t, label: \Settings, enabled: true, action: (button-left) ~> @set-state {dialog: \settings}
+
+            * label: \VCS
+              enabled: saved-query
+              action: ~> window.open "#{window.location.href}/tree", \_blank
+
+            * label: \Settings
+              enabled: true
+              action: (button-left) ~> @set-state {dialog: \settings}
+
             * label: 'Ops Manager'
-              icon: \o
               action: ~> window.open "/ops", \_blank
 
         div {class-name: \query-route},
@@ -189,13 +203,16 @@ module.exports = React.create-class do
                 items: menu-items 
                     |> filter ({show}) -> (typeof show == \undefined) or show
                     |> map ({enabled}:item) -> {} <<< item <<< {enabled: (if typeof enabled == \undefined then true else enabled)}
-                Link class-name: \logo, to: \/, on-click: (e) ~> 
-                    if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
-                        e.prevent-default!
-                        e.stop-propagation!
+                Link do 
+                    id: \logo
+                    class-name: \logo
+                    to: \/
+                    on-click: (e) ~> 
+                        if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
+                            e.prevent-default!
+                            e.stop-propagation!
 
             # POPUPS
-
             # left-from-width :: Number -> Number
             left-from-width = (width) ~>
                 x = popup-left - width / 2
@@ -282,7 +299,7 @@ module.exports = React.create-class do
                                 @save-to-client-storage-debounced!
                             on-cancel: ~> @set-state dialog: null
                         
-            div {class-name: \content},
+            div class-name: \content,
 
                 # EDITORS
                 div do 
@@ -306,12 +323,15 @@ module.exports = React.create-class do
                             editable-title: false
                             resizable: true
                         }
-                    ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
+                    ] 
+                    |> filter ({editor-id}) ~> ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!?.visible ? true
+                    |> map ({editable-title, editor-id, resizable, title}:editor) ~>
 
                         div {class-name: \editor, key: editor-id},
 
                             # EDITABLE TITLE
                             div do 
+                                id: editor-id
                                 class-name: \editor-title
                                 on-mouse-down: (e) ~>
                                     initialY = e.pageY
@@ -372,7 +392,7 @@ module.exports = React.create-class do
                     class-name: "presentation-container #{if !!executing-op then 'executing' else ''}"
 
                     # PRESENTATION: operations on this div are not controlled by react
-                    div {ref: \presentation, class-name: \presentation}
+                    div ref: \presentation, class-name: \presentation, id: \presentation
 
                     # STATUS BAR
                     if !!displayed-on
@@ -491,7 +511,7 @@ module.exports = React.create-class do
         # POST the document to the server for execution & cache the response
         else
             op-id = generate-uid!
-            $.ajax {
+            $.ajax do
                 type: \post
                 url: \/apis/execute
                 content-type: 'application/json; charset=utf-8'
@@ -513,7 +533,6 @@ module.exports = React.create-class do
                         notification.show!
                 error: ({response-text}?) -> display-error response-text
                 complete: ~> @set-state {displayed-on: Date.now!, executing-op: ""}
-            }
             @set-state {executing-op: op-id}
 
     # POST-document :: Document -> (Document -> Void) -> Void

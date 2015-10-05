@@ -108,6 +108,14 @@ module.exports =
                     collection: \events
             ...
 
+    # redis channels
+    redis-channels:
+        * connection-string: \redis://localhost:6379/
+          channels:
+            * name: \pipe-events              
+            ...
+        ...
+
 ```
 
 For the screenshot feature make sure you have PhantomJS ≥ 2.0.1 in your PATH.
