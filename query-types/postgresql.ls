@@ -39,16 +39,9 @@ export keywords = (data-source) ->
     results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns where table_schema = 'public'")
     tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
     returnP {
-        keywords: <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]>
+        keywords: <[SELECT GROUP BY ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]>
         tables: tables
     }
-    # returnP <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]> ++ (results
-    #     |> group-by (.table_schema)
-    #     |> Obj.map group-by (.table_name) 
-    #     |> Obj.map Obj.map map (.column_name)
-    #     |> Obj.map obj-to-pairs >> concat-map ([table, columns]) -> [table] ++ do -> columns |> map ("#{table}." +)
-    #     |> obj-to-pairs
-    #     |> concat-map (.1))
 
 # get-context :: a -> Context
 export get-context = ->

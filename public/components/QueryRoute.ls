@@ -41,6 +41,7 @@ keywords-from-object = (object) ->
         |> keys 
         |> map dasherize
 
+# TODO: move it to utils
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
 convert-to-ace-keywords = (keyscores, meta, prefix) ->
@@ -640,19 +641,18 @@ module.exports = React.create-class do
         transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
         d3-keywords = keywords-from-object d3
         presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        @default-completers =
-            * protocol: 
-                get-completions: (editor, , , prefix, callback) ~>
-                    keywords-from-query-result = @state[camelize \keywords-from-query-result]
-                    range = editor.getSelectionRange!.clone!
-                        ..set-start range.start.row, 0
-                    text = editor.session.get-text-range range
-                    [keywords, meta] = match editor.container.id
-                        | \transformation-editor => [transformation-keywords ++ keywords-from-query-result, \transformation]
-                        | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
-                        | _ => [alphabet, editor.container.id]
-                    callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
-            ...
+        @default-completers = [
+            * get-completions: (editor, , , prefix, callback) ~>
+                keywords-from-query-result = @state[camelize \keywords-from-query-result]
+                range = editor.getSelectionRange!.clone!
+                    ..set-start range.start.row, 0
+                text = editor.session.get-text-range range
+                [keywords, meta] = match editor.container.id
+                    | \transformation-editor => [transformation-keywords ++ keywords-from-query-result, \transformation]
+                    | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
+                    | _ => [alphabet, editor.container.id]
+                callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
+        ]
         ace-language-tools.set-completers (@default-completers |> map (.protocol))
 
         # auto completion for tags
@@ -720,107 +720,37 @@ module.exports = React.create-class do
     # updates the list of auto-completers if the data-source-cue has changed
     # component-did-update :: Props -> State -> Void
     component-did-update: (prev-props, prev-state) !->
-        # data source auto complete
+        
 
         # auto-complete
-        data-source-cue-completer = 
-            if !!@state.data-source-cue-completer-on-change then
-                @state.data-source-cue-completer-on-change @state.query
-            else null
-
         do ~>
-            {data-source-cue} = @state
+            {data-source-cue, query} = @state
+
+            if !!@existing-completer
+                @existing-completer.on-query-changed query
 
             # return if the data-source-cue is not complete or there is no change in the data-source-cue
             return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
 
             #TODO: @state.data-source-query-completer = data-source-cue.query-changed!
-            @set-state {
-                data-source-cue-completer-on-change: data-source-cue.auto-complete-on-query-change!
-            }
+            # @set-state {
+            #     data-source-cue-completer-on-change: data-source-cue.auto-complete-on-query-change!
+            # }
 
-            # @completers is an array that stores a completer for each data-source-cue
-            # Completer :: {protocol :: object, data-source-cue :: DataSourceCue}
-            # completers :: [Completer]
-            @completers = [] if !@completers
 
             # tries to find and return an exiting completer for the current data-source-cue iff the completer has a protocol property
             # existing-completer :: Completer
-            existing-completer = @completers |> find -> it.data-source-cue `is-equal-to-object` data-source-cue
-            if !!existing-completer?.protocol
-                return ace-language-tools.set-completers [existing-completer.protocol] ++ (@default-completers |> map (.protocol)) 
+            @existing-completer = ui-protocol[data-source-cue.query-type].make-auto-completer data-source-cue
+            
+            ace-language-tools.set-completers [@existing-completer] ++ @default-completers 
                         
-            completer = existing-completer or {data-source-cue}
 
             # aborts any previous on-going requests for keywords before starting a new one
             # on success updates the protocol property of the completer
-            @keywords-request.abort! if !!@keywords-request
-            @keywords-request = $.ajax do
-                type: \post
-                url: "/apis/keywords"
-                content-type: 'application/json; charset=utf-8'
-                data-type: \json
-                data: JSON.stringify data-source-cue
-                error: (error) ~>
-                    console.error "Error in /api/keywords AJAX", error
-                success: ({keywords}:data) ~> #TODO: update mongodb and other DataSources
-                    # the type of data depends on the DataSourceCue.
-                    # but it always have a keywords prop: [String]
-
-                    # SQL \/
-                    # [['schema.table', 'table']]
-                    tables = data.tables |> Obj.keys |> concat-map (-> [it, it.split \. .1])
-                    schemas = data.tables |> Obj.keys |> map (.split \. .1) |> unique
-                    # {'table': ['columns']}
-                    tables-hash = data.tables 
-                        |> obj-to-pairs 
-                        |> concat-map ([k, v]) -> 
-                            k = k.to-lower-case!
-                            [[k, v], [(k.split \. .1), v]]
-                        |> pairs-to-obj
-                    all-tables = tables |> map (-> name: it.to-lower-case!)
-
-                    # SQL /\
-
-                    completer.protocol =
-                        get-completions: (editor, , , prefix, callback) ->
-                            range = editor.getSelectionRange!.clone!
-                                ..set-start range.start.row, 0
-                            text = editor.session.get-text-range range
-                            if editor.container.id == \query-editor
-                                #console.log \component-did-update, \query-editor, text
-
-                                auto-complete = [keywords: keywords, score: 1] ++ [keywords: alphabet, score: 0]
-
-                                # SQL \/
-                                # token is either the last word after space or last word after .
-                                token = ((text.split " ")?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!
-                                console.info \token, token
-                                if token in <[from join]> ++ schemas
-                                    # tables
-                                    auto-complete := [keywords: tables, score: 2] ++ auto-complete
-                                else
-                                    #columns
-
-                                    # if token is a table name or alias
-                                    clean-token = token.split \. .0
-                                    matching-tables = window.ast-tables ? [] |> filter ({name, alias}) -> name == clean-token or alias == clean-token
-
-                                    # else all the table
-                                    auto-complete = auto-complete ++ do -> 
-                                        if matching-tables.length == 0
-                                            [[(window.ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name])), score: s}
-                                        else
-                                            [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 100]
-                                # SQL /\
-
-                                console.log \auto-complete, (convert-to-ace-keywords auto-complete, data-source-cue.type, prefix)
-                                callback null, (convert-to-ace-keywords auto-complete, 'server', prefix)    
-                    if data-source-cue `is-equal-to-object` @state.data-source-cue
-                        ace-language-tools.set-completers [completer.protocol] ++ (@default-completers |> map (.protocol)) 
+            # @keywords-request.abort! if !!@keywords-request
 
             # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
-            @completers.push completer if !existing-completer
+            # @completers.push completer if !existing-completer
 
         # client-external-libs
         do ~>
