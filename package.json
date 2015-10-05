@@ -41,7 +41,7 @@
     "nvd3": "git+https://github.com/novus/nvd3.git",
     "pg": "^4.4.0",
     "phantom": "^0.7.2",
-    "pipend-spy": "0.0.2",
+    "pipend-spy": "0.0.4",
     "prelude-ls": "^1.1.1",
     "react": "^0.13.1",
     "react-ace": "^1.1.5",
