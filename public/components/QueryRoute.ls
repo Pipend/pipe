@@ -44,7 +44,7 @@ keywords-from-object = (object) ->
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
 convert-to-ace-keywords = (keyscores, meta, prefix) ->
-    keyscores
+    trace-it do -> keyscores
         |> concat-map ({keywords, score}) -> 
             keywords 
             |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
@@ -794,9 +794,8 @@ module.exports = React.create-class do
                             k = k.to-lower-case!
                             [[k, v], [(k.split \. .1), v]]
                         |> pairs-to-obj
-                    all-tables = tables |> map (-> name: it)
+                    all-tables = tables |> map (-> name: it.to-lower-case!)
 
-                    debugger
                     # SQL /\
 
                     completer.protocol =
@@ -812,6 +811,7 @@ module.exports = React.create-class do
                                 # SQL \/
                                 # token is either the last word after space or last word after .
                                 token = ((text.split " ")?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!
+                                console.info \token, token
                                 if token in <[from join]> ++ schemas
                                     # tables
                                     auto-complete := [keywords: tables, score: 2] ++ auto-complete
@@ -823,10 +823,11 @@ module.exports = React.create-class do
                                     matching-tables = window.ast-tables ? [] |> filter ({name, alias}) -> name == clean-token or alias == clean-token
 
                                     # else all the table
-                                    if matching-tables.length == 0
-                                        matching-tables = window.ast-tables ? []
-
-                                    auto-complete := [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 3]  ++ auto-complete 
+                                    auto-complete = auto-complete ++ do -> 
+                                        if matching-tables.length == 0
+                                            [[(window.ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name])), score: s}
+                                        else
+                                            [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 100]
                                 # SQL /\
 
                                 console.log \auto-complete, (convert-to-ace-keywords auto-complete, data-source-cue.type, prefix)
