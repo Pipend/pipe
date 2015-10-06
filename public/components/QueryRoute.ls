@@ -192,7 +192,7 @@ module.exports = React.create-class do
               enabled: true
               action: (button-left) ~> @set-state {dialog: \settings}
 
-            * label: 'Ops Manager'
+            * label: 'Task Manager'
               action: ~> window.open "/ops", \_blank
 
         div {class-name: \query-route},
