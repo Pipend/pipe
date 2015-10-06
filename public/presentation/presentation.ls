@@ -19,11 +19,23 @@ presentation-context = require \../presentation/context.ls
 {compile-and-execute-livescript} = require \../utils.ls
 
 <- $
-presentation = ($ \#presentation .html!).replace /\t/g, " "
-[err, func] = compile-and-execute-livescript "(#presentation\n)", {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters <<< (require \prelude-ls)
+
+# query-result & parameters existing in global space (rendered by server)
+
+transformation = ($ \#transformation .html!).replace /\t/g, " "
+[err, transformation-function] = compile-and-execute-livescript "(#transformation\n)", {} <<< transformation-context! <<< parameters <<< (require \prelude-ls)
 return console.log err if !!err
 
-func do
-    $ \.presentation .get 0
-    transformed-result
+presentation = ($ \#presentation .html!).replace /\t/g, " "
+[err, presentation-function] = compile-and-execute-livescript "(#presentation\n)", {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters <<< (require \prelude-ls)
+return console.log err if !!err
 
+transformed-result = transformation-function query-result
+
+# if transformation returns a stream then listen to it and update the presentation
+if \Function == typeof! transformed-result.subscribe
+    transformed-result.subscribe (e) -> presentation-function ($ \.presentation .get 0), e
+
+# otherwise invoke the presentation function once with the JSON returned from transformation
+else
+    presentation-function ($ \.presentation .get 0), transformed-result

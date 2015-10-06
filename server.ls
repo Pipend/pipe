@@ -1,20 +1,28 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
+require! \base62
 require! \body-parser
 Busboy = require \busboy
-{http-port, mongo-connection-opitons, query-database-connection-string, snapshot-server}:config = require \./config
+
+# config
+{http-port, mongo-connection-opitons, query-database-connection-string, redis-channels, 
+redis-socket-io-port, snapshot-server}:config = require \./config
+
 require! \express
 {create-read-stream, readdir} = require \fs
-require! \highland
-require! \JSONStream
-md5 = require \MD5
 require! \moment
 {MongoClient} = require \mongodb
-{record-req} = (require \pipend-spy) config.spy.storage-details
+{record-req}? = (require \pipend-spy) config?.spy?.storage-details
+
+# prelude
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
+
 require! \phantom
 url-parser = (require \url).parse
 require! \querystring
+require! \redis
+
+# utils
 {execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
 get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
 
@@ -131,12 +139,13 @@ json = -> JSON.stringify it
         res.cookie \impressionId, impression-id, {httpOnly: false}
 
         # record visit event
-        record-req do 
-            req
-            user-id: req.user-id
-            session-id: req.session-id
-            impression-id: impression-id
-            event-type: \visit
+        if !!record-req and !!config?.spy?.enabled
+            record-req do 
+                req
+                user-id: req.user-id
+                session-id: req.session-id
+                impression-id: impression-id
+                event-type: \visit
         
         viewbag = {req.user-id, req.session-id, impression-id}
         res.render \public/index.html, {viewbag}
@@ -376,7 +385,10 @@ partition-data-source-cue-params = (query) ->
     app.get route, (req, res) ->
         {branch-id, query-id, cache, display or \query}? = req.params
         cache = if !!cache then query-parser cache else false
-        err, f <- to-callback do ->
+        op-id = base62.encode Date.now!
+
+        # Error -> (Res -> Void) -> Void
+        err, render <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
             {query-id, data-source-cue, query, transpilation, transformation, presentation}:document <- bindP do ->
@@ -390,17 +402,26 @@ partition-data-source-cue-params = (query) ->
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
-            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id, {document, url: req.url})
+            # execute the query
+            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id, {document, url: req.url})
             io.emit \op-started, [Date.now!, op]
             {result} <- bindP op.cancellable-promise
-            return returnP ((res) -> res.end json result) if display == \query
+            
+            switch display
+            | \query => returnP (res) !-> res.end json result
+            | \transformation => 
+                transformed-result <- bindP (transform result, transformation, parameters)
+                returnP (res) -> res.end json transformed-result
+            | _ => returnP (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
 
-            transformed-result <- bindP (transform result, transformation, parameters)
-            return returnP ((res) -> res.end json transformed-result) if display == \transformation
 
-            returnP ((res) -> res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters})
+        if !!err 
+            io.emit \op-ended, [Date.now!, op-id, \failed]
+            die res, err 
 
-        if !!err then die res, err else f res
+        else 
+            io.emit \op-ended, [Date.now!, op-id, \completed]
+            render res
 
 # api :: running ops
 app.get \/apis/ops, (req, res) ->
@@ -603,5 +624,29 @@ io = (require \socket.io) server
         set-interval do 
             -> connection.emit \sync, Date.now!
             5000
+
+# convert redis channels to websocket events
+if !!redis-channels
+    
+    redis-web-socket = (require \socket.io) redis-socket-io-port
+
+    redis-channels |> each ({connection-string, channels}?) ->
+        
+        # parse the redis connection string redis://host:port
+        [, host, port]? = /redis:\/\/(.*?):(.*?)\/(\d+)?/g.exec connection-string
+        
+        redis-client = redis.create-client port, host, {}
+            ..once \connect, ->
+                
+                channels |> map ({name}) ->
+                    redis-client.subscribe name
+
+                hash = channels 
+                    |> map ({name, event}?) -> [name, event ? name]
+                    |> pairs-to-obj
+
+                redis-client.on \message, (channel, message) -> redis-web-socket.emit hash[channel], message
+
+            ..once \error, (err) -> console.log err
 
 console.log "listening for connections on port: #{http-port}"

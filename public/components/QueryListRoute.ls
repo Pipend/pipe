@@ -20,18 +20,19 @@ module.exports = React.create-class do
 
                 # NEW QUERY BUTTON
                 Link do 
+                    id: \new-query
                     class-name: \new-query
                     to: \/branches
                     'New query'
 
-                div class-name: \title, \TAGS
+                div class-name: \title, \Tags
                 
-                # SEARCH CONTAINER (for icon font)
+                # TAG SEARCH CONTAINER (for icon font)
                 div class-name: \search-container,
 
-                    # SEARCH INPUT
+                    # TAG SEARCH INPUT
                     input do
-                        placeholder: 'Search'
+                        placeholder: \Search
                         type: \text
                         value: @state.tag-search
                         on-change:({current-target: {value}}) ~> @set-state {tag-search: value}
@@ -44,6 +45,7 @@ module.exports = React.create-class do
                         |> map (tag) ~>
                             selected = tag in selected-tags
                             div do
+                                id: \menu-tag
                                 class-name: "tag #{if selected then 'selected' else ''}"
                                 on-click: ~> 
                                     @set-state do 
@@ -56,12 +58,14 @@ module.exports = React.create-class do
                     
                     # IMPORT BUTTON
                     Link do 
+                        id: \import
                         class-name: \import
                         to: \/import
                         'Import'
 
                     # TASK MANAGER
                     Link do 
+                        id: \task-manager
                         class-name: \task-manager
                         to: \/ops
                         'Task Manager'
@@ -70,23 +74,25 @@ module.exports = React.create-class do
                 div class-name: \copy-right,
                     "© #{new Date!.get-full-year!} Pipend Inc."
 
+            # RIGHT SIDE
             div class-name: \queries-container,
 
-                div class-name: "controls#{if !!@state.x then ' shadow' else ''}", 
+                div class-name: "controls#{if !!@state.shadow then ' shadow' else ''}", 
 
                     div class-name: \title, "Queries"
 
-                    # SEARCH CONTAINER (for icon font)
+                    # QUERY SEARCH CONTAINER (for icon font)
                     div class-name: "search-container#{if @state.expand-search then ' expanded' else ''}",
 
-                        # SEARCH INPUT
+                        # QUERY SEARCH INPUT
                         input do
+                            id: \query-search
                             placeholder: 'Search'
                             type: \text
                             value: query-title-search
                             on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
                             on-focus: ~> @set-state expand-search: true
-                            on-blur: ~> @set-state expand-search: false                    
+                            on-blur: ~> @set-state expand-search: false
 
                 # LIST OF QUERIES
                 div do
@@ -105,6 +111,7 @@ module.exports = React.create-class do
 
                             # QUERY
                             Link do
+                                id: \query
                                 class-name: \query
                                 to: "/branches/#{branch-id}/queries/#{query-id}" 
 

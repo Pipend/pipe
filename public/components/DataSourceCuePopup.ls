@@ -10,6 +10,7 @@ ui-protocol =
     curl: require \../query-types/curl/ui-protocol.ls
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
+    redis: require \../query-types/redis/ui-protocol.ls
 
 module.exports = React.create-class do
 
@@ -102,7 +103,6 @@ module.exports = React.create-class do
                         on-change: (value) ~>
                             @.props.on-change {} <<< @.props.data-source-cue <<< {connection-string: value, complete: false}
                     SimpleButton do
-                        label: \Apply
                         pressed: @props.data-source-cue.complete
                         on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
-
+                        \Apple

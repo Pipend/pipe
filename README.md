@@ -89,6 +89,8 @@ module.exports =
     # query database
     query-database-connection-string: \mongodb://localhost:27017/pipe
     mongo-connection-opitons: mongo-connection-opitons
+
+    # the client loads images from this server
     snapshot-server: \http://localhost:4081
 
     # gulp config
@@ -107,6 +109,17 @@ module.exports =
                 insert-into:
                     collection: \events
             ...
+
+    # redis channels are exposed via websockets on this port
+    redis-socket-io-port: 4083
+
+    # redis channels
+    redis-channels:
+        * connection-string: \redis://localhost:6379/
+          channels:
+            * name: \pipe-events              
+            ...
+        ...
 
 ```
 

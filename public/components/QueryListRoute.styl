@@ -3,6 +3,7 @@ body
 
 .query-list-route
     display flex    
+    height 100%
 
     > div
         overflow auto
@@ -25,13 +26,7 @@ body
             outline none
             position relative
             top -5px
-            transition width 0.2s 0s ease
-        
-        &.expanded
-            &:before
-                opacity 0.75
-            input
-                width 650px
+            transition width 0.2s 0s ease        
 
     .menu
         background #434745
@@ -39,6 +34,7 @@ body
         box-shadow inset -1px 0px 6px 0px rgba(0,0,0,0.2)
         box-sizing border-box
         color #B7B9B9
+        overflow hidden
         position relative
         width 300px
         
@@ -90,7 +86,7 @@ body
             margin 30px 0px 8px 0px
 
         .search-container
-            margin 16px 0px 0px 35px
+            margin 20px 0px 0px 35px
             &:before
                 font-size 19px
                 position absolute
@@ -103,7 +99,7 @@ body
                 width 240px
 
         .tags 
-            overflow auto
+            overflow hidden
             margin-top 4px
             max-height 650px
             width 300px
@@ -161,6 +157,12 @@ body
                 position absolute
                 left 12px
                 top -2px
+            &.expanded
+                &:before
+                    opacity 0.75
+                
+                input
+                    width 650px
 
             input
                 font-size 16px

@@ -1,6 +1,7 @@
 {filter, find, fold, map, any, reject, sort-by, zip, take, drop} = require \prelude-ls
 {create-class, create-factory, DOM:{button, div, h1, label, input, a, span, select, option}}:React = require \react
 {SimpleSelect} = require \react-selectize
+SimpleButton = create-factory require \./SimpleButton.ls
 {debounce} = require \underscore
 
 LibrarySelect = create-factory create-class do 
@@ -100,8 +101,8 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
-        # urls :: [String]
-        # transpilation-language :: String
+        # initial-urls :: [String]
+        # initial-transpilation-language :: String
         # on-change :: ({urls: [String], transpilation-language: String}) -> Void
         # on-cancel :: a -> Void
 
@@ -141,14 +142,14 @@ module.exports = React.create-class do
                                 on-change: (url) ~> @set-state urls: do ~> @state.urls[index] = url; @state.urls
                              
                             # DELETE URL
-                            button do
-                                class-name: "button red"
+                            SimpleButton do
+                                color: \red
                                 on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
                                 \Remove
                     
                     # ADD URL BUTTON                    
-                    button do 
-                        class-name: "button green"
+                    SimpleButton do 
+                        color: \green
                         on-click: ~> 
                             <~ @set-state urls: @state.urls ++ [""]
                             @refs["select-#{@state.urls.length - 1}"].focus!
@@ -156,14 +157,14 @@ module.exports = React.create-class do
                     
             # OK / CANCEL
             div class-name: \footer,
-                button do
-                    class-name: "button grey"
+                SimpleButton do
+                    color: \grey
                     on-click: ~> @props.on-change do
                         urls: @state.urls
                         transpilation-language: @state.transpilation-language
                     \Done
-                button do
-                    class-name: "button grey"
+                SimpleButton do
+                    color: \grey
                     on-click: ~> @props.on-cancel!
                     \Cancel
 

@@ -12,7 +12,7 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render: ->
-        div null,
+        div class-name: \labelled-text-field,
             label null, @props.label
             input do
                 type: \text
