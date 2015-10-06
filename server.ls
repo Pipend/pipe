@@ -1,4 +1,5 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \./async-ls
+require! \base62
 require! \body-parser
 Busboy = require \busboy
 
@@ -387,7 +388,10 @@ partition-data-source-cue-params = (query) ->
     app.get route, (req, res) ->
         {branch-id, query-id, cache, display or \query}? = req.params
         cache = if !!cache then query-parser cache else false
-        err, f <- to-callback do ->
+        op-id = base62.encode Date.now!
+
+        # Error -> (Res -> Void) -> Void
+        err, render <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
             {query-id, data-source-cue, query, transpilation, transformation, presentation}:document <- bindP do ->
@@ -401,17 +405,27 @@ partition-data-source-cue-params = (query) ->
             {timeout}:data-source <- bindP extract-data-source {} <<< data-source-cue <<< data-source-cue-params
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
-            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, query-id, {document, url: req.url})
+            # execute the query
+            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id, {document, url: req.url})
             io.emit \op-started, [Date.now!, op]
             {result} <- bindP op.cancellable-promise
-            return returnP ((res) -> res.end json result) if display == \query
+            
+            # return query result
+            if display == \query
+                return returnP do 
+                    (res) !-> res.end json result
 
-            transformed-result <- bindP (transform result, transformation, parameters)
-            return returnP ((res) -> res.end json transformed-result) if display == \transformation
+            # return presentation
+            returnP do 
+                (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
 
-            returnP ((res) -> res.render \public/presentation/presentation.html, {presentation, transformed-result, parameters})
+        if !!err 
+            io.emit \op-ended, [Date.now!, op-id, \failed]
+            die res, err 
 
-        if !!err then die res, err else f res
+        else 
+            io.emit \op-ended, [Date.now!, op-id, \completed]
+            render res
 
 # api :: running ops
 app.get \/apis/ops, (req, res) ->

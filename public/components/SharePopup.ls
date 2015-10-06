@@ -58,13 +58,13 @@ module.exports = React.create-class do
                     label: \format
                     value: @state.format
                     options: <[txt json png]> |> map -> {label: it, value: it}
-                    on-change: (value) ~> @set-state {format: value}                
+                    on-change: (value) ~> @set-state {format: value}
 
             else
                 LabelledDropdown do
                     label: \display
                     value: @state.display
-                    options: <[query transformation presentation]> |> map -> {label: it, value: it}
+                    options: <[query presentation]> |> map -> {label: it, value: it}
                     on-change: (value) ~> @set-state {display: value}
 
             if @state.export and @state.format == \png

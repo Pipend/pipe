@@ -4,28 +4,33 @@
         <link rel="stylesheet" type="text/css" href="/public/presentation/presentation.css"/>
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
         <script type="text/javascript" src="/node_modules/nvd3/build/nv.d3.js"></script>
+        <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
         <style>
             body {
+                background-color: #1A1B13;
                 margin: 0px;
-                padding: 0px;                
+                padding: 0px;
             }
             .presentation {
                 width: 100%;
                 height: 100%;
             }
         </style>
-        <meta charset="utf8"/>
+        <meta charset="utf8"/>        
         <!-- presentation code (LiveScript), safer/easier to store inside script tag rather than a variable like parameters & transformedResult -->
+        <script type="text/plain" id="transformation"><%- transformation %></script>
         <script type="text/plain" id="presentation"><%- presentation %></script>
         <script type="text/javascript">
+            
             // obtained from query-string
             window.parameters = <%- JSON.stringify(parameters) %>
-            // obtained by executing the query on server side and "pipe"ing it to the transformation function
-            window.transformedResult = <%- JSON.stringify(transformedResult) %>
+
+            // obtained by executing the query on server side
+            window.queryResult = <%- JSON.stringify(queryResult) %>
+
         </script>
         <!-- executes the presentation code using the parameters & transformedResult -->
-        <script type="text/javascript" src="/public/presentation/presentation.js"></script>
-        <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
+        <script type="text/javascript" src="/public/presentation/presentation.js"></script>        
     </head>
     <body> 
         <div class="presentation"></div>

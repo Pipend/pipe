@@ -481,13 +481,7 @@ module.exports = React.create-class do
 
             # if transformation returns a stream then listen to it and update the presentation
             if \Function == typeof! transformed-result.subscribe
-                console.log \RxJS
-                transformed-result.subscribe do
-                    (e) ->
-                        console.info 'stream data: ', e.name
-                        presentation-function view, e
-                    (e) -> console.error 'error: ', e
-                    -> console.info 'socket closed'
+                transformed-result.subscribe (e) -> presentation-function view, e
 
             # otherwise invoke the presentation function once with the JSON returned from transformation
             else
