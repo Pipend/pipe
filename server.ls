@@ -9,9 +9,6 @@ redis-socket-io-port, snapshot-server}:config = require \./config
 
 require! \express
 {create-read-stream, readdir} = require \fs
-require! \highland
-require! \JSONStream
-md5 = require \MD5
 require! \moment
 {MongoClient} = require \mongodb
 {record-req}? = (require \pipend-spy) config?.spy?.storage-details
@@ -410,14 +407,13 @@ partition-data-source-cue-params = (query) ->
             io.emit \op-started, [Date.now!, op]
             {result} <- bindP op.cancellable-promise
             
-            # return query result
-            if display == \query
-                return returnP do 
-                    (res) !-> res.end json result
+            switch display
+            | \query => returnP (res) !-> res.end json result
+            | \transformation => 
+                transformed-result <- bindP (transform result, transformation, parameters)
+                returnP (res) -> res.end json transformed-result
+            | _ => returnP (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
 
-            # return presentation
-            returnP do 
-                (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
 
         if !!err 
             io.emit \op-ended, [Date.now!, op-id, \failed]
