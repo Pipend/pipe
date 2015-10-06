@@ -183,7 +183,13 @@ module.exports = React.create-class do
 
             * label: \Cancel
               show: !!executing-op
-              action: ~> $.get "/apis/ops/#{executing-op}/cancel"            
+              action: ~> $.get "/apis/ops/#{executing-op}/cancel"
+
+            * label: \Dispose
+              show: !!@state.dispose
+              action: ~> 
+                @state.dispose!
+                @set-state dispose: undefined
 
             * label: 'Data Source'
               pressed: \data-source-cue-popup == popup
@@ -250,8 +256,9 @@ module.exports = React.create-class do
                     on-click: (e) ~> 
 
                         # dispose previous execution
-                        if !!@dispose
-                            @dispose!
+                        if !!@state.dispose
+                            @state.dispose!
+                            @set-state dispose: undefined
 
                         if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
                             e.prevent-default!
@@ -538,7 +545,10 @@ module.exports = React.create-class do
                     res (->)
         
         # dispose the result of any previous execution
-        @dispose! if !!@dispose
+        <~ do ~> (callback) ~>
+            return callback! if !@state.dispose
+            @state.dispose!
+            @set-state {dispose: undefined}, callback
 
         # generate a unique op id
         op-id = generate-uid!
@@ -584,7 +594,7 @@ module.exports = React.create-class do
                 notification.show!
 
             # update the dispose method for the next run
-            @dispose = dispose  
+            @set-state {dispose}
 
         # update the ui to reflect that the op is complete
         @set-state displayed-on: Date.now!, executing-op: "" 
