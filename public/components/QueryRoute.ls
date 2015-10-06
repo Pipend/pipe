@@ -616,6 +616,8 @@ module.exports = React.create-class do
                         # state.remote-document is used to check if the client copy has diverged
                         remote-document: document
 
+                    @setup-query-auto-completion!
+
                     @update-presentation-size!
 
                 ..fail ({response-text}?) ~> 
@@ -653,7 +655,7 @@ module.exports = React.create-class do
                     | _ => [alphabet, editor.container.id]
                 callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
         ]
-        ace-language-tools.set-completers (@default-completers |> map (.protocol))
+        ace-language-tools.set-completers @default-completers
 
         # auto completion for tags
         $.ajax do 
@@ -695,6 +697,8 @@ module.exports = React.create-class do
                 ..add-range range
             cancel-event e
 
+
+
     # true indicates the reload must be prevented
     # should-prevent-reload :: a -> Boolean
     should-prevent-reload: ->
@@ -716,6 +720,14 @@ module.exports = React.create-class do
 
         @load props
 
+    setup-query-auto-completion: !->
+        ace-language-tools.set-completers @default-completers
+        {data-source-cue, query} = @state
+        @existing-completer = ui-protocol[data-source-cue.query-type].make-auto-completer data-source-cue .then (result) ~>
+            console.log \ui-protocol, result
+            ace-language-tools.set-completers [result] ++ @default-completers
+            result
+
     # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
     # component-did-update :: Props -> State -> Void
@@ -727,30 +739,15 @@ module.exports = React.create-class do
             {data-source-cue, query} = @state
 
             if !!@existing-completer
-                @existing-completer.on-query-changed query
+                @existing-completer.then ({on-query-changed}:me) ->
+                    on-query-changed query
 
-            # return if the data-source-cue is not complete or there is no change in the data-source-cue
-            return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
+                # return if the data-source-cue is not complete or there is no change in the data-source-cue
+                return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
 
-            #TODO: @state.data-source-query-completer = data-source-cue.query-changed!
-            # @set-state {
-            #     data-source-cue-completer-on-change: data-source-cue.auto-complete-on-query-change!
-            # }
-
-
-            # tries to find and return an exiting completer for the current data-source-cue iff the completer has a protocol property
-            # existing-completer :: Completer
-            @existing-completer = ui-protocol[data-source-cue.query-type].make-auto-completer data-source-cue
-            
-            ace-language-tools.set-completers [@existing-completer] ++ @default-completers 
-                        
-
-            # aborts any previous on-going requests for keywords before starting a new one
-            # on success updates the protocol property of the completer
-            # @keywords-request.abort! if !!@keywords-request
-
-            # a completer may already exist (but without a protocol, likely because the keywords request was aborted before)
-            # @completers.push completer if !existing-completer
+                @setup-query-auto-completion! # :) void -> void
+            else
+                console.info "there's no @existing-completer"
 
         # client-external-libs
         do ~>

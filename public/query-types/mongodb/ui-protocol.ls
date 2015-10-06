@@ -22,10 +22,12 @@ module.exports = {
     make-auto-completer: (data-source-cue) ->
         make-auto-completer do
             data-source-cue
-            (data) ->
+            ({keywords}:data) -> 
+                Promise.resolve null
                 # do nothing
-            (query) -> 
+            (query, {keywords, schema}) -> 
+                Promise.resolve null
                 # do nothing!
-            (text, data) ->
-                []
+            (text, {schema, keywords, ast}) ->
+                Promise.resolve []
 }

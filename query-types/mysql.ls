@@ -30,13 +30,11 @@ export connections = ->
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
     results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns")    
-    returnP <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN]> ++ (results
-        |> group-by (.table_schema)
-        |> Obj.map group-by (.table_name) 
-        |> Obj.map Obj.map map (.column_name)
-        |> Obj.map obj-to-pairs >> concat-map ([table, columns]) -> [table] ++ do -> columns |> map ("#{table}." +)
-        |> obj-to-pairs
-        |> concat-map (.1))
+    tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
+    returnP {
+        keywords: <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN]>
+        tables: tables
+    }
 
 # get-context :: a -> Context
 export get-context = ->

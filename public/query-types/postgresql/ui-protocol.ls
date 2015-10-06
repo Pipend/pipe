@@ -1,5 +1,6 @@
 CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host port user password database]>
 PartialDataSourceCue = require \../mssql/PartialDataSourceCue.ls
+sql-ui-protocol = require \../mssql/ui-protocol.ls
 
 client-side-editor-settings = (transpilation-language) ->
     mode: "ace/mode/#{transpilation-language}"
@@ -19,4 +20,5 @@ module.exports = {
         client-side-editor-settings transpilation-language
     presentation-editor-settings: (transpilation-language) -> 
         client-side-editor-settings transpilation-language
+    make-auto-completer: sql-ui-protocol.make-auto-completer
 }

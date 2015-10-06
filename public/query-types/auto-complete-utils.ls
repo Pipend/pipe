@@ -40,23 +40,38 @@ export make-pending-completer = ->
             callback null, []
     }
 
-export make-auto-completer = (data-source-cue, on-server-keywords-feteched, on-query-changed, get-completions) ->
+# on-api-keywords-feteched :: keywords -> Promise static # static :: {keywords :: [String], ...}
+# on-query-changed :: Query -> (Promise static) -> Promise ast
+# get-completions :: Token -> Promise (static, ast) -> Promise completions
+export make-auto-completer = (data-source-cue, on-api-keywords-feteched, on-query-changed, get-completions) ->
 
-    result = make-pending-completer!
 
-    ajax-keywords data-source-cue .then ({keywords}:data) ~>
-        on-server-keywords-feteched data
+    {keywords}:api-keywords <- ajax-keywords data-source-cue .then
+    schema <- on-api-keywords-feteched api-keywords .then
 
-        result.on-query-changed = (query) ->
-            on-query-changed query, data
 
-        result.get-completions = (editor, , , prefix, callback) ->
+    ast = null
+    my-on-query-changed = (query) -> new Promise (resolve, reject) ->
+        
+        (on-query-changed query, {schema, keywords}) 
+            .then (ast_) ->
+                ast := ast_
+            .catch (err) ->
+                # eat the error
+
+
+
+    Promise.resolve {
+
+        on-query-changed: my-on-query-changed
+
+        get-completions: (editor, , , prefix, callback) ->
             range = editor.getSelectionRange!.clone!
                 ..set-start range.start.row, 0
             text = editor.session.get-text-range range
             if editor.container.id == \query-editor
-                auto-complete = [keywords: keywords, score: 1] ++ [keywords: alphabet, score: 0] ++ (get-completions text, data)
+                custom-completions <- (get-completions text, {schema, keywords, ast}).then
+                auto-complete = [keywords: keywords, score: 10] ++ [keywords: alphabet, score: 0] ++ custom-completions
 
                 callback null, (convert-to-ace-keywords auto-complete, 'server', prefix)    
-
-    result
+    }

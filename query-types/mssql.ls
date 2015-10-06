@@ -35,13 +35,6 @@ export keywords = (data-source) ->
         keywords: <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN (NOLOCK)]>
         tables: tables
     }
-    # returnP <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN (NOLOCK)]> ++ (results
-    #     |> group-by (.TABLE_SCHEMA)
-    #     |> Obj.map group-by (.TABLE_NAME) 
-    #     |> Obj.map Obj.map map (.COLUMN_NAME)
-    #     |> Obj.map obj-to-pairs >> concat-map ([table, columns]) -> [table] ++ do -> columns |> map ("#{table}." +)
-    #     |> obj-to-pairs
-    #     |> concat-map (.1))
 
 # get-context :: a -> Context
 export get-context = ->

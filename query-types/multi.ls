@@ -6,7 +6,7 @@
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
-    returnP <[run-latest-query run-query]>
+    returnP keywords: <[run-latest-query run-query]>
 
 # get-context :: () -> Context
 export get-context = ->
