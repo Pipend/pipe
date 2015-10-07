@@ -7,12 +7,8 @@ require! \notifyjs
 
 # prelude
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-<<<<<<< HEAD
 last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj} = require \prelude-ls
-=======
-last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by} = require \prelude-ls
 
->>>>>>> origin/master
 presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
 
@@ -588,60 +584,11 @@ module.exports = React.create-class do
 
             {result, from-cache, execution-end-time, execution-duration} = result-with-metadata
 
-<<<<<<< HEAD
-            # select the compile method based on the language selected in the settings dialog
-            compile = switch transpilation-language
-                | 'livescript' => compile-and-execute-livescript 
-                | 'javascript' => compile-and-execute-javascript
-            
-            # compile the transformation code
-            [err, transformation-function] = compile "(#transformation\n)", {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls) <<< {
-                JSONStream: require \JSONStream
-                highland: require \highland
-                stream: require \stream
-                util: require \util
-            }
-            return display-error "ERROR IN THE TRANSFORMATION COMPILATION: #{err}" if !!err
-            
-            # execute the transformation code
-            try
-                transformed-result = transformation-function result
-            catch ex
-                return display-error "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
-
-            # compile the presentation code
-            [err, presentation-function] = compile do 
-                "(#presentation\n)"
-                {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters-object <<< (require \prelude-ls)
-            return display-error "ERROR IN THE PRESENTATION COMPILATION: #{err}" if !!err
-            
-            view = @refs.presentation.get-DOM-node!
-
-            # if transformation returns a stream then listen to it and update the presentation
-            if \Function == typeof! transformed-result.subscribe
-                console.log \RxJS
-                transformed-result.subscribe do
-                    (e) ->
-                        console.info 'stream data: ', e
-                        presentation-function view, e
-                    (e) -> 
-                        console.error 'error: ', e
-                        view.innerHTML = e.toString!
-                    -> console.info 'socket closed'
-
-            # otherwise invoke the presentation function once with the JSON returned from transformation
-            else
-                try
-                    presentation-function view, transformed-result
-                catch ex
-                    return display-error "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
-=======
             # extract keywords from query result (for autocompletion in transformation)
             keywords-from-query-result = switch
                 | is-type 'Array', result => result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
                 | is-type 'Object', result => get-all-keys-recursively (-> true), result
                 | _ => []
->>>>>>> origin/master
 
             # update the status bar below the presentation            
             <~ @set-state {from-cache, execution-end-time, execution-duration, keywords-from-query-result}
