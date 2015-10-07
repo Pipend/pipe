@@ -1,11 +1,11 @@
-{DOM:{a, div, input, label, option, select, textarea}}:React = require \react
+{create-class, create-factory, DOM:{a, div, input, label, option, select, textarea}}:React = require \react
 LabelledTextField = require \../../components/LabelledTextField.ls
 LabelledDropdown = require \../../components/LabelledDropdown.ls
-SimpleButton = require \../../components/SimpleButton.ls
+SimpleButton = create-factory require \../../components/SimpleButton.ls
 $ = require \jquery-browserify
 {find, sort-by} = require \prelude-ls
 
-module.exports = React.create-class {
+module.exports = create-class do
 
     render: ->
         {connection-name} = @props.data-source-cue
@@ -31,11 +31,11 @@ module.exports = React.create-class {
                 value: @props.data-source-cue?.database or ""
                 on-change: (value) ~> 
                     @props.on-change {} <<< @props.data-source-cue <<< {database: value, complete: false}
-            React.create-element do 
-                SimpleButton
-                label: \Apply
+            
+            SimpleButton do
                 pressed: @props.data-source-cue.complete
                 on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
+                \Apply
 
     get-initial-state: ->
         connections: []
@@ -43,4 +43,3 @@ module.exports = React.create-class {
     component-did-mount: ->
         ($.getJSON "/apis/queryTypes/#{@props.data-source-cue.query-type}/connections", '') .done ({connections or []}) ~> @set-state {connections}
 
-}

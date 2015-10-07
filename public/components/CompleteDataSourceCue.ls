@@ -31,7 +31,6 @@ module.exports = (fields) ->
 
                 # APPLY BUTTON
                 SimpleButton do
-                    label: \Apply
                     pressed: @props.data-source-cue.complete
                     on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
-
+                    \Apply

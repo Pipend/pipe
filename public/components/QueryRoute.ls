@@ -82,7 +82,7 @@ to-callback = (promise, callback) !->
     promise.then (result) -> callback null, result
     promise.catch (err) -> callback err, null
 
-# execute-document :: Boolean -> Document -> p result-with-metadata
+# execute-document :: Document -> String -> Boolean -> p {result :: object, from-cache :: Boolean, execution-start-time :: Int, execution-end-time :: Int}
 execute-document = do ->
     
     previous-call = null
@@ -106,6 +106,7 @@ execute-document = do ->
                     
                     success: (result-with-metadata) -> 
                         previous-call := {document, result-with-metadata}
+                        debugger
                         res result-with-metadata
                     
                     error: ({response-text}?) -> 
@@ -492,7 +493,8 @@ module.exports = React.create-class do
         if !!@state.executing-op
             return
 
-        {data-source-cue, query, transformation, presentation, parameters, cache, transpilation-language} = @state
+        {query-id, branch-id, query-title, data-source-cue, query, transformation, 
+        presentation, parameters, cache, transpilation-language} = @state
         
         # process-query-result :: Result -> p (a -> Void)
         process-query-result = (result) ~> 
@@ -570,7 +572,7 @@ module.exports = React.create-class do
 
         # make the ajax request and process the query result
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
-            {result}:result-with-metadata <~ (execute-document {data-source-cue, query, parameters, transpilation-language}, op-id, cache) .then
+            {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation-language}, op-id, cache) .then
             dispose <~ process-query-result result .then
             Promise.resolve {dispose, result-with-metadata}
 

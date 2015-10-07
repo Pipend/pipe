@@ -2,7 +2,10 @@
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
 {map} = require \prelude-ls
-{compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, get-query-by-id, transform}:utils = require \./../utils
+
+# utils
+{compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, 
+get-query-by-id, ops-manager, transform}:utils = require \./../utils
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
@@ -20,29 +23,44 @@ export execute = (query-database, data-source, query, transpilation, parameters)
     # generate-op-id :: () -> String
     generate-op-id = -> "#{Math.floor Math.random! * 1000}"
 
-    [err, transpiled-code] = compile-and-execute-livescript do
-        query
-        {} <<< get-context! <<< (require \prelude-ls) <<< parameters <<< (require \../async-ls) <<< {
+    # run-query :: (CancellablePromise) => Query, CompiledQueryParameters? -> cp result
+    run-query = (query-object, parameters = {}) ->
+        
+        # get the data-source from data-source-cue
+        {query-id, branch-id, query-title, data-source-cue, query, transformation, transpilation}? = query-object
+        data-source <- bindP (extract-data-source data-source-cue)
 
-            # run-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
-            run-query: (query-id, parameters) -->
-                {data-source-cue, query, transformation, transpilation}:result <- bindP (get-query-by-id query-database, query-id)
-                data-source <- bindP (extract-data-source data-source-cue)
-                {cancellable-promise}:op <- bindP (utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!, {})
-                result <- bindP cancellable-promise
-                transform result.result, transformation, parameters
-
-            # run-latest-query :: (CancellablePromise) => String -> CompiledQueryParameters -> cp result
-            run-latest-query: (branch-id, parameters) -->
-                {data-source-cue, query, transformation, transpilation}:result <- bindP (get-latest-query-in-branch query-database, branch-id)
-                data-source <- bindP (extract-data-source data-source-cue)
-                {cancellable-promise}:op <- bindP (utils.execute query-database, data-source, query, transpilation, parameters, false, generate-op-id!, {})
-                result <- bindP cancellable-promise
-                transform result.result, transformation, parameters
+        # execute the query
+        {result} <- bindP do ->
+            ops-manager.execute do 
+                query-database
+                data-source
+                query
+                transpilation
+                parameters
+                false
+                generate-op-id!
+                document:
+                    query-id: query-id
+                    branch-id: branch-id
+                    query-title: query-title
+                    data-source-cue: data-source-cue
                 
-        }
-    return (new-promise (, rej) -> rej err) if !!err
-    transpiled-code
+        transform result, transformation, parameters
+
+    [err, transpiled-code] = compile-and-execute-livescript query, {} <<< get-context! <<< (require \prelude-ls) <<< parameters <<< (require \../async-ls) <<<
+
+            # run-query :: (CancellablePromise) => String, CompiledQueryParameters? -> cp result
+            run-query: (query-id, parameters = {}) ->
+                query <- bindP (get-query-by-id query-database, query-id)
+                run-query query, parameters
+
+            # run-latest-query :: (CancellablePromise) => String, CompiledQueryParameters? -> cp result
+            run-latest-query: (branch-id, parameters = {}) ->
+                query <- bindP (get-latest-query-in-branch query-database, branch-id)
+                run-query query, parameters
+
+    if !!err then (new-promise (, rej) -> rej err) else transpiled-code
 
 # default-document :: () -> Document
 export default-document = -> 

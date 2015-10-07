@@ -23,8 +23,8 @@ require! \querystring
 require! \redis
 
 # utils
-{execute, transform, extract-data-source, compile-parameters, get-query-by-id, 
-get-latest-query-in-branch, get-op, cancel-op, running-ops} = require \./utils
+{transform, extract-data-source, compile-parameters, get-query-by-id, 
+get-latest-query-in-branch, get-op, cancel-op, running-ops, ops-manager}:utils = require \./utils
 
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
 return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
@@ -325,8 +325,6 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
 # /apis/execute
 app.post \/apis/execute, (req, res) ->
 
-    console.log \post/apis/execute
-
     # increae the request / response timeout
     [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
@@ -340,28 +338,18 @@ app.post \/apis/execute, (req, res) ->
         {timeout}:data-source <- bindP (extract-data-source data-source-cue)
         
         # execute the query and emit the op-started on socket.io
-        op <- bindP do
-            execute do 
-                query-database
-                data-source
-                query
-                transpilation?.query
-                parameters
-                cache
-                op-id
-                document: document
-                url: req.url
-        io.emit \op-started, [Date.now!, op]
-        op.cancellable-promise
+        ops-manager.execute do 
+            query-database
+            data-source
+            query
+            transpilation?.query
+            parameters
+            cache
+            op-id
+            document: document
+            url: req.url
 
-    if !!err 
-        io.emit \op-ended, [Date.now!, op-id, \failed]
-        die res, err
-
-    else 
-        io.emit \op-ended, [Date.now!, op-id, \completed]
-        res.end json result
-
+    if !!err then die res, err else res.end json result
 
 # partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
 partition-data-source-cue-params = (query) ->
@@ -403,9 +391,7 @@ partition-data-source-cue-params = (query) ->
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
 
             # execute the query
-            op <- bindP (execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id, {document, url: req.url})
-            io.emit \op-started, [Date.now!, op]
-            {result} <- bindP op.cancellable-promise
+            {result} <- bindP (ops-manager.execute query-database, data-source, query, transpilation?.query, parameters, cache, op-id, {document, url: req.url})
             
             switch display
             | \query => returnP (res) !-> res.end json result
@@ -414,27 +400,16 @@ partition-data-source-cue-params = (query) ->
                 returnP (res) -> res.end json transformed-result
             | _ => returnP (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
 
-
-        if !!err 
-            io.emit \op-ended, [Date.now!, op-id, \failed]
-            die res, err 
-
-        else 
-            io.emit \op-ended, [Date.now!, op-id, \completed]
-            render res
+        if !!err then die res, err else render res
 
 # api :: running ops
 app.get \/apis/ops, (req, res) ->
-    res.end pretty running-ops!
+    res.end pretty ops-manager.running-ops!
 
 # api :: cancel op
 app.get \/apis/ops/:opId/cancel, (req, res) ->
-    [err, op] = cancel-op req.params.op-id
-    if !!err
-        die res, err
-    else
-        io.emit \op-ended, [Date.now!, op?.op-id, \cancelled]
-        res.end \cancelled 
+    [err, op] = ops-manager.cancel-op req.params.op-id
+    if !!err then die res, err else res.end \cancelled 
 
 # api :: export query
 # export a screenshot of the result
@@ -473,9 +448,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         if format in text-formats
             err, transformed-result <- to-callback do ->
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                op <- bindP (execute query-database, data-source, query, parsed-query-string, cache, query-id, {document, url: req.url})
-                io.emit \op-started, [Date.now!, op]
-                {result} <- bindP op.cancellable-promise
+                {result} <- bindP (ops-manager.execute query-database, data-source, query, parsed-query-string, cache, query-id, {document, url: req.url})
                 transformed-result <- bindP (transform result, transformation, parsed-query-string)
                 returnP transformed-result
             return die res, err if !!err
@@ -620,10 +593,9 @@ server = app.listen http-port
 # emit all the running ops to the client
 io = (require \socket.io) server
     ..on \connect, (connection) ->
-        connection.emit \running-ops, [Date.now!, filter (-> !!it.parent-op-id), running-ops!]
-        set-interval do 
-            -> connection.emit \sync, Date.now!
-            5000
+        connection.emit \ops, ops-manager.running-ops!
+
+ops-manager.on \change, -> io.emit \ops, ops-manager.running-ops!
 
 # convert redis channels to websocket events
 if !!redis-channels

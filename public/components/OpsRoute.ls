@@ -14,7 +14,8 @@ module.exports = React.create-class do
         div do 
             class-name: \ops-route
             OpsManager do 
-                ops: @state.ops |> map ({op-id, parent-op-id, op-info, local-creation-time, creation-time}) ~>
+                ops: @state.ops |> map ({op-id, op-info, parent-op-id, creation-time}:x) ~>
+                    console.log \op, (JSON.stringify x, null, 4)
                     {document, url}? = op-info
                     {branch-id, data-source-cue, query-id, query-title}? = document
                     op-id: op-id
@@ -24,7 +25,6 @@ module.exports = React.create-class do
                     query-url: "branches/#{branch-id}/queries/#{query-id}"
                     api-call: url
                     creation-time: creation-time
-                    cpu-time: @state.server-time - creation-time
                 columns: @state.columns
                 sort-column: @state.sort-column
                 sort-order: @state.sort-order
@@ -35,21 +35,14 @@ module.exports = React.create-class do
     # get-initial-state :: a -> UIState
     get-initial-state: ->
         ops: [] # [Op] 
-        server-time: 0
         sort-column: camelize \creation-time
         sort-order: -1
-        columns: map camelize, <[op-id parent-op-id query-type query-title query-url api-url creation-time cpu-time]>
+        columns: map camelize, <[op-id parent-op-id query-type query-title query-url api-url creation-time]>
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
         @socket = (require \socket.io-client).connect force-new: true
-            ..on \running-ops, ([server-time, ops]) ~> @set-state server-time: server-time, ops: ops ? []
-            ..on \op-started, ([server-time, op]) ~> @set-state server-time: server-time, ops: @state.ops ++ [op]
-            ..on \op-ended, ([server-time, op-id, status]) ~> @set-state server-time: server-time, ops: (@state.ops |> reject -> it.op-id == op-id or it.parent-op-id == op-id)
-            ..on \sync, (server-time) ~> @set-state {server-time}
-        set-interval do 
-            ~> @force-update!
-            1000
+            ..on \ops, (ops) ~> @set-state {ops}
 
     # component-will-unmount :: a -> Void
     component-will-unmount: !->

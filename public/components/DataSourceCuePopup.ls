@@ -105,4 +105,4 @@ module.exports = React.create-class do
                     SimpleButton do
                         pressed: @props.data-source-cue.complete
                         on-click: ~> @props.on-change {} <<< @props.data-source-cue <<< {complete:true}
-                        \Apple
+                        \Apply
