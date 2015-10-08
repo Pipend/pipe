@@ -1,8 +1,8 @@
 {
-  "name": "poc",
-  "version": "1.0.0",
+  "name": "pipe",
+  "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,8 +24,7 @@
     "csv-parse": "^1.0.0",
     "d3-tip": "^0.6.7",
     "ejs": "^2.3.1",
-    "express": "^4.12.2",
-    "gulp-uglify": "^1.2.0",
+    "express": "^4.12.2",    
     "highland": "^2.5.1",
     "hiredis": "^0.4.0",
     "history": "^1.11.1",
@@ -46,7 +45,7 @@
     "react": "^0.13.1",
     "react-ace": "^1.1.5",
     "react-auto-complete": "^0.0.4",
-    "react-router": "^1.0.0-rc1",
+    "react-router": "1.0.0-rc1",
     "react-selectize": "^0.2.5",
     "redis": "^0.12.1",
     "request": "^2.54.0",
@@ -72,6 +71,7 @@
     "gulp-rename": "^1.2.2",
     "gulp-streamify": "0.0.5",
     "gulp-stylus": "^2.0.1",
+    "gulp-uglify": "^1.2.0",
     "gulp-util": "^3.0.4",
     "liveify": "^2.0.0",
     "livescript": "^1.4.0",
