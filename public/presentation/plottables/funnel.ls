@@ -61,23 +61,36 @@ module.exports = ({Plottable, d3}) ->
     pformat = d3.format '%'
     nformat = d3.format ',f'
     
-    d3.select view .append "div" .attr \style, "font-size: 12px" .append \svg 
-        .attr \width, width + margin.left + margin.right
-        .attr \height, height + margin.top + margin.bottom
-        .append \g .attr \transform, (-> "translate(#{margin.left}, #{margin.top})")
-        .select-all \g.shape .data shapes
-        .enter!
-            ..append \g .attr \class, \shape .attr \transform, (-> "translate(#{x it.x}, 0)")
-                ..append \path 
-                        ..attr \d, (.points) >> line
-                        ..attr \fill, color
-                ..append \g .attr \transform, (-> "translate(#{gwidth / 2}, #{height / 2 + 10})")
-                    ..append \text
-                        ..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        ..attr \dy, \-2em .text (-> it.name)
-                    ..append \text
-                        ..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        ..attr \dy, \0em .text nformat . (.points.0.y)
-                    ..append \text
-                        ..attr \text-anchor, \middle .attr \dominant-baseline, \central
-                        ..attr \dy, \2em .text pformat . (.ratio)
+    d3.select view .select-all "div.funnel" .data [shapes] 
+        ..enter!
+            ..append \div .attr \class, \funnel .attr \style, "font-size: 12px" 
+                ..append \svg 
+                    .attr \width, width + margin.left + margin.right
+                    .attr \height, height + margin.top + margin.bottom
+                    .append \g .attr \transform, (-> "translate(#{margin.left}, #{margin.top})")
+        ..select \svg
+            ..select-all \g.shape .data id
+                ..enter!
+                    ..append \g .attr \class, \shape .attr \transform, (-> "translate(#{x it.x}, 0)")
+                        ..append \path 
+                                ..attr \d, (.points) >> line
+                                ..attr \fill, color
+                        ..append \g .attr \transform, (-> "translate(#{gwidth / 2}, #{height / 2 + 10})")
+                            ..append \text .attr \class, \name
+                                ..attr \text-anchor, \middle .attr \dominant-baseline, \central
+                                ..attr \dy, \-2em .text (-> it.name)
+                            ..append \text .attr \class, \val
+                                ..attr \text-anchor, \middle .attr \dominant-baseline, \central
+                                ..attr \dy, \0em .text nformat . (.points.0.y)
+                            ..append \text .attr \class, \ratio
+                                ..attr \text-anchor, \middle .attr \dominant-baseline, \central
+                                ..attr \dy, \2em .text pformat . (.ratio)
+
+                ..attr \transform, (-> "translate(#{x it.x}, 0)")
+                ..select \path
+                    ..attr \d, (.points) >> line
+                    ..attr \fill, color
+                    
+                ..select \text.name .text (-> it.name)
+                ..select \text.val .text nformat . (.points.0.y)
+                ..select \text.ratio .text pformat . (.ratio)
