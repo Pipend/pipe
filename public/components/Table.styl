@@ -1,0 +1,62 @@
+.table
+    font-family 'AndaleMono'
+    font-size 12px
+    
+    .head
+        background white
+        border-bottom 2px solid #999
+        position fixed
+        left 0px 
+        top 0px
+        > span
+            cursor pointer
+            font-weight bold
+            overflow hidden
+            padding 8px 0px 8px 4px
+            text-overflow ellipsis
+            position relative
+            &.selected  
+                background-color: rgba(255,255,0,0.1)
+                &:after
+                    color blue
+                    font-size 20px
+                    position absolute
+                    right 2px
+                    top 0px
+                    height 100%
+                &.up:after
+                    content "↑"
+                &.down:after
+                    content "↓"
+
+    .body 
+        margin-top 32px
+
+        > div 
+            border-bottom 1px solid #ccc
+            cursor pointer
+            &.locked
+                background-color: rgba(0,255,255,0.1)
+                &:hover
+                    background-color: rgba(0,255,255,0.2)
+            &:not(.locked):hover
+                background #f0f0f0
+            > span
+                overflow hidden
+                padding 4px 0px 4px 4px
+                text-overflow ellipsis
+                white-space nowrap
+                &.up
+                    color green
+                &.down
+                    color red
+
+    .head, .body > div
+        align-items center
+        box-sizing border-box
+        display flex
+        width 100%
+        > span
+            border-right 1px solid #ccc
+            box-sizing border-box
+            width 160px

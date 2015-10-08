@@ -250,8 +250,11 @@ class OpsManager extends EventEmitter
             else
                 @cancel-op op.parent-op-id
 
-    # running-ops :: () -> [String]
-    running-ops: -> @ops |> filter (.cancellable-promise.is-pending!)
+    # running-ops :: () -> [Op]
+    running-ops: ->
+        @ops 
+            |> filter (.cancellable-promise.is-pending!)
+            |> map ({creation-time}:op) -> {} <<< op <<< cpu: Date.now! - creation-time
 
 
 export ops-manager = new OpsManager!

@@ -597,6 +597,10 @@ io = (require \socket.io) server
 
 ops-manager.on \change, -> io.emit \ops, ops-manager.running-ops!
 
+set-interval do 
+    -> io.emit \ops, ops-manager.running-ops!
+    1000
+
 # convert redis channels to websocket events
 if !!redis-channels
     
