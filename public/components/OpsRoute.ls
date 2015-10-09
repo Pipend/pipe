@@ -1,5 +1,5 @@
 {camelize, map, reject, sort-by} = require \prelude-ls
-{create-factory, DOM:{button, div, span}}:React = require \react
+{addons: {create-fragment}, create-factory, DOM:{a, button, div, span}}:React = require \react/addons
 SimpleButton = create-factory require \./SimpleButton.ls
 Table = create-factory require \./Table.ls
 
@@ -17,23 +17,26 @@ module.exports = React.create-class do
             Table do 
                 columns:
                     * label: \Title
+                    * label: \Type
                     * label: \URL
                       sortable: false
+                      width: 35
+                      render-cell: ({label, value}) ~> a href: value, label
                     * label: 'Created on'
                     * label: \CPU
                     * label: \Actions
                       sortable: false
-                      render-cell: (width, {op-id, branch-id, query-id}:cell) ~>
-                        div null,
-                            SimpleButton do
+                      render-cell: ({op-id, branch-id, query-id}:cell) ~>
+                        create-fragment do
+                            left: SimpleButton do
                                 color: \grey
+                                style: margin-left: 2px
                                 on-click: ~> window.open "branches/#{branch-id}/queries/#{query-id}", \_blank
-                                style: margin: 5
                                 'Edit query'
-                            SimpleButton do 
+                            right: SimpleButton do 
                                 color: \red
+                                style: margin-left: 8px
                                 on-click: ~> $.get "/apis/ops/#{op-id}/cancel"
-                                style: margin: 5
                                 \Terminate
                     ...
                 rows: @state.ops 
@@ -47,8 +50,9 @@ module.exports = React.create-class do
 
                         cells = 
                             * value: query-title
+                            * value: data-source-cue.query-type
                             * value: url
-                            * label: new Date creation-time .to-string!
+                            * label: new Date creation-time .to-JSON!
                               value: creation-time
                             * label: "#{seconds} second#{if seconds > 1 then 's' else ''}"
                               value: cpu

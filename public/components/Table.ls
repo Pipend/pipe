@@ -36,7 +36,7 @@ module.exports = React.create-class do
                     {label, width}? = columns[i]
 
                     # COLUMN NAME (toggle sort-column / sort-direction on click)
-                    span do 
+                    div do 
                         key: label
                         class-name: if i == sort-column then "selected #{if sort-direction == 1 then "up" else "down"}" else ""
                         style: width: "#{width ? distributed-width}%"
@@ -53,10 +53,7 @@ module.exports = React.create-class do
                     {row-id, cells} = rows[i]
 
                     # render-cell :: Int -> Cell -> ReactElement
-                    render-cell = (width, {label}) ~>
-                        span do 
-                            style: width: "#{width}%"
-                            label
+                    render-cell = (.label)
 
                     # is-locked :: Boolean
                     is-locked = !!(find (== row-id), locked-rows)
@@ -73,6 +70,6 @@ module.exports = React.create-class do
 
                         # CELLS                        
                         [0 til cells.length] |> map (j) ~>
-                            (columns[j]?.render-cell ? render-cell) do
-                                columns[j]?.width ? distributed-width
-                                cells[j]
+                            div do 
+                                style: width: "#{columns[j]?.width ? distributed-width}%"
+                                (columns[j]?.render-cell ? render-cell) cells[j]

@@ -492,7 +492,7 @@ module.exports = React.create-class do
         if !!@state.executing-op
             return
 
-        {data-source-cue, query, transformation, presentation, parameters, cache, transpilation-language} = @state
+        {query-id, branch-id, query-title, data-source-cue, query, transformation, presentation, parameters, cache, transpilation} = @document-from-state!
         
         # process-query-result :: Result -> p (a -> Void)
         process-query-result = (result) ~> 
@@ -509,7 +509,7 @@ module.exports = React.create-class do
                 parameters-object ?= {}
 
                 # select the compile method based on the language selected in the settings dialog
-                compile = switch transpilation-language
+                compile = switch @state.transpilation-language
                     | 'livescript' => compile-and-execute-livescript 
                     | 'javascript' => compile-and-execute-javascript
                 
@@ -570,7 +570,7 @@ module.exports = React.create-class do
 
         # make the ajax request and process the query result
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
-            {result}:result-with-metadata <~ (execute-document {data-source-cue, query, parameters, transpilation-language}, op-id, cache) .then
+            {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation}, op-id, cache) .then
             dispose <~ process-query-result result .then
             Promise.resolve {dispose, result-with-metadata}
 
@@ -877,7 +877,7 @@ module.exports = React.create-class do
             tags: []
             editor-width: 550
             keywords-from-query-result: []
-            transpilation-language: 'livescript' # javascript or livescript
+            transpilation-language: \livescript # javascript or livescript
             client-external-libs: []
 
         } <<< editor-heights!
@@ -894,7 +894,7 @@ module.exports = React.create-class do
             transformation, presentation, parameters, 
             tags: (tags ? []) |> map ~> label: it, value: it
             editor-width: ui?.editor?.width or @state.editor-width
-            transpilation-language: transpilation?.query ? "livescript"
+            transpilation-language: transpilation?.query ? \livescript
             client-external-libs: client-external-libs ? []
         } <<< editor-heights do 
             ui?.query-editor?.height or @state.query-editor-height

@@ -8,7 +8,7 @@ transformation-context = require \./public/transformation/context
 {readdir-sync} = require \fs
 {compile} = require \livescript
 md5 = require \MD5
-{any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, values} = require \prelude-ls
+{any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, Str, values} = require \prelude-ls
 vm = require \vm
 
 # this method differs from public/utils.ls::compile-and-execute-livescript, 
@@ -157,7 +157,7 @@ class OpsManager extends EventEmitter
 
         else
 
-            # look for a running op that matches the document hash    
+            # look for a running op that matches the document hash 
             main-op = @ops |> find ~> it.document-hash == key and it.cancellable-promise.is-pending! and it.parent-op-id == null
 
             # create the main op if it doesn't exist
