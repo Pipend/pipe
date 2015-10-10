@@ -2,6 +2,7 @@ require! \./Checkbox.ls
 {difference, each, filter, map, unique, sort} = require \prelude-ls
 {key} = require \keymaster
 {DOM:{a, div, input}}:React = require \react
+{find-DOM-node} = require \react-dom
 {cancel-event} = require \../utils.ls
 
 module.exports = React.create-class do
@@ -22,7 +23,7 @@ module.exports = React.create-class do
                     action-listener = (e) ~>
                         set-timeout do 
                             ~>
-                                {offset-left, offset-width}:anchor-tag = @refs[ref].get-DOM-node!
+                                {offset-left, offset-width}:anchor-tag = find-DOM-node @refs[ref]
                                 action offset-left, offset-width
                             0
                         cancel-event e

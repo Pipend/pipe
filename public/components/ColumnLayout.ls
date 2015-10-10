@@ -1,4 +1,5 @@
-{addons: {create-fragment}, create-class, create-factory, DOM:{div, span}}:React = require \react/addons
+{create-class, create-factory, DOM:{div, span}}:React = require \react
+{create-fragment} = require \react-addons-create-fragment
 {map, filter, reject, sum, zip} = require \prelude-ls
 
 # expand :: [Int] -> Int -> Int -> [Int]

@@ -1,5 +1,6 @@
 {camelize, map, reject, sort-by} = require \prelude-ls
-{addons: {create-fragment}, create-factory, DOM:{a, button, div, span}}:React = require \react/addons
+{create-factory, DOM:{a, button, div, span}}:React = require \react
+create-fragment = require \react-addons-create-fragment
 SimpleButton = create-factory require \./SimpleButton.ls
 Table = create-factory require \./Table.ls
 

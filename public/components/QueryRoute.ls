@@ -18,6 +18,7 @@ is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 
 _ = require \underscore
 {create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
+{find-DOM-node} = require \react-dom
 {History}:react-router = require \react-router
 Link = create-factory react-router.Link
 AceEditor = create-factory require \./AceEditor.ls
@@ -260,6 +261,7 @@ module.exports = React.create-class do
                 Link do 
                     id: \logo
                     class-name: \logo
+                    key: \logo
                     to: \/
                     on-click: (e) ~> 
 
@@ -474,17 +476,17 @@ module.exports = React.create-class do
                             items 
                                 |> filter -> (typeof it.show == \undefined) or !!it.show
                                 |> map ({title, value}) ->
-                                    div null,
+                                    div key: title,
                                         label null, title
                                         span null, value
     
     # update-presentation-size :: a -> Void
     update-presentation-size: !->
         left = @state.editor-width + 5
-        @refs.presentation-container.get-DOM-node!.style <<<
+        (find-DOM-node @refs.presentation-container).style <<<
             left: left
             width: window.inner-width - left
-            height: window.inner-height - @refs.menu.get-DOM-node!.offset-height
+            height: window.inner-height - (find-DOM-node @refs.menu).offset-height
     
     # execute :: a -> Void
     execute: !->
@@ -500,7 +502,7 @@ module.exports = React.create-class do
             new Promise (res, rej) ~>
 
                 # clean existing presentation
-                $ @refs.presentation.get-DOM-node! .empty!
+                ($ find-DOM-node @refs.presentation).empty!
 
                 # compile parameters
                 if !!parameters and parameters.trim!.length > 0
@@ -511,8 +513,8 @@ module.exports = React.create-class do
                 # select the compile method based on the language selected in the settings dialog
                 compile = switch @state.transpilation-language
                     | 'livescript' => compile-and-execute-livescript 
-                    | 'javascript' => compile-and-execute-javascript
-                
+                    | 'javascript' => compile-and-execute-javascript                
+
                 # create-context :: a -> Context
                 create-context = -> {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
 
@@ -530,14 +532,14 @@ module.exports = React.create-class do
                 try
                     transformed-result = transformation-function result
                 catch ex
-                    return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
+                    return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"                
 
                 # compile the presentation code
                 [err, presentation-function] = compile "(#presentation\n)", ({d3, $} <<< create-context! <<< presentation-context!)
                 if !!err
                     return rej "ERROR IN THE PRESENTATION COMPILATION: #{err}"
-                
-                view = @refs.presentation.get-DOM-node!
+
+                view = find-DOM-node @refs.presentation
 
                 # if transformation returns a stream then listen to it and update the presentation
                 if \Function == typeof! transformed-result.subscribe
@@ -564,10 +566,6 @@ module.exports = React.create-class do
         # update the ui to reflect that an op is going to start
         @set-state executing-op: op-id
 
-        # clear the presentation
-        $presentation = $ @refs.presentation.get-DOM-node!
-            ..empty!
-
         # make the ajax request and process the query result
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
             {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation}, op-id, cache) .then
@@ -577,7 +575,7 @@ module.exports = React.create-class do
         if !!err
             pre = $ "<pre/>"
             pre.html err.to-string!
-            $presentation .append pre
+            ($ find-DOM-node @refs.presentation).append pre
             @set-state execution-error: true
 
         else
@@ -774,7 +772,7 @@ module.exports = React.create-class do
         key 'command + a', (e) ~> 
             return true if e.target != document.body
             range = document.create-range!
-                ..select-node-contents @refs.presentation.get-DOM-node!
+                ..select-node-contents find-DOM-node @refs.presentation
             selection = window.get-selection!
                 ..remove-all-ranges!
                 ..add-range range

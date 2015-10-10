@@ -71,5 +71,7 @@ module.exports = React.create-class do
                         # CELLS                        
                         [0 til cells.length] |> map (j) ~>
                             div do 
+                                class-name: \cell-wrapper
+                                key: j
                                 style: width: "#{columns[j]?.width ? distributed-width}%"
                                 (columns[j]?.render-cell ? render-cell) cells[j]

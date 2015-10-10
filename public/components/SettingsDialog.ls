@@ -1,6 +1,7 @@
+Clipboard = require \clipboard
 {filter, find, fold, map, any, reject, sort-by, zip, take, drop} = require \prelude-ls
 {create-class, create-factory, DOM:{button, div, h1, label, input, a, span, select, option}}:React = require \react
-{SimpleSelect} = require \react-selectize
+SimpleSelect = create-factory (require \react-selectize).SimpleSelect
 SimpleButton = create-factory require \./SimpleButton.ls
 {debounce} = require \underscore
 
@@ -8,6 +9,7 @@ LibrarySelect = create-factory create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        id: ""
         url: ""
         ignore-urls: [] # [String]
         # on-change :: String -> Void
@@ -17,7 +19,8 @@ LibrarySelect = create-factory create-class do
     render: ->
         url-regex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/
 
-        React.create-element SimpleSelect,
+        SimpleSelect do
+            class-name: @props.id
             ref: \select
             placeholder: "Select a library"
             options: @state.libraries
@@ -30,13 +33,12 @@ LibrarySelect = create-factory create-class do
                 return null if search.length == 0 or !(url-regex.test search) or (search in @props.ignore-urls)
                 latest: search
 
-            # restore-on-backspace :: Item -> String
-            restore-on-backspace: ~> it.latest.substr 0, it.latest.length - 1
+            editable: (.latest)
 
             # on-search-change :: String -> (a -> Void) -> Void
             on-search-change: (search, callback) !~>
                 @set-state {search}, callback
-                if search.length > 0
+                if search.length > 0 and search != @props.url
                     @state.request.abort! if !!@state.request
                     request = $.getJSON "http://api.cdnjs.com/libraries?fields=version,homepage&search=#{search}"
                         ..done ({results}) ~>
@@ -51,11 +53,12 @@ LibrarySelect = create-factory create-class do
             
             # on-value-change :: Item -> (a -> Void) -> Void
             on-value-change: ({latest}?, callback) !~>
+                <~ @set-state libraries: []
                 @props.on-change latest
                 callback!
 
             # filter-options :: [Item] -> String -> [Item]
-            filter-options: (options, search) -> options
+            filter-options: (options) ~> options
             
             # uid :: (Equatable e) => Item -> e
             uid: (.latest)
@@ -83,6 +86,11 @@ LibrarySelect = create-factory create-class do
                     switch 
                     | loading => "loading results"
                     | !loading and @state.search.length == 0 =>  "type in a few characters to kick off autocomplete"
+                    | @state.search.length > 0 and @state.search == @props.url => 
+                        button do 
+                            class-name: "copy-#{@props.id}"
+                            'data-clipboard-target' : ".#{@props.id} input"
+                            "copy to clipboard"
                     | @state.search.length > 0 and !(url-regex.test @state.search) => "invalid or incomplete url"
                     | @state.search.length > 0 and (@state.search in @props.ignore-urls) => "already added"
                     | _ =>  "no results found"
@@ -92,6 +100,9 @@ LibrarySelect = create-factory create-class do
         libraries: []
         request: undefined
         search: ""
+
+    # component-did-mount :: a -> Void
+    component-did-mount: !-> new Clipboard ".copy-#{@props.id}"
 
     focus: -> @refs.select.focus!
         
@@ -116,8 +127,7 @@ module.exports = React.create-class do
             # COMPILATION
             div class-name: "section language",
                 label null, "Language : "
-                React.create-element do 
-                    SimpleSelect
+                SimpleSelect do
                     value: 
                         label: @state.transpilation-language
                         value: @state.transpilation-language
@@ -136,6 +146,7 @@ module.exports = React.create-class do
                             # AUTOCOMPLETE
                             LibrarySelect do 
                                 key: index
+                                id: "select-#{index}"
                                 ref: "select-#{index}"
                                 url: @state.urls[index]
                                 ignore-urls: @state.urls

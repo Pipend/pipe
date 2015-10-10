@@ -3,6 +3,7 @@ require! \../../config.ls
 create-browser-history = require \history/lib/createBrowserHistory
 {last, map} = require \prelude-ls
 {clone-element, create-factory, DOM:{button, div}}:React = require \react
+{render} = require \react-dom
 require! \react-router
 Router = create-factory react-router.Router
 Route = create-factory react-router.Route
@@ -80,7 +81,7 @@ App = React.create-class do
         document.remove-event-listener \click, @click-listener if !!@click-listener
 
 
-React.render do 
+render do 
     Router do 
         history: create-browser-history!
         Route do 

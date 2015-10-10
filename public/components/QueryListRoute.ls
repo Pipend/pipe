@@ -47,6 +47,7 @@ module.exports = React.create-class do
                             div do
                                 id: \menu-tag
                                 class-name: "tag #{if selected then 'selected' else ''}"
+                                key: tag
                                 on-click: ~> 
                                     @set-state do 
                                         selected-tags: 
@@ -113,6 +114,7 @@ module.exports = React.create-class do
                             Link do
                                 id: \query
                                 class-name: \query
+                                key: query-id
                                 to: "/branches/#{branch-id}/queries/#{query-id}" 
 
                                 # THUMBNAIL
@@ -127,6 +129,7 @@ module.exports = React.create-class do
                                     div class-name: \tags,
                                         tags |> map (tag) ~>
                                             span do 
+                                                key: tag
                                                 class-name: "tag #{if tag in selected-tags then 'selected' else ''}"
                                                 tag
     
