@@ -21,17 +21,23 @@ App = React.create-class do
 
     display-name: \App
 
+    mixins: [react-router.History]
+
     # render :: a -> ReactElement
     render: ->
         div null,
-            clone-element @props.children, config
+
+            # pass spy.record method as props to child component
+            clone-element @props.children, {} <<< config <<< 
+                record: @record ? (->)
+
             div {class-name: \building}, \Building... if @state.building
 
     # get-initial-state :: a -> UIState
     get-initial-state: -> building: false
 
     # component-did-mount :: a -> Void
-    component-did-mount: !->
+    component-will-mount: !->
         if !!config?.gulp?.reload-port
             (require \socket.io-client) "http://localhost:#{config.gulp.reload-port}"
                 ..on \build-start, ~> @set-state building: true
@@ -42,13 +48,18 @@ App = React.create-class do
             {get-load-time-object, record} = (require \spy-web-client) do 
                 url: config.spy.url
                 common-event-properties : ~>
+
+                    # viewbag is a JSON object rendered by the server into index.html 
+                    # it contains the user-id, session-id etc...
                     {} <<< viewbag <<< 
                         route: (last @props.routes)?.name ? \index
 
-            # record page-ready event
+            @record = record
+
+            # record page-ready event            
             get-load-time-object (load-time-object) ~>
                 record do 
-                    event-type: \page-ready
+                    event-type: \load
                     event-args: load-time-object
 
             # record clicks
@@ -73,13 +84,21 @@ App = React.create-class do
                             tag: target.tag-name
                         x: pageX
                         y: pageY
-            
             document.add-event-listener \click, @click-listener
 
-    # component-will-unmount :: a -> Void
-    component-will-unmount: !->
-        document.remove-event-listener \click, @click-listener if !!@click-listener
+        # record route change events
+        @history.listen (, {routes}) ~>
+            record do 
+                event-type: \route-ready
+                event-args: 
+                    route: (last routes)?.name ? \index
 
+    # component-will-unmount :: a -> Void
+    component-will-unmount: !-> document.remove-event-listener \click, @click-listener if !!@click-listener
+
+
+<- window.add-event-listener \load
+<- set-timeout _, 0
 
 render do 
     Router do 

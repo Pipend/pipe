@@ -188,7 +188,12 @@ module.exports = React.create-class do
               enabled: data-source-cue.complete
               hotkey: "command + enter"
               show: !executing-op
-              action: ~> @execute!
+              action: ~> 
+                @props.record do 
+                    evnet-type: \execute-query
+                    event-args: 
+                        document: @document-from-state!
+                @execute!
 
             * label: \Cancel
               show: !!executing-op
@@ -385,9 +390,7 @@ module.exports = React.create-class do
                             editable-title: false
                             resizable: true
                         }
-                    ] 
-                    # |> filter ({editor-id}) ~> ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"]!?.visible ? true
-                    |> map ({editable-title, editor-id, resizable, title}:editor) ~>
+                    ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
 
                         div {class-name: \editor, key: editor-id},
 
@@ -500,10 +503,7 @@ module.exports = React.create-class do
         process-query-result = (result) ~> 
             
             new Promise (res, rej) ~>
-
-                # clean existing presentation
-                ($ find-DOM-node @refs.presentation).empty!
-
+                
                 # compile parameters
                 if !!parameters and parameters.trim!.length > 0
                     [err, parameters-object] = compile-and-execute-livescript parameters, {}
@@ -566,9 +566,15 @@ module.exports = React.create-class do
         # update the ui to reflect that an op is going to start
         @set-state executing-op: op-id
 
-        # make the ajax request and process the query result
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
+
+            # clean existing presentation
+            ($ find-DOM-node @refs.presentation).empty!
+
+            # make the ajax request and process the query result
             {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation}, op-id, cache) .then
+
+            # transform and visualize the result
             dispose <~ process-query-result result .then
             Promise.resolve {dispose, result-with-metadata}
 
@@ -577,6 +583,11 @@ module.exports = React.create-class do
             pre.html err.to-string!
             ($ find-DOM-node @refs.presentation).append pre
             @set-state execution-error: true
+            @props.record do 
+                event-type: \execution-error
+                event-args: 
+                    document: @document-from-state!
+                    error: err
 
         else
 
@@ -697,9 +708,7 @@ module.exports = React.create-class do
                         # state.remote-document is used to check if the client copy has diverged
                         remote-document: document
 
-                    @setup-query-auto-completion!
-
-                    @update-presentation-size!
+                    @document-did-load!
 
                 ..fail ({response-text}?) ~> 
                     alert "unable to load query: #{response-text}"
@@ -715,6 +724,12 @@ module.exports = React.create-class do
 
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
         load-document query-id, \/apis/defaultDocument
+
+    # document-did-load :: a -> Void
+    document-did-load: !->
+        @setup-query-auto-completion!
+        @update-presentation-size!
+        @execute!
 
     # React component life cycle method
     # component-did-mount :: a -> Void
@@ -777,8 +792,6 @@ module.exports = React.create-class do
                 ..remove-all-ranges!
                 ..add-range range
             cancel-event e
-
-
 
     # true indicates the reload must be prevented
     # should-prevent-reload :: a -> Boolean

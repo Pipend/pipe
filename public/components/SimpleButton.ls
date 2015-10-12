@@ -6,6 +6,7 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        # id :: String
         color: \green
         on-click: !->
         pressed: false
@@ -14,6 +15,7 @@ module.exports = React.create-class do
     # render :: a -> UIState
     render: ->
         button do
+            id: @props.id
             class-name: "simple-button #{@props.color} #{if @props.pressed then \pressed else ''}"
             on-click: @props.on-click
             style: @props.style

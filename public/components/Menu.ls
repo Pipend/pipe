@@ -11,7 +11,9 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render: ->
-        div class-name: \menu,
+        div do 
+            id: \menu
+            class-name: \menu
             @props.children
             div class-name: \buttons,
                 @props.items |> map ({pressed, enabled, action, hotkey, icon, label, highlight, type}:item) ~>

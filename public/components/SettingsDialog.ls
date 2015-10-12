@@ -154,12 +154,14 @@ module.exports = React.create-class do
                              
                             # DELETE URL
                             SimpleButton do
+                                id: "remove-library"
                                 color: \red
                                 on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
                                 \Remove
                     
                     # ADD URL BUTTON                    
                     SimpleButton do 
+                        id: "add-library"
                         color: \green
                         on-click: ~> 
                             <~ @set-state urls: @state.urls ++ [""]
@@ -169,12 +171,14 @@ module.exports = React.create-class do
             # OK / CANCEL
             div class-name: \footer,
                 SimpleButton do
+                    id: "save-settings"
                     color: \grey
                     on-click: ~> @props.on-change do
                         urls: @state.urls
                         transpilation-language: @state.transpilation-language
                     \Done
                 SimpleButton do
+                    id: "cancel-settings"
                     color: \grey
                     on-click: ~> @props.on-cancel!
                     \Cancel

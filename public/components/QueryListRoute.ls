@@ -16,7 +16,9 @@ module.exports = React.create-class do
         div class-name: \query-list-route,
 
             # LEFT SIDE MENU
-            div class-name: \menu,
+            div do 
+                id: \menu
+                class-name: \menu
 
                 # NEW QUERY BUTTON
                 Link do 
@@ -32,6 +34,7 @@ module.exports = React.create-class do
 
                     # TAG SEARCH INPUT
                     input do
+                        id: \tag-search
                         placeholder: \Search
                         type: \text
                         value: @state.tag-search
@@ -55,7 +58,9 @@ module.exports = React.create-class do
                                             | _ => [tag] ++ selected-tags
                                 tag
                 
-                div class-name: \buttons, 
+                div do 
+                    id: \buttons
+                    class-name: \buttons
                     
                     # IMPORT BUTTON
                     Link do 
@@ -97,6 +102,7 @@ module.exports = React.create-class do
 
                 # LIST OF QUERIES
                 div do
+                    id: \queries
                     class-name: \queries
                     on-scroll: ({current-target}) ~> 
                         if !@state.shadow and current-target.scroll-top > 0
