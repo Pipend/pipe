@@ -6,8 +6,8 @@ $ = require \jquery-browserify
 require! \notifyjs
 
 # prelude
-{all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, 
-last, map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj} = require \prelude-ls
+{all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, last, map, 
+sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj} = require \prelude-ls
 
 presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
@@ -497,7 +497,7 @@ module.exports = React.create-class do
         if !!@state.executing-op
             return
 
-        {query-id, branch-id, query-title, data-source-cue, query, transformation, presentation, parameters, cache, transpilation} = @document-from-state!
+        {query-id, branch-id, query-title, data-source-cue, query, transformation, presentation, parameters, transpilation} = @document-from-state!
         
         # process-query-result :: Result -> p (a -> Void)
         process-query-result = (result) ~> 
@@ -572,7 +572,7 @@ module.exports = React.create-class do
             ($ find-DOM-node @refs.presentation).empty!
 
             # make the ajax request and process the query result
-            {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation}, op-id, cache) .then
+            {result}:result-with-metadata <~ (execute-document {query-id, branch-id, query-title, data-source-cue, query, parameters, transpilation}, op-id, @state.cache) .then
 
             # transform and visualize the result
             dispose <~ process-query-result result .then

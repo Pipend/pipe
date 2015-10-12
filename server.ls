@@ -590,6 +590,8 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
 server = app.listen http-port
 
+console.log "listening for connections on port: #{http-port}"
+
 # emit all the running ops to the client
 io = (require \socket.io) server
     ..on \connect, (connection) ->
@@ -623,6 +625,6 @@ if !!redis-channels
 
                 redis-client.on \message, (channel, message) -> redis-web-socket.emit hash[channel], message
 
-            ..once \error, (err) -> console.log err
+            ..once \error, (err) -> console.log "redis connection error: #{err}"
 
-console.log "listening for connections on port: #{http-port}"
+
