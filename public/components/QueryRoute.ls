@@ -191,7 +191,7 @@ module.exports = React.create-class do
               show: !executing-op
               action: ~> 
                 @props.record do 
-                    evnet-type: \execute-query
+                    event-type: \execute-query
                     event-args: 
                         document: @document-from-state!
                 @execute!
