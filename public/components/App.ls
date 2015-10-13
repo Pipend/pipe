@@ -29,7 +29,7 @@ App = React.create-class do
 
             # pass spy.record method as props to child component
             clone-element @props.children, {} <<< config <<< 
-                record: @record ? (->)
+                record: @?record ? (->)
 
             div {class-name: \building}, \Building... if @state.building
 
@@ -86,12 +86,12 @@ App = React.create-class do
                         y: pageY
             document.add-event-listener \click, @click-listener
 
-        # record route change events
-        @history.listen (, {routes}) ~>
-            record do 
-                event-type: \route-ready
-                event-args: 
-                    route: (last routes)?.name ? \index
+            # record route change events
+            @history.listen (, {routes}) ~>
+                record do 
+                    event-type: \route-ready
+                    event-args: 
+                        route: (last routes)?.name ? \index
 
     # component-will-unmount :: a -> Void
     component-will-unmount: !-> document.remove-event-listener \click, @click-listener if !!@click-listener

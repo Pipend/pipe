@@ -121,6 +121,9 @@ module.exports =
             ...
         ...
 
+    # auto execute queries on load
+    auto-execute: false
+
 ```
 
 For the screenshot feature make sure you have PhantomJS ≥ 2.0.1 in your PATH.

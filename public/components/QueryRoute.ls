@@ -122,6 +122,7 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        auto-execute: false
         prevent-reload: true
 
     # React class method
@@ -729,7 +730,8 @@ module.exports = React.create-class do
     document-did-load: !->
         @setup-query-auto-completion!
         @update-presentation-size!
-        @execute!
+        if !!@props.auto-execute
+            @execute!
 
     # React component life cycle method
     # component-did-mount :: a -> Void
