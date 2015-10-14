@@ -730,7 +730,20 @@ module.exports = React.create-class do
     document-did-load: !->
         @setup-query-auto-completion!
         @update-presentation-size!
-        if !!@props.auto-execute
+
+        {cache, execute}? = @props.location.query
+
+        # update state.cache to the value (if any) present in the query string
+        <~ do ~> (callback) ~> 
+            if !!cache
+                @set-state do 
+                    cache: cache == \true
+                    callback
+            else 
+                callback!
+
+        # execute the query (if either config.auto-execute or query-string.execute is true)
+        if !!@props.auto-execute or execute == \true
             @execute!
 
     # React component life cycle method
