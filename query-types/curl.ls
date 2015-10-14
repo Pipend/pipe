@@ -35,11 +35,7 @@ export execute = (query-database, data-source, query, transpilation, parameters)
     execute-curl = new-promise (res, rej) ->
         curl-process := exec "curl -s #url #{options}", silent: true, (code, output) ->
             return rej Error "Error in curl #code #output", null if code != 0
-            try
-                json = JSON.parse output
-            catch error 
-                return rej error
-            res json
+            res output
 
     with-cancel-and-dispose do 
         execute-curl

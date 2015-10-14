@@ -16,6 +16,7 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
             key: key d
             values: all-values |> map ((v) -> [v, (values d) |> find (-> (x it) == v) |> (-> if !!it then (y it) else (fill-intervals))])
 
+        debugger
         chart = nv.models.stacked-area-chart!
             .x (.0)
             .y (.1)
