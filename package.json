@@ -89,6 +89,7 @@
   },
   "browserify-shim": {
     "d3": "global:d3",
-    "nvd3": "global:nvd3"
+    "nvd3": "global:nvd3",
+    "rx": "global:Rx"
   }
 }
