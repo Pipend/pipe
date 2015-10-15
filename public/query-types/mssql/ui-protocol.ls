@@ -3,7 +3,6 @@ PartialDataSourceCue = require \./PartialDataSourceCue.ls
 {make-auto-completer} = require \../auto-complete-utils.ls
 
 {concat-map, map, filter, Obj, obj-to-pairs, pairs-to-obj, unique} = require \prelude-ls
-sqlite-parser = require \sqlite-parser
 
 
 client-side-editor-settings = (transpilation-language) ->
@@ -51,19 +50,8 @@ module.exports = {
                     .replace  /\s+top\s+\d+\s+/gi, ' '
                     .replace /\s+with\s?\(\s?nolock\s?\)\s+/gi, ' '
 
-                err, ast <~ sqlite-parser query
+                resolve tables-from-query query
 
-                if !!err
-                    reject err
-                else if !ast
-                    reject Error "Unable to build AST without any error!"
-                else
-                    ast = ast.statement
-                    # [{name, alias}]
-                    ast-tables = ast |> concat-map tables-from-ast 
-
-                    resolve ast-tables
-            
             # get-completions
             (text, {schema:{all-tables, tables, tables-hash, schemas}, keywords, ast:ast-tables}) ->
                 
@@ -92,18 +80,40 @@ module.exports = {
 
 }
 
-# AST -> [{name, alias}]
-tables-from-ast = (ast) ->
-    {type, variant} = ast
-    
-    switch
-    |  type == 'identifier' and variant == 'table' =>
-        [{name: ast.name, alias: ast.alias}]
-    |  type == 'map' and variant == 'join'  =>
-        (tables-from-ast ast.source) ++ if !ast.map then [] else ast.map |> concat-map tables-from-ast
-    | type == 'statement' and variant == 'select' =>
-        (if !ast.from.length then [ast.from] else ast.from) |> concat-map tables-from-ast
-    | type == 'join' =>
-        [{name: ast.source.name, alias: ast.source.alias}] ++ if !ast.source?.from then [] else tables-from-ast ast.source.from
-    | _ => throw "not supported type: #{type}, variant: #{variant} #{JSON.stringify ast, null, 4}"
-
+# String -> [{name, alias}]
+tables-from-query = (query) ->
+    query
+    .replace /--.*$/gmi, ''
+    .replace /(WITH\s?)?\(NOLOCK\)/gmi, ''
+    .split /[ , \r\n \n]+/
+    .reduce do
+        ({expect, tables}:acc, token) ->
+            ltoken = token.to-lower-case!
+            switch
+            | 'Any' == expect =>
+                if ltoken in <[from join]>
+                    {expect: 'Table', tables}
+                else
+                    {expect: 'Any', tables}
+            | 'Table' == expect =>
+                {expect: {what: 'As', table: token}, tables}
+            | expect.what == 'As' => 
+                switch
+                | ltoken == 'as' =>
+                    {expect: {what: 'Alias', table: expect.table}, tables}
+                | ltoken in <[inner join outer on]> =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
+                | _ =>
+                    {expect: {what: 'AliasWithoutTableName', table: expect.table, alias: token}, tables}
+            | expect.what == 'Alias' =>
+                {expect: 'Any', tables: tables ++ [{table: expect.table, alias: token}]}
+            | expect.what == 'AliasWithoutTableName' =>
+                switch
+                | ltoken in <[inner join outer on]> =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: expect.alias}]}
+                | _ =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
+            | _ => throw "Unexpected expect #{JSON.stringify expect}"
+            
+        {expect: 'Any', tables: []}
+    .tables |> map ({table, alias}) -> {name: table, alias}    

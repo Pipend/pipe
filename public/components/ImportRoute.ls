@@ -130,7 +130,7 @@ module.exports = React.create-class {
                                     save-to-client-storage @state
                         button {
                             type: \submit
-                            class-name: "simple-button"
+                            class-name: "simple-button #{if "file-parsed" != @state.status then '' else 'green'}"
                             disabled: "file-parsed" != @state.status
                             on-click: (e) ~>
                                 form-data = new FormData!
@@ -281,7 +281,12 @@ module.exports = React.create-class {
     get-initial-state: -> 
         load-from-client-storage {
             message: null
-            console: null
+            console: """
+                1. Select a file
+                2. Parse the file (currently there are pre-made parsers for .json and .csv files)
+                3. Select import destination (either an existing source or add a new one)
+                4. Upload
+            """.split '\n' .reduce ((a, b) -> "#{a}\n #{b}"), " "
             server-message: null
             parsed: []
             data-source-cue: null
