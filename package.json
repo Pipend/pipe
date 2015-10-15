@@ -48,7 +48,7 @@
     "react-auto-complete": "^0.0.4",
     "react-dom": "^0.14.0",
     "react-router": "1.0.0-rc1",
-    "react-selectize": "^0.3.0",
+    "react-selectize": "^0.3.4",
     "redis": "^0.12.1",
     "request": "^2.54.0",
     "rx": "^4.0.0",
