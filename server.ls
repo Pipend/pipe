@@ -398,7 +398,7 @@ partition-data-source-cue-params = (query) ->
             | \transformation => 
                 transformed-result <- bindP (transform result, transformation, parameters)
                 returnP (res) -> res.end json transformed-result
-            | _ => returnP (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation}
+            | _ => returnP (res) !-> res.render \public/presentation/presentation.html, {query-result: result, parameters, transformation, presentation, document.clientExternalLibs}
 
         if !!err then die res, err else render res
 

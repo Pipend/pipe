@@ -4,7 +4,12 @@
         <link rel="stylesheet" type="text/css" href="/public/presentation/presentation.css"/>
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
         <script type="text/javascript" src="/node_modules/nvd3/build/nv.d3.js"></script>
+        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/rxjs/4.0.6/rx.all.min.js"></script>
+        <script type="text/javascript" src="//rawgit.com/Reactive-Extensions/RxJS-DOM/master/dist/rx.dom.min.js"></script>
         <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
+        <% (clientExternalLibs || []).forEach(function(lib) { %>
+        <script type="text/javascript" src="<%- lib %>"></script>
+        <% }) %>
         <style>
             body {
                 background-color: #1A1B13;

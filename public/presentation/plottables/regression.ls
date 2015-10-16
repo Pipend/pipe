@@ -69,7 +69,7 @@ module.exports = ({Plottable, d3}) -> new Plottable do
                 d3.svg.axis!
                     .scale y-scale
                     .orient \left
-                    .tick-format y-axis.tick-format
+                    .tick-format y-axis.format
 
         svg
             .append \g .attr \class, 'x axis'
@@ -78,7 +78,7 @@ module.exports = ({Plottable, d3}) -> new Plottable do
                 d3.svg.axis!
                     .scale x-scale
                     .orient \bottom
-                    .tick-format x-axis.tick-format
+                    .tick-format x-axis.format
 
 
         circle = svg.select-all \circle
