@@ -4,8 +4,8 @@ require! \body-parser
 Busboy = require \busboy
 
 # config
-{http-port, mongo-connection-opitons, query-database-connection-string, redis-channels, 
-redis-socket-io-port, snapshot-server}:config = require \./config
+{file-streams, http-port, mongo-connection-opitons, query-database-connection-string, 
+redis-channels, socket-io-port, snapshot-server}:config = require \./config
 
 require! \express
 {create-read-stream, readdir} = require \fs
@@ -602,29 +602,3 @@ ops-manager.on \change, -> io.emit \ops, ops-manager.running-ops!
 set-interval do 
     -> io.emit \ops, ops-manager.running-ops!
     1000
-
-# convert redis channels to websocket events
-if !!redis-channels
-    
-    redis-web-socket = (require \socket.io) redis-socket-io-port
-
-    redis-channels |> each ({connection-string, channels}?) ->
-        
-        # parse the redis connection string redis://host:port
-        [, host, port]? = /redis:\/\/(.*?):(.*?)\/(\d+)?/g.exec connection-string
-        
-        redis-client = redis.create-client port, host, {}
-            ..once \connect, ->
-                
-                channels |> map ({name}) ->
-                    redis-client.subscribe name
-
-                hash = channels 
-                    |> map ({name, event}?) -> [name, event ? name]
-                    |> pairs-to-obj
-
-                redis-client.on \message, (channel, message) -> redis-web-socket.emit hash[channel], message
-
-            ..once \error, (err) -> console.log "redis connection error: #{err}"
-
-

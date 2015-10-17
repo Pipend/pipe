@@ -110,17 +110,6 @@ module.exports =
                     collection: \events
             ...
 
-    # redis channels are exposed via websockets on this port
-    redis-socket-io-port: 4083
-
-    # redis channels
-    redis-channels:
-        * connection-string: \redis://localhost:6379/
-          channels:
-            * name: \pipe-events              
-            ...
-        ...
-
     # auto execute queries on load
     auto-execute: false
 
