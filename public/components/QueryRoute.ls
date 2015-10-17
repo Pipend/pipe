@@ -553,7 +553,7 @@ module.exports = React.create-class do
                         presentation-function view, transformed-result
                     catch ex
                         return rej "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
-                    res (->)
+                    res undefined
         
         # dispose the result of any previous execution
         <~ do ~> (callback) ~>
