@@ -53,15 +53,14 @@ keywords-from-object = (object) ->
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
 convert-to-ace-keywords = (keyscores, meta, prefix) ->
-    keyscores
-        |> concat-map ({keywords, score}) -> 
-            keywords 
-            |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
-            |> map (text) ->
-                name: text
-                value: text
-                meta: meta
-                score: score
+    keyscores |> concat-map ({keywords, score}) -> 
+        keywords 
+        |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
+        |> map (text) ->
+            name: text
+            value: text
+            meta: meta
+            score: score
             
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
@@ -129,10 +128,10 @@ module.exports = React.create-class do
     # render :: a -> VirtualDOM
     render: ->
         {
-            query-id, branch-id, tree-id, data-source-cue, query, query-title, 
-            transformation, presentation, parameters, existing-tags, tags, editor-width, 
-            popup-left, popup, queries-in-between, dialog, remote-document, cache,  
-            from-cache, executing-op, displayed-on, execution-error, execution-end-time, 
+            query-id, branch-id, tree-id, transpilation-language, data-source-cue, query, 
+            query-title, transformation, presentation, parameters, existing-tags, tags, 
+            editor-width, popup-left, popup, queries-in-between, dialog, remote-document, 
+            cache, from-cache, executing-op, displayed-on, execution-error, execution-end-time, 
             execution-duration
         } = @state
 
@@ -256,6 +255,17 @@ module.exports = React.create-class do
             * label: 'Task Manager'
               action: ~> window.open "/ops", \_blank
 
+        editors = 
+            * editor-id: \query
+              title: @state.query-title
+
+            * editor-id: \transformation
+              title: \Transformation
+
+            * editor-id: \presentation
+              title: \Presentation
+            ...
+
         div {class-name: \query-route},
 
             # MENU
@@ -372,72 +382,75 @@ module.exports = React.create-class do
                 # EDITORS
                 div do 
                     class-name: \editors
-                    style: width: editor-width
-                    [
-                        {
-                            editor-id: \query
-                            editable-title: true
-                            resizable: true
-                        }
-                        {
-                            editor-id: \transformation
-                            title: \Transformation
-                            editable-title: false
-                            resizable: true
-                        }
-                        {
-                            editor-id: \presentation
-                            title: \Presentation
-                            editable-title: false
-                            resizable: true
-                        }
-                    ] |> map ({editable-title, editor-id, resizable, title}:editor) ~>
+                    style: 
+                        width: editor-width
+                    [0 til editors.length] |> map (index) ~>
 
-                        div {class-name: \editor, key: editor-id},
+                        {editable-title, editor-id, title} = editors[index]
+
+                        # get-editor-settings :: String -> AceEditorSettings
+                        get-editor-settings = (editor-id) ~>
+                            (ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"] ? (->)) transpilation-language
+
+                        # settings for the current editor
+                        {show-editor, show-title}:editor-settings? = get-editor-settings editor-id
+
+                        div do 
+                            class-name: \editor
+                            key: editor-id
 
                             # EDITABLE TITLE
-                            div do 
-                                id: editor-id
-                                class-name: \editor-title
-                                on-mouse-down: (e) ~>
-                                    initialY = e.pageY
-                                    initial-heights = ["transformation", "presentation", "query"]
-                                        |> map (p) ~> [p, @state[camelize "#{p}-editor-height"]]
-                                        |> pairs-to-obj
-                                    $ window .on \mousemove, ({pageY}) ~> 
-                                        diff = pageY - initialY
-                                        match editor-id 
-                                            | "transformation" =>
-                                                transformation-editor-height = initial-heights.transformation - diff
-                                                query-editor-height = initial-heights.query + diff
-                                                if transformation-editor-height > 0 and query-editor-height > 0
-                                                    @set-state {transformation-editor-height, query-editor-height}
-                                            | "presentation" =>
-                                                transformation-editor-height = initial-heights.transformation + diff
-                                                presentation-editor-height = initial-heights.presentation - diff
-                                                if transformation-editor-height > 0 and presentation-editor-height > 0
-                                                    @set-state {transformation-editor-height, presentation-editor-height}
-                                    $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
-                                if editable-title 
-                                    input do
-                                        type: \text
-                                        value: title or @state["#{editor-id}Title"]
-                                        on-change: ({current-target:{value}}) ~> 
-                                            <~ @set-state {"#{editor-id}Title" : value}
-                                            @save-to-client-storage-debounced!
-                                else
-                                    title
+                            if !!show-title
+                                div do 
+                                    {
+                                        id: editor-id
+                                        class-name: \editor-title
+                                    } <<< (
+                                        if !!(get-editor-settings editors?[index - 1]?.editor-id ?.show-editor)
+                                            on-mouse-down: (e) ~>
+                                                initialY = e.pageY
+                                                initial-heights = <[transformation presentation query]>
+                                                    |> map (p) ~> [p, @state[camelize "#{p}-editor-height"]]
+                                                    |> pairs-to-obj
+                                                $ window .on \mousemove, ({pageY}) ~> 
+                                                    diff = pageY - initialY
+                                                    match editor-id 
+                                                    | \transformation =>
+                                                        transformation-editor-height = initial-heights.transformation - diff
+                                                        query-editor-height = initial-heights.query + diff
+                                                        if transformation-editor-height > 0 and query-editor-height > 0
+                                                            @set-state {transformation-editor-height, query-editor-height}
+                                                    | \presentation =>
+                                                        transformation-editor-height = initial-heights.transformation + diff
+                                                        presentation-editor-height = initial-heights.presentation - diff
+                                                        if transformation-editor-height > 0 and presentation-editor-height > 0
+                                                            @set-state {transformation-editor-height, presentation-editor-height}
+                                                $ window .on \mouseup, -> $ window .off \mousemove .off \mouseup
+                                        else 
+                                            {}
+                                    )
+                                    
+                                    if editor-id == \query
+                                        input do
+                                            type: \text
+                                            value: title
+                                            on-change: ({current-target:{value}}) ~>
+                                                <~ @set-state "#{editor-id}Title" : value
+                                                @save-to-client-storage-debounced!
+                                    else
+                                        title
 
                             # ACE EDITOR
-                            AceEditor {
-                                editor-id: "#{editor-id}-editor"
-                                value: @state[editor-id]
-                                width: @state.editor-width
-                                height: @state["#{editor-id}EditorHeight"]
-                                on-change: (value) ~>
-                                    <~ @set-state {"#{editor-id}" : value}
-                                    @save-to-client-storage-debounced!
-                            } <<< ui-protocol[data-source-cue.query-type]?[camelize "#{editor-id}-editor-settings"] @state.transpilation-language
+                            if !!show-editor
+                                AceEditor {
+                                    editor-id: "#{editor-id}-editor"
+                                    value: @state[editor-id]
+                                    width: @state.editor-width
+                                    height: @state[camelize "#{editor-id}-editor-height"]
+                                    on-change: (value) ~>
+                                        <~ @set-state "#{editor-id}" : value
+                                        @save-to-client-storage-debounced!
+                                } <<< editor-settings
                             
 
                 # RESIZE HANDLE
@@ -514,7 +527,7 @@ module.exports = React.create-class do
                 # select the compile method based on the language selected in the settings dialog
                 compile = switch @state.transpilation-language
                     | 'livescript' => compile-and-execute-livescript 
-                    | 'javascript' => compile-and-execute-javascript                
+                    | 'javascript' => compile-and-execute-javascript
 
                 # create-context :: a -> Context
                 create-context = -> {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
@@ -533,7 +546,7 @@ module.exports = React.create-class do
                 try
                     transformed-result = transformation-function result
                 catch ex
-                    return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"                
+                    return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
                 # compile the presentation code
                 [err, presentation-function] = compile "(#presentation\n)", ({d3, $} <<< create-context! <<< presentation-context!)
@@ -724,27 +737,7 @@ module.exports = React.create-class do
         throw "this case must be handled by express router" if !(branch-id in <[local localFork]>)
 
         # try to fetch the document from local-storage on failure we make an api call to get the default-document
-        load-document query-id, \/apis/defaultDocument
-
-    # document-did-load :: a -> Void
-    document-did-load: !->
-        @setup-query-auto-completion!
-        @update-presentation-size!
-
-        {cache, execute}? = @props.location.query
-
-        # update state.cache to the value (if any) present in the query string
-        <~ do ~> (callback) ~> 
-            if !!cache
-                @set-state do 
-                    cache: cache == \true
-                    callback
-            else 
-                callback!
-
-        # execute the query (if either config.auto-execute or query-string.execute is true)
-        if !!@props.auto-execute or execute == \true
-            @execute!
+        load-document query-id, \/apis/defaultDocument    
 
     # React component life cycle method
     # component-did-mount :: a -> Void
@@ -829,13 +822,48 @@ module.exports = React.create-class do
 
         @load props
 
+    # setup-query-auto-completion :: a -> Void
     setup-query-auto-completion: !->
         ace-language-tools.set-completers @default-completers
         {data-source-cue, query} = @state
         @existing-completer = ui-protocol[data-source-cue.query-type].make-auto-completer data-source-cue .then (result) ~>
-            console.log \ui-protocol, result
             ace-language-tools.set-completers [result] ++ @default-completers
             result
+
+    # redistribute-editor-heights :: a -> Void
+    redistribute-editor-heights: !-> 
+        @set-state editor-heights.apply do 
+            @
+            <[query transformation presentation]> |> map ~>
+                {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
+
+    # document-did-load :: a -> Void
+    document-did-load: !->
+
+        # create the auto-completer for ACE for the current data-source-cue
+        @setup-query-auto-completion!
+
+        # now that we know the editor width, we should update the presentation size
+        @update-presentation-size!
+
+        # redistribute the heights among the editors based on there visibility
+        @redistribute-editor-heights!
+
+        {cache, execute}? = @props.location.query
+
+        # update state.cache to the value (if any) present in the query string
+        <~ do ~> (callback) ~> 
+            if !!cache
+                @set-state do 
+                    cache: cache == \true
+                    callback
+            else 
+                callback!
+
+        # execute the query (if either config.auto-execute or query-string.execute is true)
+        if !!@props.auto-execute or execute == \true
+            @execute!
 
     # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
@@ -846,16 +874,22 @@ module.exports = React.create-class do
         do ~>
             {data-source-cue, query} = @state
 
-            if !!@existing-completer
-                @existing-completer.then ({on-query-changed}:me) ->
-                    on-query-changed query
+            return if !@existing-completer
 
-                # return if the data-source-cue is not complete or there is no change in the data-source-cue
-                return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
+            @existing-completer.then ({on-query-changed}:me) ->
+                on-query-changed query
 
-                @setup-query-auto-completion! # :) void -> void
-            else
-                console.info "there's no @existing-completer"
+            # return if the data-source-cue is not complete or there is no change in the data-source-cue
+            return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
+
+            @setup-query-auto-completion!
+
+            # redistribute the heights among the editors based on there visibility
+            @set-state editor-heights.apply do 
+                @
+                <[query transformation presentation]> |> map ~>
+                    {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                    if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
 
         # client-external-libs
         do ~>

@@ -75,3 +75,16 @@ export make-auto-completer = (data-source-cue, on-api-keywords-feteched, on-quer
 
                 callback null, (convert-to-ace-keywords auto-complete, 'server', prefix)    
     }
+
+# make-auto-completer-default :: DataSourceCue -> Promise completions
+export make-auto-completer-default = (data-source-cue) ->
+    make-auto-completer do
+        data-source-cue
+        ({keywords}:data) -> 
+            Promise.resolve null
+            # do nothing
+        (query, {keywords, schema}) -> 
+            Promise.resolve null
+            # do nothing!
+        (text, {schema, keywords, ast}) ->
+            Promise.resolve []

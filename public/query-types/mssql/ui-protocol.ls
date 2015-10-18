@@ -1,28 +1,68 @@
 CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[server user password database]>
 PartialDataSourceCue = require \./PartialDataSourceCue.ls
 {make-auto-completer} = require \../auto-complete-utils.ls
-
 {concat-map, map, filter, Obj, obj-to-pairs, pairs-to-obj, unique} = require \prelude-ls
+editor-settings = require \../default-editor-settings.ls
 
+# tables-from-query :: String -> [{name, alias}]
+tables-from-query = (query) ->
+    query
+    .replace /--.*$/gmi, ''
+    .replace /(WITH\s?)?\(NOLOCK\)/gmi, ''
+    .split /[ , \r\n \n]+/
+    .reduce do
+        ({expect, tables}:acc, token) ->
+            ltoken = token.to-lower-case!
+            switch
+            | 'Any' == expect =>
+                if ltoken in <[from join]>
+                    {expect: 'Table', tables}
+                else
+                    {expect: 'Any', tables}
+            | 'Table' == expect =>
+                {expect: {what: 'As', table: token}, tables}
+            | expect.what == 'As' => 
+                switch
+                | ltoken == 'as' =>
+                    {expect: {what: 'Alias', table: expect.table}, tables}
+                | ltoken in <[inner join outer on]> =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
+                | _ =>
+                    {expect: {what: 'AliasWithoutTableName', table: expect.table, alias: token}, tables}
+            | expect.what == 'Alias' =>
+                {expect: 'Any', tables: tables ++ [{table: expect.table, alias: token}]}
+            | expect.what == 'AliasWithoutTableName' =>
+                switch
+                | ltoken in <[inner join outer on]> =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: expect.alias}]}
+                | _ =>
+                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
+            | _ => throw "Unexpected expect #{JSON.stringify expect}"
+            
+        {expect: 'Any', tables: []}
+    .tables |> map ({table, alias}) -> {name: table, alias}    
 
-client-side-editor-settings = (transpilation-language) ->
-    mode: "ace/mode/#{transpilation-language}"
-    theme: \ace/theme/monokai
+module.exports =
 
-server-side-editor-settings =
-    mode: \ace/mode/sql
-    theme: \ace/theme/monokai
-
-module.exports = {
+    # data-source-cue-popup-settings :: a -> DataSourceCuePopupSettings
     data-source-cue-popup-settings: ->
         supports-connection-string: true
         partial-data-source-cue-component: PartialDataSourceCue
         complete-data-source-cue-component: CompleteDataSourceCue
-    query-editor-settings: (_) -> server-side-editor-settings
-    transformation-editor-settings: (transpilation-language) -> 
-        client-side-editor-settings transpilation-language
-    presentation-editor-settings: (transpilation-language) -> 
-        client-side-editor-settings transpilation-language
+
+    # query-editor-settings :: String -> AceEditorSettings
+    query-editor-settings: (_) -> 
+        {} <<< editor-settings! <<< 
+            mode: \ace/mode/sql
+            theme: \ace/theme/monokai
+
+    # transformation-editor-settings :: String -> AceEditorSettings
+    transformation-editor-settings: editor-settings
+
+    # presentation-editor-settings :: String -> AceEditorSettings
+    presentation-editor-settings: editor-settings
+
+    # make-auto-completer :: (Promise p) => DataSourceCue -> p completions
     make-auto-completer: (data-source-cue) ->
         
         make-auto-completer do
@@ -76,44 +116,5 @@ module.exports = {
                             [[(ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name])), score: s}
                         else
                             [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 100]
+                
                 Promise.resolve auto-complete
-
-}
-
-# String -> [{name, alias}]
-tables-from-query = (query) ->
-    query
-    .replace /--.*$/gmi, ''
-    .replace /(WITH\s?)?\(NOLOCK\)/gmi, ''
-    .split /[ , \r\n \n]+/
-    .reduce do
-        ({expect, tables}:acc, token) ->
-            ltoken = token.to-lower-case!
-            switch
-            | 'Any' == expect =>
-                if ltoken in <[from join]>
-                    {expect: 'Table', tables}
-                else
-                    {expect: 'Any', tables}
-            | 'Table' == expect =>
-                {expect: {what: 'As', table: token}, tables}
-            | expect.what == 'As' => 
-                switch
-                | ltoken == 'as' =>
-                    {expect: {what: 'Alias', table: expect.table}, tables}
-                | ltoken in <[inner join outer on]> =>
-                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
-                | _ =>
-                    {expect: {what: 'AliasWithoutTableName', table: expect.table, alias: token}, tables}
-            | expect.what == 'Alias' =>
-                {expect: 'Any', tables: tables ++ [{table: expect.table, alias: token}]}
-            | expect.what == 'AliasWithoutTableName' =>
-                switch
-                | ltoken in <[inner join outer on]> =>
-                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: expect.alias}]}
-                | _ =>
-                    {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
-            | _ => throw "Unexpected expect #{JSON.stringify expect}"
-            
-        {expect: 'Any', tables: []}
-    .tables |> map ({table, alias}) -> {name: table, alias}    

@@ -1,28 +1,19 @@
-{make-auto-completer} = require \../auto-complete-utils.ls
+{make-auto-completer-default} = require \../auto-complete-utils.ls
+editor-settings = require \../default-editor-settings.ls
 
-editor-settings = (transpilation-language) ->
-    mode: "ace/mode/#{transpilation-language}"
-    theme: \ace/theme/monokai
+module.exports =
 
-module.exports = {
-    data-source-cue-popup-settings: ->
-        supports-connection-string: false
-    query-editor-settings: (transpilation-language) -> 
-        editor-settings transpilation-language
-    transformation-editor-settings: (transpilation-language) -> 
-        editor-settings transpilation-language
-    presentation-editor-settings: (transpilation-language) -> 
-        editor-settings transpilation-language
-    make-auto-completer: (data-source-cue) ->
-        make-auto-completer do
-            data-source-cue
-            ({keywords}:data) -> 
-                Promise.resolve null
-                # do nothing
-            (query, {keywords, schema}) -> 
-                Promise.resolve null
-                # do nothing!
-            (text, {schema, keywords, ast}) ->
-                Promise.resolve []
+    # data-source-cue-popup-settings :: a -> DataSourceCuePopupSettings
+    data-source-cue-popup-settings: -> supports-connection-string: false
 
-}
+    # query-editor-settings :: String -> AceEditorSettings
+    query-editor-settings: editor-settings
+
+    # transformation-editor-settings :: String -> AceEditorSettings
+    transformation-editor-settings: editor-settings
+
+    # presentation-editor-settings :: String -> AceEditorSettings
+    presentation-editor-settings: editor-settings
+
+    # make-auto-completer :: (Promise p) => DataSourceCue -> p completions
+    make-auto-completer: make-auto-completer-default

@@ -106,7 +106,7 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
                 tooltip-x = if tooltip-x < 0 then 0 else tooltip-x
                 handle-x = x - tooltip-x - 16
                 handle-above = tooltip .select \.handle:first-child
-                handle-below = tooltip .select \.handle:last-child                
+                handle-below = tooltip .select \.handle:last-child
                 if y + tooltip-height > height
                     handle-above .attr \style, "display: none"
                     handle-below .attr \style, "left: #{handle-x}px;"
@@ -117,7 +117,7 @@ draw-commit-tree = (element, width, height, queries, tooltip-keys, tooltip-actio
                     tooltip .attr \style, -> "left: #{tooltip-x}px; top: #{y + circle-radius}px;"                
 
                 # hide the tooltip when the mouse moves out                 
-                $ window .off \mouseover .on \mouseover, (e) ->                    
+                $ window .off \mouseover .on \mouseover, (e) ->
                     return if ($ e.original-event.target .parents \.tooltip .length == 1) || e.original-event.target == circle                    
                     $ window .off \mouseover
                     svg.select \circle.highlight .attr \fill, \white

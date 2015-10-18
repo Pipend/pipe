@@ -5,6 +5,7 @@ $ = require \jquery-browserify
 require! \react-router
 {compile-and-execute-livescript} = require \../utils.ls
 Link = create-factory react-router.Link
+
 module.exports = React.create-class do
 
     display-name: \QueryListRoute
