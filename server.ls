@@ -98,6 +98,13 @@ app = express!
     ..use "/public" express.static "#__dirname/public/"
     ..use "/node_modules" express.static "#__dirname/node_modules/"
 
+    # solves 404 errors
+    ..get \/public/snapshots/*, (req, res) -> 
+        res.status \content-type, \image/png
+        res.end!
+
+
+
 # Res -> Error -> Void
 die = (res, err) !->
     console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
