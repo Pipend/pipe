@@ -114,4 +114,4 @@ render do
             Route name: \ops, path: "/ops", component: OpsRoute
             Route name: \tree, path: "/branches/:branchId/queries/:queryId/tree", component: TreeRoute
             Route name: \import, path: "/import" component: ImportRoute
-    document.body
+    document.get-element-by-id \mount-node
