@@ -1,18 +1,22 @@
 require! \./AceEditor.ls
 $ = require \jquery-browserify
-{any, concat-map, filter, map, partition, unique, sort, take} = require \prelude-ls
+{any, camelize, concat-map, filter, map, obj-to-pairs, pairs-to-obj, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
-require! \react-router
+{History}:react-router = require \react-router
 {compile-and-execute-livescript} = require \../utils.ls
 Link = create-factory react-router.Link
+require! \querystring
 
 module.exports = React.create-class do
 
     display-name: \QueryListRoute
 
+    mixins: [History]
+
     # render :: a -> ReactElement
     render: ->
-        {branches, tags, selected-tags, tag-search, query-title-search} = @state
+        {branches, tags} = @state
+        {selected-tags, tag-search, query-title-search}:props = @deserialize-query-string @props.location.query
         
         div class-name: \query-list-route,
 
@@ -38,8 +42,8 @@ module.exports = React.create-class do
                         id: \tag-search
                         placeholder: \Search
                         type: \text
-                        value: @state.tag-search
-                        on-change:({current-target: {value}}) ~> @set-state {tag-search: value}
+                        value: tag-search
+                        on-change:({current-target: {value}}) ~> @update-props {} <<< props <<< tag-search: value
 
                 # LIST OF TAGS
                 div do 
@@ -53,10 +57,10 @@ module.exports = React.create-class do
                                 class-name: "tag #{if selected then 'selected' else ''}"
                                 key: tag
                                 on-click: ~> 
-                                    @set-state do 
-                                        selected-tags: 
+                                    @update-props {} <<< props <<<
+                                        selected-tags: switch
                                             | selected => selected-tags |> partition (== tag) |> (.1)
-                                            | _ => [tag] ++ selected-tags
+                                            | _ => selected-tags ++ tag
                                 tag
                 
                 div do 
@@ -97,7 +101,7 @@ module.exports = React.create-class do
                             placeholder: 'Search'
                             type: \text
                             value: query-title-search
-                            on-change:({current-target: {value}}) ~> @set-state {query-title-search: value}
+                            on-change:({current-target: {value}}) ~> @update-props {} <<< props <<< query-title-search: value
                             on-focus: ~> @set-state expand-search: true
                             on-blur: ~> @set-state expand-search: false
 
@@ -148,7 +152,6 @@ module.exports = React.create-class do
         tags: []
         selected-tags: []
         tag-search: ""
-        query-title-search: ""
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
@@ -159,3 +162,28 @@ module.exports = React.create-class do
                 |> concat-map -> it?.latest-query?.tags or []
                 |> unique
                 |> sort
+
+    # update-props :: Props -> Void
+    update-props: (new-props) !->
+        @history.replace-state null, decode-URI-component (@serialize-props new-props)
+
+    # serialize-props :: Props -> String
+    serialize-props: (props) ->
+        props
+            |> obj-to-pairs
+            |> filter (.1.length > 0)
+            |> map ([key, value]) ->
+                serialized-value = switch
+                | typeof! value == \Array => value.join \,
+                | _ => value
+                [key, serialized-value]
+            |> pairs-to-obj
+            |> querystring.stringify
+            |> -> "?#{it}"
+
+    # deserialize-query-string :: object -> Props
+    deserialize-query-string: (query) ->
+        {query-title-search or '', tag-search or '', selected-tags or ''} = query
+        query-title-search: query-title-search
+        tag-search: tag-search
+        selected-tags: if selected-tags == '' then [] else selected-tags.split \,
