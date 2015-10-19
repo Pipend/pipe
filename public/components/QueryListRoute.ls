@@ -1,6 +1,6 @@
 require! \./AceEditor.ls
 $ = require \jquery-browserify
-{any, camelize, concat-map, filter, map, obj-to-pairs, pairs-to-obj, partition, unique, sort, take} = require \prelude-ls
+{any, camelize, concat-map, filter, find, map, obj-to-pairs, pairs-to-obj, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
 {History}:react-router = require \react-router
 {compile-and-execute-livescript} = require \../utils.ls
@@ -117,8 +117,18 @@ module.exports = React.create-class do
                             @set-state shadow: false
 
                     branches 
-                        |> filter ({latest-query:{query-title}}) -> (query-title-search.length == 0) or (query-title.to-lower-case!.index-of query-title-search.to-lower-case!) != -1
-                        |> filter ({latest-query:{tags or []}}) -> (selected-tags.length == 0) or (tags |> any ~> it in selected-tags)                        
+                        |> filter ({latest-query:{query-title, tags}}) -> 
+
+                            # true if search length is 0
+                            query-title-search.length == 0 or 
+
+                            # true if search matches query title
+                            (query-title.to-lower-case!.index-of query-title-search.to-lower-case!) != -1 or 
+
+                            # true if search matches any tag
+                            !!((tags ? []) |> find -> (it.to-lower-case!.index-of query-title-search.to-lower-case!) != -1)
+
+                        |> filter ({latest-query:{tags or []}}) -> (selected-tags.length == 0) or (tags |> any ~> it in selected-tags)
                         |> map ({branch-id, latest-query:{query-id, query-title, tags or []}, snapshot}?) ->
 
                             # QUERY
