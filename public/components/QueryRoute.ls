@@ -862,8 +862,11 @@ module.exports = React.create-class do
                 callback!
 
         # execute the query (if either config.auto-execute or query-string.execute is true)
+        # only if there's no pending-client-external-libs (check component-did-update)
         if !!@props.auto-execute or execute == \true
-            @execute!
+            <~ set-timeout _, 1500
+            if !@state.pending-client-external-libs
+                @execute!
 
     # React component life cycle method (invoked after the render function)
     # updates the list of auto-completers if the data-source-cue has changed
@@ -894,9 +897,21 @@ module.exports = React.create-class do
         # client-external-libs
         do ~>
             urls-to-add = @state.client-external-libs `difference` prev-state.client-external-libs
-            urls-to-add |> each (url) ->
+            if urls-to-add.length > 0 and !prev-state.pending-client-external-libs
+                # avoid infinite loop (each call to set-state fires component-did-update)
+                @set-state {
+                    pending-client-external-libs: true
+                }
+            urls-to-add-loaded = 0
+            urls-to-add |> each (url) ~>
                 script = document.create-element "script"
                     ..src = url
+                    ..onload = ~>
+                        # check if there's no pending-client-external-libs left
+                        if ++urls-to-add-loaded == urls-to-add.length
+                            @set-state {
+                                pending-client-external-libs: false
+                            }
                 document.head.append-child script
 
             urls-to-remove = prev-state.client-external-libs `difference` @state.client-external-libs
