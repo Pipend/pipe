@@ -2,7 +2,7 @@
 
 module.exports = ({Plottable, nv, plot-chart}) -> new Plottable (view, result, options, continuation) !--> 
 
-    cols = result.0 |> Obj.keys |> filter (.index-of \$ != 0)
+    cols = result.0 |> Obj.keys |> filter (.index-of \$) >> (!= 0)
     
     #todo: don't do this if the table is already present
     $table = d3.select view .append \pre .append \table

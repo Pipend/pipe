@@ -370,6 +370,7 @@ module.exports = React.create-class do
                             initial-urls: @state.client-external-libs
                             initial-transpilation-language: @state.transpilation-language
                             on-change: ({urls, transpilation-language}) ~>
+                                @load-client-external-libs urls, @state.client-external-libs
                                 @set-state do
                                     client-external-libs: urls
                                     transpilation-language: transpilation-language
@@ -838,6 +839,39 @@ module.exports = React.create-class do
                 {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
                 if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
 
+    # load-client-external-libs :: [String] -> [String] -> p a
+    load-client-external-libs: (next, prev) ->
+
+        # remove urls from head
+        (prev `difference` next) |> each ~>
+            switch (last url.split \.)
+            | \js => $ "head > script[src='#{url}'" .remove!
+            | \css => $ "head > link[href='#{url}'" .remove!
+
+        # add urls to head
+        urls-to-add = next `difference` prev
+        if urls-to-add.length > 0
+            
+            # load all the urls in parallel 
+            Promise.all do 
+                urls-to-add |> map (url) -> 
+                    new Promise (res) ->
+                        element = switch (last url.split \.)
+                            | \js =>
+                                script = document.create-element \script
+                                    ..src = url
+                            | \css => 
+                                link = document.create-element \link
+                                    ..type = \text/css
+                                    ..rel = \stylesheet
+                                    ..href = url
+                        element.onload = ~> res \done
+                        document.head.append-child element
+
+        else 
+            new Promise (res) ~> res \done
+        
+
     # document-did-load :: a -> Void
     document-did-load: !->
 
@@ -861,7 +895,10 @@ module.exports = React.create-class do
             else 
                 callback!
 
+        <~ to-callback (@load-client-external-libs @state.client-external-libs, [])
+
         # execute the query (if either config.auto-execute or query-string.execute is true)
+        # only if there's no pending-client-external-libs (check component-did-update)
         if !!@props.auto-execute or execute == \true
             @execute!
 
@@ -891,28 +928,6 @@ module.exports = React.create-class do
                     {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
                     if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
 
-        # client-external-libs
-        do ~>
-            urls-to-add = @state.client-external-libs `difference` prev-state.client-external-libs
-            urls-to-add |> each (url) ->
-                switch (last url.split \.)
-                | \js =>
-                    script = document.create-element \link
-                        ..src = url
-                    document.head.append-child script
-                | \css =>
-                    link = document.create-element \link
-                        ..type = \text/css
-                        ..rel = \stylesheet
-                        ..href = url
-                    document.head.append-child link
-
-            urls-to-remove = prev-state.client-external-libs `difference` @state.client-external-libs
-            urls-to-remove |> each (url) ->
-                switch (last url.split \.)
-                | \js => $ "head > script[src='#{url}'" .remove!
-                | \css => $ "head > link[href='#{url}'" .remove!
-
     # component-will-unmount :: a -> Void
     component-will-unmount: ->
         window.remove-event-listener \beforeunload, @unload-listener if !!@unload-listener
@@ -922,10 +937,11 @@ module.exports = React.create-class do
     get-initial-state: ->
         {
             cache: true # user checked the cache checkbox
-            from-cache: false # latest result is from-cache (it is returned by the server on execution)
             dialog: null # String (name of the dialog to display)
-            popup: null # String (name of the popup to display)
             executing-op: "" # String (alphanumeric op-id of the currently running query)
+            from-cache: false # latest result is from-cache (it is returned by the server on execution)
+            pending-client-external-libs: false
+            popup: null # String (name of the popup to display)
 
             # TAGS POPUP
             existing-tags: [] # [String] (fetched from /apsi/tags)            
