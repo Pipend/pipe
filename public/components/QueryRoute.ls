@@ -895,13 +895,23 @@ module.exports = React.create-class do
         do ~>
             urls-to-add = @state.client-external-libs `difference` prev-state.client-external-libs
             urls-to-add |> each (url) ->
-                script = document.create-element "script"
-                    ..src = url
-                document.head.append-child script
+                switch (last url.split \.)
+                | \js =>
+                    script = document.create-element \link
+                        ..src = url
+                    document.head.append-child script
+                | \css =>
+                    link = document.create-element \link
+                        ..type = \text/css
+                        ..rel = \stylesheet
+                        ..href = url
+                    document.head.append-child link
 
             urls-to-remove = prev-state.client-external-libs `difference` @state.client-external-libs
             urls-to-remove |> each (url) ->
-                $ "head > script[src='#{url}'" .remove!
+                switch (last url.split \.)
+                | \js => $ "head > script[src='#{url}'" .remove!
+                | \css => $ "head > link[href='#{url}'" .remove!
 
     # component-will-unmount :: a -> Void
     component-will-unmount: ->
