@@ -429,9 +429,9 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
     /apis/branches/:branchId/export
     /apis/queries/:queryId/export
     /apis/branches/:branchId/queries/:queryId/export
-]> `with-optional-params` <[cache format width height]> |> each (route) ->
-    app.get route, (req, res) ->        
-        {cache, format or 'png', width or 720, height or 480} = req.params
+]> `with-optional-params` <[cache format width height timeout]> |> each (route) ->
+    app.get route, (req, res) ->
+        {cache, format or 'png', width or 720, height or 480, timeout}? = req.params
         cache := if !!cache then query-parser cache else false
         {snapshot} = req.query
 
@@ -484,7 +484,7 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                             overflow: \hidden
                         }
                     ->
-                        <- set-timeout _, 1000
+                        <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
                         <- render image-file
                         if snapshot
                             res.end "snapshot saved to #{image-file}"
