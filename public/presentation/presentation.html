@@ -6,10 +6,7 @@
         <script type="text/javascript" src="/node_modules/nvd3/build/nv.d3.js"></script>
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/rxjs/4.0.6/rx.all.min.js"></script>
         <script type="text/javascript" src="//rawgit.com/Reactive-Extensions/RxJS-DOM/master/dist/rx.dom.min.js"></script>
-        <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>
-        <% (clientExternalLibs || []).forEach(function(lib) { %>
-        <script type="text/javascript" src="<%- lib %>"></script>
-        <% }) %>
+        <script type="text/javascript" src="http://cdn.mli.me/heatmap.min.js" data-ignore-build></script>        
         <style>
             body {
                 background-color: #1A1B13;
@@ -39,5 +36,16 @@
     </head>
     <body> 
         <div class="presentation"></div>
+        <% (clientExternalLibs || []).forEach(function(lib) { 
+            parts = lib.split(".")
+            if (parts[parts.length - 1] == "js") {
+        %>
+                <script type="text/javascript" src="<%- lib %>"></script>
+        <%  } else { %>
+                <link rel="stylesheet" type="text/css" href="<%- lib %>"/>
+        <%  
+            } 
+           });
+        %>
     </body>
 </html>

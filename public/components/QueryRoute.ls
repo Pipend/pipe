@@ -855,6 +855,8 @@ module.exports = React.create-class do
             # load all the urls in parallel 
             Promise.all do 
                 urls-to-add |> map (url) -> 
+
+                    # TODO: use a different technique to differentiate file types
                     new Promise (res) ->
                         element = switch (last url.split \.)
                             | \js =>
