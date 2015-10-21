@@ -15,9 +15,6 @@ module.exports = ({Plottable, d3, plot-chart, nv}) -> new Plottable do
             .y (.value)
             .margin margin
             .show-values show-values
-            .tooltips tooltips
-            .tooltip tooltip
-            .transition-duration transition-duration
             .show-controls show-controls
             .stacked stacked
         
