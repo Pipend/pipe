@@ -132,7 +132,7 @@ module.exports = React.create-class do
                         label: @state.transpilation-language
                         value: @state.transpilation-language
                     on-value-change: ({value}, callback) ~>  @set-state {transpilation-language: value}, callback
-                    options: <[livescript javascript]> |> map (language) ~> label: language, value: language
+                    options: <[livescript javascript babel]> |> map (language) ~> label: language, value: language
 
             # EXTERNAL LIBRARIES
             div class-name: "section libraries",

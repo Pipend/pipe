@@ -13,6 +13,8 @@
     "MD5": "^1.2.1",
     "async": "^0.9.0",
     "async-ls": "0.0.3",
+    "babel": "^5.8.23",
+    "babel-core": "^5.8.25",
     "base62": "^1.1.0",
     "bluebird": "^2.9.30",
     "body-parser": "^1.12.4",
@@ -90,6 +92,7 @@
   "browserify-shim": {
     "d3": "global:d3",
     "nvd3": "global:nvd3",
-    "rx": "global:Rx"
+    "rx": "global:Rx",
+    "babel": "global:babel"
   }
 }
