@@ -57,6 +57,14 @@ export compile-and-execute-javascript = (code, context) -->
     catch err 
         ["javascript runtime error: #{err.to-string!}", null]
 
+# compile-and-execute-javascript :: String -> object -> [String, result]
+export compile-and-execute-babel = (code, context) -->
+    try 
+        javascript-code = babel.transform code .code.replace '"use strict";', '' .trim!
+        compile-and-execute-javascript javascript-code, context
+    catch err 
+        ["babel compilation error: #{err.to-string!}", null]
+
 # date-from-object-id :: String -> Date
 export date-from-object-id = (object-id) -> new Date (parse-int (object-id.substring 0, 8), 16) * 1000
 

@@ -181,6 +181,8 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     query := query.substring (query.index-of '\n') + 1 # remove the directive line
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("f = #{query}")
+                        # no particular code for babel, same as javascript
+                        | 'babel' => compile-and-execute-javascript-p ("f = #{query}")
                         | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, sequenceP, console, new-promise, bindP, returnP, from-error-value-callback}
                     execute-mongo-database-query-function do 
                         data-source
@@ -192,6 +194,8 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     # {$map, $reduce, $finalize} must be properties of a hash input to map-reduce
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}")
+                        # no particular code for babel, same as javascript
+                        | 'babel' => compile-and-execute-javascript-p ("json = #{query}")
                         | _ => compile-and-execute-livescript-p "{\n#{query}\n}") query-context
                     console.log aggregation-query
                     result <- bindP execute-mongo-database-query-function do 
@@ -205,6 +209,7 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                 computation: ->
                     aggregation-query <- bindP match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
+                        | 'babel' => compile-and-execute-javascript-p ("json = #{query}"), query-context
                         | _ => 
                             compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context <<< {
                                 aggregate: (...args) -> args

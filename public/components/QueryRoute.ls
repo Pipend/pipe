@@ -13,7 +13,7 @@ presentation-context = require \../presentation/context.ls
 transformation-context = require \../transformation/context.ls
 
 # utils
-{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, generate-uid, 
+{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, compile-and-execute-babel, generate-uid, 
 is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
 
 _ = require \underscore
@@ -529,6 +529,7 @@ module.exports = React.create-class do
                 compile = switch @state.transpilation-language
                     | 'livescript' => compile-and-execute-livescript 
                     | 'javascript' => compile-and-execute-javascript
+                    | 'babel' => compile-and-execute-babel
 
                 # create-context :: a -> Context
                 create-context = -> {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
