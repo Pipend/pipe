@@ -279,14 +279,14 @@ module.exports = React.create-class do
                     class-name: \logo
                     key: \logo
                     to: \/
-                    on-click: (e) ~> 
+                    on-click: (e) !~> 
+                        return if !!e.meta-key
 
-                        # dispose previous execution
                         if !!@state.dispose
                             @state.dispose!
                             @set-state dispose: undefined
 
-                        if @should-prevent-reload! and confirm "You have NOT saved your query. Stop and save if your want to keep your query."
+                        if @should-prevent-reload! and !(confirm "You have NOT saved your query. Leave anyways")
                             e.prevent-default!
                             e.stop-propagation!
 
@@ -898,6 +898,7 @@ module.exports = React.create-class do
                 callback!
 
         <~ to-callback (@load-client-external-libs @state.client-external-libs, [])
+        <~ set-timeout _, 1000
 
         # execute the query (if either config.auto-execute or query-string.execute is true)
         # only if there's no pending-client-external-libs (check component-did-update)
