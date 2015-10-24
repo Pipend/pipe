@@ -8,6 +8,7 @@ module.exports = ->
         get-today: today
         moment
         parse-date
+        sentiment: require \sentiment
         today: today!
         to-timestamp
     }
