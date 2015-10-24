@@ -21,8 +21,8 @@
         </style>
         <meta charset="utf8"/>        
         <!-- presentation code (LiveScript), safer/easier to store inside script tag rather than a variable like parameters & transformedResult -->
-        <script type="text/plain" id="transformation"><%- transformation %></script>
-        <script type="text/plain" id="presentation"><%- presentation %></script>
+        <script type="text/plain" id="transformation" data-transpilation="<%- transpilation.transformation %>"><%- transformation %></script>
+        <script type="text/plain" id="presentation" data-transpilation="<%- transpilation.presentation %>"><%- presentation %></script>
         <script type="text/javascript">
             
             // obtained from query-string

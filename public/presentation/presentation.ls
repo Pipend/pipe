@@ -14,27 +14,50 @@ require \prelude-ls
 
 transformation-context = require \../transformation/context.ls
 presentation-context = require \../presentation/context.ls
-{compile-and-execute-livescript} = require \../utils.ls
+{compile-and-execute-livescript, compile-and-execute-javascript, compile-and-execute-babel} = require \../utils.ls
 
 <- window.add-event-listener \load
 
-# query-result & parameters existing in global space (rendered by server)
-transformation = (document.get-element-by-id \transformation .innerHTML).replace /\t/g, " "
-[err, transformation-function] = compile-and-execute-livescript "(#transformation\n)", {} <<< transformation-context! <<< parameters <<< (require \prelude-ls)
-return console.log err if !!err
+# String (element id) -> Hash -> Promise String (compiled code)
+compile = (element-id, imports) ->
+    resolve, reject <- new Promise _
+    element = document.get-element-by-id element-id
+    code = element .innerHTML.replace /\t/g, " "
 
-presentation = (document.get-element-by-id \presentation .innerHTML).replace /\t/g, " "
-[err, presentation-function] = compile-and-execute-livescript "(#presentation\n)", {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters <<< (require \prelude-ls)
-return console.log err if !!err
+    compile_ = switch element.dataset.transpilation
+    | 'livescript' => compile-and-execute-livescript 
+    | 'javascript' => compile-and-execute-javascript
+    | 'babel' => compile-and-execute-babel
 
-transformed-result = transformation-function query-result
+    [error, code-function] = compile_ "(#code\n)", {} <<< imports
+    return reject error if !!error
+    resolve code-function
 
-$presentation = document.get-elements-by-class-name \presentation .0
+# query-result & parameters are in global space (rendered by server)
 
-# if transformation returns a stream then listen to it and update the presentation
-if \Function == typeof! transformed-result.subscribe    
-    transformed-result.subscribe (e) -> presentation-function $presentation, e
+new Promise (resolve, reject) ->
+    transformation-function <- (compile 'transformation', {} <<< transformation-context! <<< parameters <<< (require \prelude-ls)).then _
+    presentation-function <- (compile 'presentation', {d3, $} <<< transformation-context! <<< presentation-context! <<< parameters <<< (require \prelude-ls)).then _
 
-# otherwise invoke the presentation function once with the JSON returned from transformation
-else
-    presentation-function $presentation, transformed-result
+    try
+        transformed-result = transformation-function query-result
+
+        $presentation = document.get-elements-by-class-name \presentation .0
+
+        # if transformation returns a stream then listen to it and update the presentation
+        if \Function == typeof! transformed-result.subscribe    
+            transformed-result.subscribe (e) -> presentation-function $presentation, e
+
+        # otherwise invoke the presentation function once with the JSON returned from transformation
+        else
+            presentation-function $presentation, transformed-result
+    catch ex
+        reject ex
+
+    resolve "done!"
+
+.then ->
+    console.log it
+.catch ->
+    console.error it
+    document.get-elements-by-class-name \presentation .0 .innerHTML = it.to-string!
