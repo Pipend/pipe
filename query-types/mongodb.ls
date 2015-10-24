@@ -3,7 +3,7 @@ config = require \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
 {id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor} = require \prelude-ls
-{compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, get-all-keys-recursively} = require \./../utils
+{compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, compile-and-execute-babel-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 Promise = require \bluebird
 csv-parse = require \csv-parse
@@ -182,7 +182,7 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("f = #{query}")
                         # no particular code for babel, same as javascript
-                        | 'babel' => compile-and-execute-javascript-p ("f = #{query}")
+                        | 'babel' => compile-and-execute-babel-p ("f = #{query}")
                         | _ => compile-and-execute-livescript-p query) query-context <<< {Promise, sequenceP, console, new-promise, bindP, returnP, from-error-value-callback}
                     execute-mongo-database-query-function do 
                         data-source
@@ -195,7 +195,7 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}")
                         # no particular code for babel, same as javascript
-                        | 'babel' => compile-and-execute-javascript-p ("json = #{query}")
+                        | 'babel' => compile-and-execute-babel-p ("json = #{query}")
                         | _ => compile-and-execute-livescript-p "{\n#{query}\n}") query-context
                     console.log aggregation-query
                     result <- bindP execute-mongo-database-query-function do 
@@ -209,7 +209,7 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                 computation: ->
                     aggregation-query <- bindP match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
-                        | 'babel' => compile-and-execute-javascript-p ("json = #{query}"), query-context
+                        | 'babel' => compile-and-execute-babel-p ("json = #{query}"), query-context
                         | _ => 
                             compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context <<< {
                                 aggregate: (...args) -> args
