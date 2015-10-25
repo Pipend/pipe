@@ -32,6 +32,10 @@ bucketize = (size) ->
     p = find-precision size
     map (round1 p) . (-> it - it `mod` size) . (+ s2)
 
+# (k -> v -> kv) -> Map k v -> [kv]
+fold-obj-to-list = (merger, object) -->
+  [merger key, value for key, value of object]
+
 # fill-intervals-ints :: [[Number ,Number]] -> Int? [[Number, Number]]
 fill-intervals-ints = (list, default-value = 0) ->
     x-scale = list |> map (.0)
@@ -150,6 +154,8 @@ module.exports = -> {
     bucketize
 
     round1
+
+    fold-obj-to-list
 
     # credit: https://gist.github.com/Gozala/1697037
     tco: (fn) ->
