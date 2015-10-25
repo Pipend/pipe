@@ -758,8 +758,8 @@ module.exports = React.create-class do
                     ..set-start range.start.row, 0
                 text = editor.session.get-text-range range
                 [keywords, meta] = match editor.container.id
-                    | \transformation-editor => [transformation-keywords ++ keywords-from-query-result, \transformation]
-                    | \presentation-editor => [(if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
+                    | \transformation-editor => [(unique <| transformation-keywords ++ keywords-from-query-result), \transformation]
+                    | \presentation-editor => [(unique <| if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
                     | _ => [alphabet, editor.container.id]
                 callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
         ]
