@@ -135,6 +135,8 @@ module.exports = React.create-class do
             execution-duration
         } = @state
 
+        console.log existing-tags
+
         document.title = query-title
 
         # MENU ITEMS
@@ -340,8 +342,8 @@ module.exports = React.create-class do
                         overflow: \visible
                     key: \tags-popup
                     MultiSelect do 
-                        create-from-search: (, tags, search) ->   
-                            return null if search.length == 0 or search in map (.label), tags
+                        create-from-search: (os, vs, search) ->   
+                            return null if search.length == 0 or search in map (.label), ([] ++ (os ? []) ++ (vs ? []))
                             label: search, value: search
                         values: tags 
                         options: existing-tags
