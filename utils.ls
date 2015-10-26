@@ -11,6 +11,7 @@ md5 = require \MD5
 {any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, Str, values} = require \prelude-ls
 vm = require \vm
 babel = require \babel
+
 # this method differs from public/utils.ls::compile-and-execute-livescript, 
 # it uses the native nodejs vm.run-in-new-context method to execute javascript instead of eval
 # compile-and-execute-livescript :: String -> Map k, v -> [err, result]
@@ -26,12 +27,12 @@ export compile-and-execute-livescript = (livescript-code, context) -->
         return die "javascript runtime error: #{err.to-string!}"
     [null, result]
 
+# compile-and-execute-livescript-p :: String -> Map k, v -> p result
 export compile-and-execute-livescript-p = (livescript-code, context) -->
     resolve, reject <- new-promise
     [err, result] = compile-and-execute-livescript livescript-code, context
     return reject err if !!err
     resolve result
-
 
 # compile-and-execute-javascript :: String -> Map k, v -> [err, result]
 export compile-and-execute-javascript = (javascript-code, context) -->
@@ -42,29 +43,28 @@ export compile-and-execute-javascript = (javascript-code, context) -->
         return die "javascript runtime error: #{err.to-string!}"
     [null, result]
 
+# compile-and-execute-javascript-p :: String -> Map k, v -> p result
 export compile-and-execute-javascript-p = (javascript-code, context) -->
     resolve, reject <- new-promise
     [err, result] = compile-and-execute-javascript javascript-code, context
     return reject err if !!err
     resolve result
 
-
 # compile-and-execute-babel :: String -> Map k, v -> [err, result]
 export compile-and-execute-babel = (es6-code, context) -->
     die = (err)-> [err, null]
     try 
-        javascript-code = babel.transform es6-code .code
+        javascript-code = babel.transform es6-code .code.replace '"use strict";', '' .trim!
         compile-and-execute-javascript javascript-code, context
     catch err
         return die "javascript runtime error: #{err.to-string!}"
 
-
+# compile-and-execute-babel-p :: String -> Map k, v -> p result
 export compile-and-execute-babel-p = (es6-code, context) -->
     resolve, reject <- new-promise
     [err, result] = compile-and-execute-babel es6-code, context
     return reject err if !!err
     resolve result
-
 
 {get-all-keys-recursively} = require \./public/utils.ls
 export get-all-keys-recursively
