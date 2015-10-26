@@ -135,8 +135,6 @@ module.exports = React.create-class do
             execution-duration
         } = @state
 
-        console.log existing-tags
-
         document.title = query-title
 
         # MENU ITEMS
