@@ -2,9 +2,14 @@
 
 Pipe is a Web app for querying any data source, and analyzing and visualizing the result.
 
+LIVE DEMO: [http://reactiflux.pipend.com/](http://reactiflux.pipend.com/)
+
 # Query |> Transform |> Visualize
 
 You can query various kind of databases, pipe the result of the query to your alaysis code and pipe the transformed result to visualiaze the result.
+
+# Status
+The project is currently under development
 
 # Setup
 * Start a mongodb instance
