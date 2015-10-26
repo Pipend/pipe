@@ -1,3 +1,5 @@
+{Promise} = require \bluebird
+
 # nvd3 requires d3 to be in global space
 window.d3 = require \d3
 require \nvd3 
@@ -24,7 +26,7 @@ compile = (element-id, imports) ->
     element = document.get-element-by-id element-id
     code = element .innerHTML.replace /\t/g, " "
 
-    compile_ = switch element.dataset.transpilation
+    compile_ = switch element.get-attribute \data-transpilation
     | 'livescript' => compile-and-execute-livescript 
     | 'javascript' => compile-and-execute-javascript
     | 'babel' => compile-and-execute-babel
@@ -60,4 +62,4 @@ new Promise (resolve, reject) ->
     console.log it
 .catch ->
     console.error it
-    document.get-elements-by-class-name \presentation .0 .innerHTML = it.to-string!
+    document.get-elements-by-class-name \presentation .0 .innerHTML = "<div style='color: red'>" + it.to-string! + "</div>"
