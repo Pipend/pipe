@@ -2,6 +2,10 @@
     <head>
         <link rel="stylesheet" type="text/css" href="/node_modules/nvd3/build/nv.d3.css">
         <link rel="stylesheet" type="text/css" href="/public/components/App.css"/>
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.1.1/gh-fork-ribbon.min.css" />
+        <!--[if lt IE 9]>
+          <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.1.1/gh-fork-ribbon.ie.min.css" />
+        <![endif]-->
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
         <script type="text/javascript" src="/node_modules/nvd3/build/nv.d3.js"></script>
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/rxjs/4.0.6/rx.all.min.js"></script>
@@ -10,6 +14,11 @@
         <script src="/node_modules/babel-core/browser.js"></script>
     </head>
     <body>
+        <div class="github-fork-ribbon-wrapper right">
+            <div class="github-fork-ribbon" style="background-color: #090">
+                <a href="https://github.com/pipend/pipe/">Fork me on GitHub</a>
+            </div>
+        </div>
         <div id="mount-node"></div>
         <script type="text/javascript">
             viewbag = <%- JSON.stringify (viewbag) %>;

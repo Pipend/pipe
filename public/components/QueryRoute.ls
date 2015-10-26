@@ -942,7 +942,7 @@ module.exports = React.create-class do
     # get-initial-state :: a -> UIState
     get-initial-state: ->
         {
-            cache: true # user checked the cache checkbox
+            cache: @props?.cache-query ? true # user checked the cache checkbox
             dialog: null # String (name of the dialog to display)
             executing-op: "" # String (alphanumeric op-id of the currently running query)
             from-cache: false # latest result is from-cache (it is returned by the server on execution)
