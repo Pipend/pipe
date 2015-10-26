@@ -14,12 +14,7 @@
         <script src="/node_modules/babel-core/browser.js"></script>
         <title><%= viewbag.projectTitle %></title>
     </head>
-    <body>
-        <div class="github-fork-ribbon-wrapper right">
-            <div class="github-fork-ribbon" style="background-color: #090">
-                <a href="https://github.com/pipend/pipe/">Fork me on GitHub</a>
-            </div>
-        </div>
+    <body>        
         <div id="mount-node"></div>
         <script type="text/javascript">
             viewbag = <%- JSON.stringify (viewbag) %>;

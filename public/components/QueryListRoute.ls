@@ -20,6 +20,13 @@ module.exports = React.create-class do
         
         div class-name: \query-list-route,
 
+            # GITHUB RIBBON
+            div class-name: "github-fork-ribbon-wrapper right",
+                div do 
+                    class-name: "github-fork-ribbon"
+                    style: background-color: \#090
+                    a href: \https://github.com/pipend/pipe/, "Fork me on GitHub"
+
             # LEFT SIDE MENU
             div do 
                 id: \menu
