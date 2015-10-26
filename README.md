@@ -98,6 +98,9 @@ module.exports =
     # the client loads images from this server
     snapshot-server: \http://localhost:4081
 
+    # client-side decor
+    project-title: \Pipe
+
     # query-route related config properties
     auto-execute: true
     cache-query: false

@@ -4,8 +4,8 @@ require! \body-parser
 Busboy = require \busboy
 
 # config
-{file-streams, http-port, mongo-connection-opitons, query-database-connection-string, 
-redis-channels, socket-io-port, snapshot-server}:config = require \./config
+{file-streams, http-port, mongo-connection-opitons, project-title, 
+query-database-connection-string, redis-channels, socket-io-port, snapshot-server}:config = require \./config
 
 require! \express
 {create-read-stream, readdir} = require \fs
@@ -154,7 +154,7 @@ json = -> JSON.stringify it
                 impression-id: impression-id
                 event-type: \visit
         
-        viewbag = {req.user-id, req.session-id, impression-id}
+        viewbag = {req.user-id, req.session-id, impression-id, project-title}
         res.render \public/index.html, {viewbag}
 
 # redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId

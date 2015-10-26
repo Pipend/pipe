@@ -165,7 +165,6 @@ module.exports = React.create-class do
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
-        document.title = 'Queries'
         $.get \/apis/branches, (branches) ~> @set-state do
             branches: branches
             tags: branches 
