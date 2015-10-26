@@ -1,3 +1,4 @@
+{each} = require \prelude-ls
 module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
     (view, result, {tooltip, show-legend, color, transition-duration, x, y, x-axis, y-axis, margin}, continuation)!->
 
@@ -18,18 +19,29 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
         chart
             # ..scatter.only-circles false
 
-            ..tooltip-content (key, , , {point}) -> 
-                tooltip key, point
+            # TODO: nvd3 tooltip is not working
+            # ..tooltip (key, , , {point}) -> 
+            #     tooltip key, point
 
             ..x-axis.tick-format x-axis.format
             ..y-axis.tick-format y-axis.format
+            ..show-legend show-legend
 
-        chart.show-legend show-legend
-        plot-chart view, result, chart
+        [
+            [x-axis.label, (.x-axis.axis-label)]
+            [x-axis.distance, (.x-axis.axis-label-distance)]
+            [y-axis.label, (.y-axis.axis-label)]
+            [y-axis.distance, (.y-axis.axis-label-distance)]
+        ] |> each ([prop, f]) ->
+            if prop is not  null
+                (f chart) prop
         
+
 
         <- continuation chart, result
-        
+
+        plot-chart view, result, chart
+
         chart.update!
 
     {
@@ -40,11 +52,15 @@ module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
         x-axis:
             format: d3.format '.02f'
             show-dist: true
+            label: null
+            distance: null
         x: (.x)
 
         y-axis:
             format: d3.format '.02f'
             show-dist: true
+            label: null
+            distance: null
         y: (.y)
         margin: {top: 30, right: 20, bottom: 50, left: 75}
 
