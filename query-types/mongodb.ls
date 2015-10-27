@@ -172,10 +172,12 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
 
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
 
+        # TODO: improve sub-type detection algorithms
         # computation :: (CancellablePromise cp) => -> cp result
         {aggregation-type, computation} = switch
-            # detect computation query-type by a directive:
-            | (query.index-of '#! computation') == 0 => {
+            
+            # COMPUTATION: detect computation query-type by a directive
+            | (query.index-of '#! computation') == 0 =>
                 aggregation-type: 'computation'
                 computation: ->
                     query := query.substring (query.index-of '\n') + 1 # remove the directive line
@@ -187,8 +189,9 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     execute-mongo-database-query-function do 
                         data-source
                         aggregation-query
-            }
-            | (['$map', '$reduce', 'options'] |> all (k) -> (query.index-of k) > -1) => { #TODO: improve sub-type detection algorithms
+            
+            # MAP REDUCE: detect by presence of $map, $reduce & options
+            | (['$map', '$reduce', 'options'] |> all (k) -> (query.index-of k) > -1) =>
                 aggregation-type: 'map-reduce'
                 computation: ->
                     # {$map, $reduce, $finalize} must be properties of a hash input to map-reduce
@@ -202,28 +205,30 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                         data-source
                         (db) -> execute-aggregation-map-reduce (db.collection collection), aggregation-query
                     returnP if !result.collection-name then result else {result: {collection-name: result.collection-name, tag: result.db.tag}}
-
-            }
-            | _ => {
+            
+            # AGGREGATION PIPELINE
+            | _ =>
                 aggregation-type: 'pipeline'
                 computation: ->
                     aggregation-query <- bindP match transpilation
-                        | 'javascript' => compile-and-execute-javascript-p ("json = #{query}"), query-context
-                        | 'babel' => compile-and-execute-babel-p ("json = #{query}"), query-context
+
+                        # using 'json = ...' converts query to an expression from JSON
+                        | \javascript => compile-and-execute-javascript-p ("json = #{query}"), query-context
+                        | \babel => compile-and-execute-babel-p ("json = #{query}"), query-context
+
                         | _ => 
                             compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context <<< {
                                 aggregate: (...args) -> args
-                            } <<< (
+                            } <<<
                                 # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
                                 ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"] 
                                 |> map -> ["#it", (hash) -> "#it": hash]
                                 |> pairs-to-obj
-                            )
+                            
+                            
                     execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
-            }
-
 
         res [aggregation-type, computation]
     
