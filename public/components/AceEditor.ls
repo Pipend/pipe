@@ -13,13 +13,14 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
-        width: 400
-        height: 300
+        on-click: (->)
         editor-id: \editor
         mode: \ace/mode/livescript
         theme: \ace/theme/monokai
         value: ""
         wrap: false
+        width: 400
+        height: 300
 
     # render :: a -> ReactElement
     render: ->
@@ -45,6 +46,7 @@ module.exports = React.create-class do
                 if "ace/mode/javascript" == session.getMode!.$id
                     if !!session.$worker
                         session.$worker.send "setOptions", [ { "-W095": false, "-W025": false, 'esnext': true } ]
+            ..on \click, @props.on-click
         @process-props @props
 
     # component-did-update :: Props -> Void
@@ -53,11 +55,10 @@ module.exports = React.create-class do
         editor.resize! if (prev-props.width != @props.width) or (prev-props.height != @props.height)
 
     # component-will-receive-props :: Props -> Void
-    component-will-receive-props: (props) !->
-        @process-props props
+    component-will-receive-props: (props) !-> @process-props props
 
     # process-props :: Props -> Void
-    process-props: ({editor-id, mode, theme, value, wrap}:props?) !->
+    process-props: ({editor-id, mode, on-click, theme, value, wrap}:props?) !->
         editor = ace.edit editor-id
             ..get-session!.set-mode mode if !!mode
             ..get-session!.set-use-wrap-mode wrap if (typeof wrap != \undefined)

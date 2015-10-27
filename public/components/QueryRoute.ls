@@ -443,15 +443,30 @@ module.exports = React.create-class do
 
                             # ACE EDITOR
                             if !!show-editor
-                                AceEditor {
-                                    editor-id: "#{editor-id}-editor"
-                                    value: @state[editor-id]
-                                    width: @state.editor-width
-                                    height: @state[camelize "#{editor-id}-editor-height"]
-                                    on-change: (value) ~>
-                                        <~ @set-state "#{editor-id}" : value
-                                        @save-to-client-storage-debounced!
-                                } <<< editor-settings
+                                AceEditor do 
+                                    {
+                                        editor-id: "#{editor-id}-editor"
+                                        value: @state[editor-id]
+                                        width: @state.editor-width
+                                        height: @state[camelize "#{editor-id}-editor-height"]
+                                        on-change: (value) ~>
+                                            <~ @set-state "#{editor-id}" : value
+                                            @save-to-client-storage-debounced!
+                                    } 
+                                    <<< editor-settings
+                                    <<< (
+                                        if editor-id == \query
+                                            on-click: ({dom-event:{meta-key}, editor}) -> 
+                                                if !!meta-key
+                                                    {row, column} = editor.get-cursor-position!
+                                                    session = editor.get-session!
+                                                    current-token = session.get-token-at row, column
+                                                    previous-token = (session.get-tokens row)[current-token.index - 2]
+                                                    if previous-token.value == \run-latest-query
+                                                        window.open "/branches/#{current-token.value.substr 1}" 
+                                        else
+                                            {}
+                                    )
                             
 
                 # RESIZE HANDLE
