@@ -1,4 +1,5 @@
 require! \./AceEditor.ls
+{project-title}? = require \../../config.ls
 $ = require \jquery-browserify
 {any, camelize, concat-map, filter, find, map, obj-to-pairs, pairs-to-obj, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
@@ -172,6 +173,7 @@ module.exports = React.create-class do
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
+        document.title = project-title
         $.get \/apis/branches, (branches) ~> @set-state do
             branches: branches
             tags: branches 
