@@ -1,4 +1,3 @@
-require! \./AceEditor.ls
 require! \../../config.ls
 create-browser-history = require \history/lib/createBrowserHistory
 {last, map} = require \prelude-ls
