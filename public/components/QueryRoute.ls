@@ -111,6 +111,12 @@ execute-document = do ->
                     error: ({response-text}?) -> 
                         rej response-text
 
+# gracefully degrades if blocked by a popup blocker
+# open-window :: URL -> Void
+open-window = (url, target) !->
+    if !window.open url, target
+        alert "PLEASE DISABLE THE POPUP BLOCKER \n\nUNABLE TO OPEN: #{url}"
+
 module.exports = React.create-class do
 
     display-name: \QueryRoute
@@ -152,7 +158,8 @@ module.exports = React.create-class do
         menu-items = 
 
             * label: \New
-              action: ~> window.open "/branches", \_blank
+              href: \/branches
+              action: ~> open-window "/branches", \_blank
 
             * label: \Fork
               enabled: saved-query
@@ -172,7 +179,7 @@ module.exports = React.create-class do
                 client-storage.save-document query-id, forked-document
 
                 # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
-                window.open "/branches/localFork/queries/#{query-id}", \_blank
+                open-window "/branches/localFork/queries/#{query-id}", \_blank
 
             * label: \Save
               hotkey: "command + s"
@@ -231,7 +238,7 @@ module.exports = React.create-class do
                 return null if changes.length == 0
                 return 'rgba(0,255,0,1)' if changes.length == 1 and changes.0 == \parameters
                 'rgba(255,255,0,1)'
-              action: ~> window.open "#{window.location.href}/diff", \_blank
+              action: ~> open-window "#{window.location.href}/diff", \_blank
 
             * label: \Share
               enabled: saved-query
@@ -246,14 +253,15 @@ module.exports = React.create-class do
 
             * label: \VCS
               enabled: saved-query
-              action: ~> window.open "#{window.location.href}/tree", \_blank
+              action: ~> open-window "#{window.location.href}/tree", \_blank
 
             * label: \Settings
               enabled: true
               action: (button-left) ~> @set-state {dialog: \settings}
 
             * label: 'Task Manager'
-              action: ~> window.open "/ops", \_blank
+              href: \ops
+              action: ~> open-window "/ops", \_blank
 
         editors = 
             * editor-id: \query
@@ -463,7 +471,7 @@ module.exports = React.create-class do
                                                     current-token = session.get-token-at row, column
                                                     previous-token = (session.get-tokens row)[current-token.index - 2]
                                                     if previous-token.value == \run-latest-query
-                                                        window.open "/branches/#{current-token.value.substr 1}" 
+                                                        open-window "/branches/#{current-token.value.substr 1}" 
                                         else
                                             {}
                                     )
