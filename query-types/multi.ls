@@ -4,8 +4,8 @@
 {map} = require \prelude-ls
 
 # utils
-{compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, 
-get-query-by-id, ops-manager, transform}:utils = require \./../utils
+{compile-and-execute-javascript, compile-and-execute-babel, compile-and-execute-livescript, 
+extract-data-source, get-latest-query-in-branch, get-query-by-id, ops-manager, transform}:utils = require \./../utils
 
 # keywords :: (CancellablePromise cp) => DataSource -> cp [String]
 export keywords = (data-source) ->
@@ -46,9 +46,12 @@ export execute = (query-database, data-source, query, transpilation, parameters)
                     query-title: query-title
                     data-source-cue: data-source-cue
 
-        transform result, transformation, parameters
+        transform result, transformation, parameters    
 
-    [err, transpiled-code] = compile-and-execute-livescript query, {} <<< get-context! <<< (require \prelude-ls) <<< parameters <<< (require \../async-ls) <<<
+    [err, transpiled-code] = (match transpilation
+        | \javascript => compile-and-execute-javascript "f = #{query}"
+        | \babel => compile-and-execute-babel "f = #{query}"
+        | _ => compile-and-execute-livescript query) {} <<< get-context! <<< (require \prelude-ls) <<< parameters <<< (require \../async-ls) <<<
 
             # run-query :: (CancellablePromise) => String, CompiledQueryParameters? -> cp result
             run-query: (query-id, parameters = {}) ->
