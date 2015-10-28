@@ -41,7 +41,9 @@ module.exports = React.create-class do
                 range = editor.getSelectionRange!.clone!
                 range.setStart range.start.row, 0
                 line = editor.session.getTextRange range
-                editor.execCommand \startAutocomplete if command.name == "insertstring" and ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
+                if command.name == "insertstring" and 
+                   ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
+                    editor.execCommand \startAutocomplete 
             ..session.on \changeMode, (e, session) ~>
                 if "ace/mode/javascript" == session.getMode!.$id
                     if !!session.$worker
