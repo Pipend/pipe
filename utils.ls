@@ -54,10 +54,13 @@ export compile-and-execute-javascript-p = (javascript-code, context) -->
 export compile-and-execute-babel = (es6-code, context) -->
     die = (err)-> [err, null]
     try 
-        javascript-code = babel.transform es6-code .code.replace '"use strict";', '' .trim!
-        compile-and-execute-javascript javascript-code, context
+        javascript-code = babel.transform es6-code .code
+            .replace '"use strict";', '' .trim!
+            .replace "'use strict';", '' .trim!
     catch err
-        return die "javascript runtime error: #{err.to-string!}"
+        return die "babel compilation error: #{err.to-string!}"
+
+    compile-and-execute-javascript javascript-code, context
 
 # compile-and-execute-babel-p :: String -> Map k, v -> p result
 export compile-and-execute-babel-p = (es6-code, context) -->

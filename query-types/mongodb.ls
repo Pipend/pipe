@@ -84,10 +84,37 @@ export keywords = (data-source) ->
           $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort 
           $strcasecmp $substr $subtract $sum $to-lower $to-upper $unwind $week $year do]>
 
-# convert-query-to-valid-livescript :: String -> String
-convert-query-to-valid-livescript = (query) ->
+
+# convert-livescript-query-to-pipe-mongo-syntax :: String -> String
+convert-livescript-query-to-pipe-mongo-syntax = (query) ->
     lines = (str) -> str.split '\n'
     "aggregate do \n" + ((foldr1 (+)) . (map (x) -> "    #{x}\n") . lines) query
+
+# convert-babel-query-to-pipe-mong-syntax :: String -> String
+convert-babel-query-to-pipe-mong-syntax = (query) ->
+    lines = (str) -> str.split '\n'
+    "aggregate(\n" + (((foldr1 (+)) . (map (x) -> "    #{x},\n") . lines) query)  + "\n)"
+
+# convert-query-to-pipe-mongo-syntax-and-execute :: String -> {} -> (String -> String) -> (String -> String) -> Promise [{}]:pipeline
+convert-query-to-pipe-mongo-syntax-and-execute = (query, query-context, converter, transpiler) -->
+    transpiler (converter query), query-context <<< {
+        aggregate: (...args) -> args
+    } <<<
+        # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
+        ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"] 
+        |> map -> ["#it", (hash) -> "#it": hash]
+        |> pairs-to-obj
+
+# convert-query-to-livescript-array :: String -> String
+convert-query-to-livescript-array = (query) ->
+    lines = (str) -> str.split '\n'
+    "json = \n"  + ((foldr1 (+)) . (map (x) -> "    #{x}\n") . lines) query
+
+trim-livescript-code = (query) ->
+    query.replace /(\/\*[\w\'\s\r\n\*]*\*\/)|(\#[\w\s\']*)/gmi, ''
+
+trim-babel-code = (query) ->
+    query.replace /(\/\*[\w\'\s\r\n\*]*\*\/)|(\/\/[\w\s\']*)/gmi, ''
 
 
 # get-context :: a -> Context
@@ -198,9 +225,9 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     aggregation-query <- bindP (match transpilation
                         | 'javascript' => compile-and-execute-javascript-p ("json = #{query}")
                         # no particular code for babel, same as javascript
-                        | 'babel' => compile-and-execute-babel-p ("json = #{query}")
+                        | 'babel' => compile-and-execute-babel-p "{\n#{query}\n}"
                         | _ => compile-and-execute-livescript-p "{\n#{query}\n}") query-context
-                    console.log aggregation-query
+
                     result <- bindP execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-map-reduce (db.collection collection), aggregation-query
@@ -213,19 +240,29 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                     aggregation-query <- bindP match transpilation
 
                         # using 'json = ...' converts query to an expression from JSON
-                        | \javascript => compile-and-execute-javascript-p ("json = #{query}"), query-context
-                        | \babel => compile-and-execute-babel-p ("json = #{query}"), query-context
+                        | \javascript => 
+                            trimmed-query = trim-babel-code query
+                            if trimmed-query.0 == '['
+                                compile-and-execute-javascript-p ("json = #{query}"), query-context 
+                            else
+                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mong-syntax, compile-and-execute-javascript-p
 
-                        | _ => 
-                            compile-and-execute-livescript-p (convert-query-to-valid-livescript query), query-context <<< {
-                                aggregate: (...args) -> args
-                            } <<<
-                                # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
-                                ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"] 
-                                |> map -> ["#it", (hash) -> "#it": hash]
-                                |> pairs-to-obj
-                            
-                            
+                        | \babel => 
+                            trimmed-query = trim-babel-code query
+                            if trimmed-query.0 == '['
+                                compile-and-execute-babel-p "{\n#{query}\n}", query-context                         
+                            else 
+                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mong-syntax, compile-and-execute-babel-p
+
+                        | \livescript => 
+                            trimmed-query = trim-livescript-code query
+                            if trimmed-query.0 == '['
+                                compile-and-execute-livescript-p "\n#{query}\n", query-context
+                            else if trimmed-query.0 == '*'
+                                compile-and-execute-livescript-p (convert-query-to-livescript-array query), query-context
+                            else
+                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-livescript-query-to-pipe-mongo-syntax, compile-and-execute-livescript-p
+
                     execute-mongo-database-query-function do 
                         data-source
                         (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
