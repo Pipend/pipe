@@ -470,7 +470,7 @@ module.exports = React.create-class do
                                                     session = editor.get-session!
                                                     current-token = session.get-token-at row, column
                                                     previous-token = (session.get-tokens row)[current-token.index - 2]
-                                                    if previous-token.value == \run-latest-query
+                                                    if (dasherize previous-token?.value ? "") == \run-latest-query
                                                         open-window "/branches/#{current-token.value.substr 1}" 
                                         else
                                             {}
