@@ -471,7 +471,8 @@ module.exports = React.create-class do
                                                     current-token = session.get-token-at row, column
                                                     previous-token = (session.get-tokens row)[current-token.index - 2]
                                                     if (dasherize previous-token?.value ? "") == \run-latest-query
-                                                        open-window "/branches/#{current-token.value.substr 1}" 
+                                                        branch-id = current-token.value.replace /\\|\"|\'/g, ""
+                                                        open-window "/branches/#{branch-id}" 
                                         else
                                             {}
                                     )
