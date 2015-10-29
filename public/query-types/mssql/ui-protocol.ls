@@ -4,18 +4,20 @@ PartialDataSourceCue = require \./PartialDataSourceCue.ls
 {concat-map, map, filter, Obj, obj-to-pairs, pairs-to-obj, unique} = require \prelude-ls
 editor-settings = require \../default-editor-settings.ls
 
-# tables-from-query :: String -> [{name, alias}]
+# tables-from-query :: String -> [{name :: String, alias :: String?}]
 tables-from-query = (query) ->
     query
     .replace /--.*$/gmi, ''
     .replace /(WITH\s?)?\(NOLOCK\)/gmi, ''
     .split /[ , \r\n \n]+/
     .reduce do
+        # expect :: Enum | {what :: Enum, table :: String, alias :: String? }
+        # tables :: [{name :: String, alias :: String?}]
         ({expect, tables}:acc, token) ->
-            ltoken = token.to-lower-case!
+            ctoken = token.to-lower-case!
             switch
             | 'Any' == expect =>
-                if ltoken in <[from join]>
+                if ctoken in <[from join]>
                     {expect: 'Table', tables}
                 else
                     {expect: 'Any', tables}
@@ -23,9 +25,9 @@ tables-from-query = (query) ->
                 {expect: {what: 'As', table: token}, tables}
             | expect.what == 'As' => 
                 switch
-                | ltoken == 'as' =>
+                | ctoken == 'as' =>
                     {expect: {what: 'Alias', table: expect.table}, tables}
-                | ltoken in <[inner join outer on where]> =>
+                | ctoken in <[inner join outer on where]> =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
                 | _ =>
                     {expect: {what: 'AliasWithoutTableName', table: expect.table, alias: token}, tables}
@@ -33,11 +35,11 @@ tables-from-query = (query) ->
                 {expect: 'Any', tables: tables ++ [{table: expect.table, alias: token}]}
             | expect.what == 'AliasWithoutTableName' =>
                 switch
-                | ltoken in <[inner join outer on where]> =>
+                | ctoken in <[inner join outer on where]> =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: expect.alias}]}
                 | _ =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
-            | _ => throw "Unexpected expect #{JSON.stringify expect}"
+            | _ => throw "Unexpected 'expect' #{JSON.stringify expect}"
             
         {expect: 'Any', tables: []}
     .tables |> map ({table, alias}) -> {name: table, alias}    
@@ -113,8 +115,9 @@ module.exports =
                     # + all other tables (with lower score)
                     auto-complete = auto-complete ++ do -> 
                         if matching-tables.length == 0
-                            [[(ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: s}
+                            [[(ast-tables ? []), 80]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: s}
                         else
                             [keywords: (matching-tables |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 100]
                 
+
                 Promise.resolve auto-complete
