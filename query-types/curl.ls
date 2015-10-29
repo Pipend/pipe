@@ -4,8 +4,8 @@ config = require \./../config
 {exec} = require \shelljs
 {compile-and-execute-livescript}:utils = require \./../utils
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) ->
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
+export keywords = ([data-source]) ->
     returnP keywords: <[curl -H -d -X POST GET --user http:// https://]>
 
 # get-context :: a -> Context

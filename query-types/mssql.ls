@@ -3,6 +3,7 @@ config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
 sql = require \mssql
 
+# execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
 execute-sql = (data-source, query) -->
     connection = null
 
@@ -27,8 +28,8 @@ export connections = ->
                 value: name
                 default-database: value?.default-database or ''
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp { keywords: [String], tables: Hash {String: [String]} }
-export keywords = (data-source) ->
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp { keywords: [String], tables: Hash {String: [String]} }
+export keywords = ([data-source]) ->
     results <- bindP (execute-sql data-source, "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS")
     tables = results |> (group-by (-> "#{it.TABLE_SCHEMA}.#{it.TABLE_NAME}")) >> (Obj.map map (.COLUMN_NAME))
     returnP {

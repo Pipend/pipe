@@ -1,15 +1,15 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \../async-ls
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
-{map} = require \prelude-ls
+{camelize, id, map} = require \prelude-ls
 
 # utils
 {compile-and-execute-javascript, compile-and-execute-babel, compile-and-execute-livescript, 
 extract-data-source, get-latest-query-in-branch, get-query-by-id, ops-manager, transform}:utils = require \./../utils
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) ->
-    returnP keywords: <[run-latest-query run-query]>
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
+export keywords = ([data-source, transpilation-language]) ->
+    returnP keywords: map (if transpilation-language == \livescript then id else camelize), <[run-latest-query run-query]>
 
 # get-context :: () -> Context
 export get-context = ->

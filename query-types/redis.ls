@@ -3,8 +3,8 @@
 {map} = require \prelude-ls
 {compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, get-query-by-id, transform}:utils = require \./../utils
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) -> returnP <[]>
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
+export keywords = ([data-source]) -> returnP <[]>
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->

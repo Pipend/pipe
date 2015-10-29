@@ -64,8 +64,8 @@ export connections = ({connection-name, database}) -->
         | !database => get-databases connection-name
         | _ => get-collections connection-name, database
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) ->
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
+export keywords = ([data-source]) ->
     pipeline = 
         * $sort: _id: -1
         * $limit: 10

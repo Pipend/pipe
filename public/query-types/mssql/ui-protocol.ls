@@ -25,7 +25,7 @@ tables-from-query = (query) ->
                 switch
                 | ltoken == 'as' =>
                     {expect: {what: 'Alias', table: expect.table}, tables}
-                | ltoken in <[inner join outer on]> =>
+                | ltoken in <[inner join outer on where]> =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
                 | _ =>
                     {expect: {what: 'AliasWithoutTableName', table: expect.table, alias: token}, tables}
@@ -33,7 +33,7 @@ tables-from-query = (query) ->
                 {expect: 'Any', tables: tables ++ [{table: expect.table, alias: token}]}
             | expect.what == 'AliasWithoutTableName' =>
                 switch
-                | ltoken in <[inner join outer on]> =>
+                | ltoken in <[inner join outer on where]> =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: expect.alias}]}
                 | _ =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
@@ -62,11 +62,12 @@ module.exports =
     # presentation-editor-settings :: String -> AceEditorSettings
     presentation-editor-settings: editor-settings
 
-    # make-auto-completer :: (Promise p) => DataSourceCue -> p completions
-    make-auto-completer: (data-source-cue) ->
+    # make-auto-completer :: (AceEditor -> Boolean) -> [DataSourceCue, String] -> p (String -> p AST)
+    make-auto-completer: (filter-function, source-and-language) ->
         
         make-auto-completer do
-            data-source-cue
+            filter-function
+            source-and-language
 
             # on-api-keywords-feteched :: api-keywords -> Promise schema
             ({keywords}:data) -> new Promise (resolve, reject) ->
@@ -109,12 +110,11 @@ module.exports =
 
                     matching-tables = ast-tables ? [] |> filter ({name, alias}) -> name == clean-token or alias == clean-token
 
-
                     # + all other tables (with lower score)
                     auto-complete = auto-complete ++ do -> 
                         if matching-tables.length == 0
-                            [[(ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name])), score: s}
+                            [[(ast-tables ? []), 80], [all-tables, 40]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: s}
                         else
-                            [keywords: (matching-tables |> concat-map (-> tables-hash[it.name])), score: 100]
+                            [keywords: (matching-tables |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 100]
                 
                 Promise.resolve auto-complete

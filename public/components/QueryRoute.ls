@@ -847,14 +847,6 @@ module.exports = React.create-class do
 
         @load props
 
-    # setup-query-auto-completion :: a -> Void
-    setup-query-auto-completion: !->
-        ace-language-tools.set-completers @default-completers
-        {data-source-cue, query} = @state
-        @existing-completer = ui-protocol[data-source-cue.query-type].make-auto-completer data-source-cue .then (result) ~>
-            ace-language-tools.set-completers [result] ++ @default-completers
-            result
-
     # redistribute-editor-heights :: a -> Void
     redistribute-editor-heights: !-> 
         @set-state editor-heights.apply do 
@@ -896,7 +888,24 @@ module.exports = React.create-class do
 
         else 
             new Promise (res) ~> res \done
-        
+    
+    # SIDEEFFECT
+    # uses @state.data-source-cue, @state.transpilation-language
+    # adds @on-query-changed-p :: p (String -> p AST)
+    # setup-query-auto-completion :: a -> Void
+    setup-query-auto-completion: !->
+        {data-source-cue, transpilation-language} = @state
+
+        # set the default completers (removing the currently set query completer if any)
+        ace-language-tools.set-completers @default-completers
+
+        # @on-query-changed-p :: p (String -> p AST)
+        {query-type} = data-source-cue
+        {make-auto-completer} = ui-protocol[query-type]
+        @on-query-changed-p = make-auto-completer (.container.id == \query-editor), [data-source-cue, transpilation-language] .then ({get-completions, on-query-changed}) ~>
+            ace-language-tools.set-completers [{get-completions}] ++ @default-completers
+            on-query-changed @state.query
+            on-query-changed
 
     # document-did-load :: a -> Void
     document-did-load: !->
@@ -933,27 +942,28 @@ module.exports = React.create-class do
     # updates the list of auto-completers if the data-source-cue has changed
     # component-did-update :: Props -> State -> Void
     component-did-update: (prev-props, prev-state) !->
+
+        # call on-query-changed method, returned when setting up the auto-completer
+        # this method uses the query to build the AST which is used internally to 
+        # create the get-completions method for AceEditor
+        do ~>
+            if !!@on-query-changed-p and @state.query != prev-state.query
+                @on-query-changed-p.then ~> it @state.query
         
         # auto-complete
         do ~>
-            {data-source-cue, query} = @state
-
-            return if !@existing-completer
-
-            @existing-completer.then ({on-query-changed}:me) ->
-                on-query-changed query
+            {data-source-cue, transpilation-language} = @state
 
             # return if the data-source-cue is not complete or there is no change in the data-source-cue
-            return if !data-source-cue.complete or data-source-cue `is-equal-to-object` prev-state.data-source-cue
+            if (data-source-cue.complete and !(data-source-cue `is-equal-to-object` prev-state.data-source-cue)) or transpilation-language != prev-state.transpilation-language
+                @setup-query-auto-completion!
 
-            @setup-query-auto-completion!
-
-            # redistribute the heights among the editors based on there visibility
-            @set-state editor-heights.apply do 
-                @
-                <[query transformation presentation]> |> map ~>
-                    {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
-                    if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
+                # redistribute the heights among the editors based on there visibility
+                @set-state editor-heights.apply do 
+                    @
+                    <[query transformation presentation]> |> map ~>
+                        {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                        if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
 
     # component-will-unmount :: a -> Void
     component-will-unmount: ->

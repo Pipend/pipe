@@ -34,14 +34,13 @@ export connections = ->
                 value: name
                 default-database: value?.default-database or ''
 
-# keywords :: (CancellablePromise cp) => DataSource -> cp [String]
-export keywords = (data-source) ->
+# keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
+export keywords = ([data-source, transpilation-language]) ->
     results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns where table_schema = 'public'")
     tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
-    returnP {
+    returnP do
         keywords: <[SELECT GROUP BY ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]>
         tables: tables
-    }
 
 # get-context :: a -> Context
 export get-context = ->

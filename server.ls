@@ -540,8 +540,9 @@ app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
 # api :: keywords
 app.post \/apis/keywords, (req, res) ->
     err, result <- to-callback do ->
-        {query-type}:data-source <- bindP (extract-data-source req.body)
-        (require "./query-types/#{query-type}").keywords data-source
+        [data-source-cue, ...rest] = req.body
+        {query-type}:data-source <- bindP (extract-data-source data-source-cue)
+        (require "./query-types/#{query-type}").keywords [data-source] ++ rest
     if !!err then die res, err else res.end pretty result
 
 # api :: tags
