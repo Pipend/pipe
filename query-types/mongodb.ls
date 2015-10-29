@@ -2,7 +2,7 @@
 config = require \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
-{id, concat-map, dasherize, difference, each, filter, find, find-index, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor} = require \prelude-ls
+{id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map, obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor, lines} = require \prelude-ls
 {compile-and-execute-livescript, compile-and-execute-livescript-p, compile-and-execute-javascript-p, compile-and-execute-babel-p, get-all-keys-recursively} = require \./../utils
 {date-from-object-id, object-id-from-date} = require \../public/utils
 Promise = require \bluebird
@@ -90,10 +90,25 @@ convert-livescript-query-to-pipe-mongo-syntax = (query) ->
     lines = (str) -> str.split '\n'
     "aggregate do \n" + ((foldr1 (+)) . (map (x) -> "    #{x}\n") . lines) query
 
-# convert-babel-query-to-pipe-mong-syntax :: String -> String
-convert-babel-query-to-pipe-mong-syntax = (query) ->
-    lines = (str) -> str.split '\n'
-    "aggregate(\n" + (((foldr1 (+)) . (map (x) -> "    #{x},\n") . lines) query)  + "\n)"
+# convert-babel-query-to-pipe-mongo-syntax :: String -> String
+convert-babel-query-to-pipe-mongo-syntax = (query) ->
+    # pending :: String?
+    # tokens :: [String] a line starting with $ is the start of a token
+    {pending, tokens} = query
+        |> lines
+        |> fold do
+            ({pending, tokens}, a) ->
+                if a.0 == '$'
+                    if !!pending
+                        tokens.push pending + ","
+                    pending := a + \\n
+                else
+                    pending += a + \\n
+                {pending, tokens}
+            {pending: null, tokens: []}
+        
+    tokens.push pending
+    tokens |> foldr1 (++)
 
 # convert-query-to-pipe-mongo-syntax-and-execute :: String -> {} -> (String -> String) -> (String -> String) -> Promise [{}]:pipeline
 convert-query-to-pipe-mongo-syntax-and-execute = (query, query-context, converter, transpiler) -->
@@ -245,14 +260,14 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
                             if trimmed-query.0 == '['
                                 compile-and-execute-javascript-p ("json = #{query}"), query-context 
                             else
-                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mong-syntax, compile-and-execute-javascript-p
+                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mongo-syntax, compile-and-execute-javascript-p
 
                         | \babel => 
                             trimmed-query = trim-babel-code query
                             if trimmed-query.0 == '['
                                 compile-and-execute-babel-p "{\n#{query}\n}", query-context                         
                             else 
-                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mong-syntax, compile-and-execute-babel-p
+                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mongo-syntax, compile-and-execute-babel-p
 
                         | \livescript => 
                             trimmed-query = trim-livescript-code query
