@@ -92,7 +92,7 @@ module.exports = React.create-class do
 
                 # COPYRIGHT
                 div class-name: \copy-right,
-                    "© #{new Date!.get-full-year!} Pipend Inc."
+                    "© #{new Date!.get-full-year!} Pipend"
 
             # RIGHT SIDE
             div class-name: \queries-container,
