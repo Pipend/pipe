@@ -1,5 +1,5 @@
 require! \./AceEditor.ls
-{project-title}? = require \../../config.ls
+{project-title}:config = require \../../config.ls
 $ = require \jquery-browserify
 {any, camelize, concat-map, filter, find, map, obj-to-pairs, pairs-to-obj, partition, unique, sort, take} = require \prelude-ls
 {create-factory, DOM:{a, div, img, input, span}}:React = require \react
@@ -22,11 +22,12 @@ module.exports = React.create-class do
         div class-name: \query-list-route,
 
             # GITHUB RIBBON
-            div class-name: "github-fork-ribbon-wrapper right",
-                div do 
-                    class-name: "github-fork-ribbon"
-                    style: background-color: \#090
-                    a href: \https://github.com/pipend/pipe/, "Fork me on GitHub"
+            if config.github-ribbon
+                div class-name: "github-fork-ribbon-wrapper right",
+                    div do 
+                        class-name: "github-fork-ribbon"
+                        style: background-color: \#090
+                        a href: \https://github.com/pipend/pipe/, "Fork me on GitHub"
 
             # LEFT SIDE MENU
             div do 
@@ -91,7 +92,7 @@ module.exports = React.create-class do
 
                 # COPYRIGHT
                 div class-name: \copy-right,
-                    "© #{new Date!.get-full-year!} Pipend Inc."
+                    "© #{new Date!.get-full-year!} Pipend"
 
             # RIGHT SIDE
             div class-name: \queries-container,
