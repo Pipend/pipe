@@ -260,7 +260,7 @@ module.exports = React.create-class do
               action: (button-left) ~> @set-state {dialog: \settings}
 
             * label: 'Task Manager'
-              href: \ops
+              href: \/ops
               action: ~> open-window "/ops", \_blank
 
         editors = 
