@@ -19,6 +19,12 @@ class Plottable
     _plotter: (view, result) ~>
         @plotter view, (@projection result, @options), @options, @continuations
 
+# f :: View -> result -> {}:options -> IO ()
+# f -> Plottable View result options
+plottable = (f) ->
+    new Plottable (view, result, options) !-->
+        f view, result, options
+
 # Runs a Plottable
 plot = (p, view, result) -->
     p._plotter view, result 
@@ -145,6 +151,7 @@ module.exports = ->
     {} <<< plottables <<< {
         Plottable
         plot
+        plottable
         with-options
         more
         amore

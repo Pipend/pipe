@@ -21,6 +21,7 @@ export rextend = (a, b) -->
 
     return b if any (== btype), <[Boolean Number String Function]>
     return b if a is null or (\Undefined == typeof! a)
+    return b if a instanceof Array
 
     bkeys = Obj.keys b
     return a if bkeys.length == 0
