@@ -99,7 +99,7 @@ module.exports =
             (text, {schema:{all-tables, tables, tables-hash, schemas}, keywords, ast:ast-tables}) ->
                 
                 auto-complete = []
-                token = ((text.split " ")?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!
+                token = ((text.split /[\s+\(]/)?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!.replace /[\)\[\]\-\$\^\.\*\\\%\_\+\=\'\"\`\~\?\<\>\{\}\#\@\|]/ig, ''
 
                 if token in <[from join]> ++ schemas
                     # tables
@@ -110,14 +110,16 @@ module.exports =
                     # if token is a table name or alias
                     clean-token = token.split \. .0
 
-                    matching-tables = ast-tables ? [] |> filter ({name, alias}) -> name == clean-token or alias == clean-token
+                    reg-clean-token = new RegExp "^#{clean-token}$", "i"
+
+                    matching-tables = ast-tables ? [] |> filter ({name, alias}) -> reg-clean-token.test name or reg-clean-token.test alias
 
                     # + all other tables (with lower score)
                     auto-complete = auto-complete ++ do -> 
                         if matching-tables.length == 0
-                            [[(ast-tables ? []), 80]] |> concat-map ([t, s]) -> {keywords: (t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: s}
+                            ast-tables ? [] |> concat-map (t) -> {keywords: (unique <| t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 80}
                         else
-                            [keywords: (matching-tables |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 100]
+                            [keywords: (unique <| matching-tables |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 100]
                 
 
                 Promise.resolve auto-complete
