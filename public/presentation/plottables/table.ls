@@ -6,7 +6,7 @@ module.exports = ({Plottable, nv, plot-chart, plot}) -> new Plottable do
         cols = cols ? do -> result.0 |> Obj.keys |> (filter (.index-of \$) >> (!= 0)) |> sort-by (-> b = (cols-order.index-of it); if b == -1 then Infinity else b )
         
         #todo: don't do this if the table is already present
-        $table = d3.select view .append \pre .append \table
+        $table = d3.select view .append \pre .append \table .attr \class, \plottable
         $table.append \thead .append \tr
         $table.append \tbody
 
