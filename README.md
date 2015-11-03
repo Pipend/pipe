@@ -76,6 +76,9 @@ module.exports =
         collection: \queries
         complete: true
     
+    # the default transpilation language for the new query dialog
+    default-transpilation-language: \babel # other options: javascript, livescript
+
     # cache store config
     cache-store:
         type: \redis-store

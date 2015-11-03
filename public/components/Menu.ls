@@ -63,7 +63,7 @@ module.exports = React.create-class do
                                 
                                 if !!href
                                     href: href
-                                    target: \blank
+                                    target: \_blank
                                     
                                 else
                                     on-click: action-listener

@@ -170,12 +170,17 @@ app.get \/queries/:queryId, (req, res) ->
 # api :: default-document
 # returns the default document of query type identified by config.default-data-source.type
 # /apis/defaultDocuemnt
-app.get \/apis/defaultDocument, (req, res) ->
-    {query-type} = config.default-data-source-cue
-    res.end pretty {} <<< (require "./query-types/#{query-type}").default-document! <<<
-        data-source-cue: config.default-data-source-cue
+app.post \/apis/defaultDocument, (req, res) ->
+    {data-source-cue, transpilation-language} = req.body
+    {default-document} = require "./query-types/#{data-source-cue.query-type}"
+    res.end pretty {} <<< (default-document data-source-cue, transpilation-language) <<<
+        data-source-cue: data-source-cue
         query-title: 'Untitled query'
         tags: []
+        transpilation:
+            query: transpilation-language
+            transformation: transpilation-language
+            presentation: transpilation-language
 
 # api :: list of branches
 # returns a list of branches where each item has the branch-id and the latest-query in that branch
