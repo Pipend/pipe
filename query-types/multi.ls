@@ -65,12 +65,13 @@ export execute = (query-database, data-source, query, transpilation, parameters)
 
     if !!err then (new-promise (, rej) -> rej err) else transpiled-code
 
-# default-document :: () -> Document
-export default-document = -> 
-    {
-        query: """run-query "", {}"""
-        transformation: "id"
-        presentation: "json"
-        parameters: ""
-    }
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) -> 
+    console.log \transpilation-language, transpilation-language
+    query: switch transpilation-language 
+        | \livescript => 'run-query "", {}'
+        | _ => 'runQuery("", {})'
+    transformation: \id
+    presentation: \json
+    parameters: ""
 

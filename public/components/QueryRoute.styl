@@ -1,12 +1,13 @@
-@require 'Menu'
 @require 'ConflictDialog'
-@require 'SettingsDialog'
-@require 'Popup'
 @require 'DataSourceCuePopup'
-@require 'SharePopup'
-@require '../presentation/presentation'
+@require 'Menu'
+@require 'NewQueryDialog'
+@require 'Popup'
 @require 'QueryAndImportRoute'
 @require 'ReactSelectize'
+@require 'SettingsDialog'
+@require 'SharePopup'
+@require '../presentation/presentation'
 
 .query-route
     
@@ -27,6 +28,11 @@
         width 100%
         height 100%
         z-index 10
+
+    > .popup
+        position absolute
+        top: 50px
+        z-index 1000
 
     .tags-popup .react-selectize .dropdown .option-wrapper.highlight .simple-option
         color #a0b42a !important

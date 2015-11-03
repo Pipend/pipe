@@ -8,16 +8,18 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        class-name: \labelled-dropdown
         disabled: false
         editable: false
+        label: ""
         options: [] # :: [Item], Where Item :: {label :: String, value :: String, color :: String}
-        on-change: (value) !->
+        on-change: (value) !-> # String -> Void
         value: undefined
 
     # render :: a -> ReactElement
     render: ->
         {disabled, value, options} = @props
-        div null,
+        div class-name: @props.class-name,
             React.DOM.label null, @props.label
             SimpleSelect {
                 disabled

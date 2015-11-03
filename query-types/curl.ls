@@ -43,11 +43,9 @@ export execute = (query-database, data-source, query, transpilation, parameters)
             curl-process.kill! if !!curl-process
             returnP \killed
 
-# default-document :: () -> Document
-export default-document = -> 
-    {
-        query: ""
-        transformation: "id"
-        presentation: "json"
-        parameters: ""
-    }
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) -> 
+    query: """curl "https://api.github.com/emojis" """
+    transformation: "JSON.parse"
+    presentation: "json"
+    parameters: ""

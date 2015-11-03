@@ -286,17 +286,26 @@ export execute = (query-database, {collection, allow-disk-use}:data-source, quer
     
     computation!
 
-# default-document :: () -> Document
-export default-document = -> 
-    {
-        query: """
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) ->     
+    query: switch transpilation-language
+    | \livescript => """
         $sort _id: -1 
         $limit 20
-        """
-        transformation: "id"
-        presentation: "json"
-        parameters: ""
-    }
+    """
+    | _ => """
+        [
+            {
+                $sort: {_id: -1}
+            }, 
+            {
+                $limit: 20
+            }
+        ]
+    """
+    transformation: "id"
+    presentation: "json"
+    parameters: ""
 
 import-json = (file, data-source) ->
     execute-mongo-database-query-function do

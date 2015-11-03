@@ -48,8 +48,8 @@ export execute = (query-database, data-source, query, transpilation, parameters)
         query := query.replace "$#{key}$", parameters[key]
     execute-sql data-source, query
 
-# default-document :: () -> Document
-export default-document = -> 
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) -> 
     {
         query: """
         select top 100 * from 

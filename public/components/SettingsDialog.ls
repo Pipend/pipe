@@ -119,7 +119,7 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render:  ->
-        div class-name: \settings-dialog,
+        div class-name: 'settings-dialog dialog',
             
             # TITLE
             div class-name: \header, "Settings"

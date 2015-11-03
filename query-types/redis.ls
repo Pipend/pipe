@@ -21,9 +21,33 @@ export get-context = ->
 export execute = (query-database, data-source, query, transpilation, parameters) -->
     returnP null
 
-# default-document :: a -> Document
-export default-document = -> 
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) -> 
     query: ""
-    transformation: ""
-    presentation: ""
+    transformation: switch transpilation-language
+        | \livescript => """
+        <- id
+        from-web-socket \\
+            .filter (.name == \\)
+            .map ({data}) -> JSON.parse data
+        """
+        | \babel => """
+        (result) => {
+            fromWebSocket("")
+                .filter ({name}) => name == ""
+                .map ({data}) => JSON.parse data
+        }
+        """
+        | \javascript => """
+        function(result) {
+            fromWebSocket("")
+                .filter(function(event){
+                    return event.name == "";
+                })
+                .map(function(event){
+                    return event.data;    
+                })
+        }
+        """
+    presentation: "json"
     parameters: ""

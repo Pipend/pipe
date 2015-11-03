@@ -47,15 +47,13 @@ export execute = (query-database, data-source, query, transpilation, parameters)
         query := query.replace "$#{key}$", parameters[key]
     execute-sql data-source, query
 
-# default-document :: () -> Document
-export default-document = -> 
-    {
-        query: """
-        select * 
-        from 
-        limit 10
-        """
-        transformation: "id"
-        presentation: "json"
-        parameters: ""
-    }
+# default-document :: DataSourceCue -> String -> Document
+export default-document = (data-source-cue, transpilation-language) -> 
+    query: """
+    select * 
+    from 
+    limit 10
+    """
+    transformation: "id"
+    presentation: "json"
+    parameters: ""

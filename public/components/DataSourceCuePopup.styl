@@ -1,10 +1,14 @@
 @require 'LabelledDropdown'
 @require 'LabelledTextField'
+@require 'Popup'
 @require 'ReactSelectize'
 @require 'SimpleButton'
 
 .data-source-cue-popup
     
+    input
+        width 302px
+
     label 
         display inline-block
         margin-right 4px
@@ -12,10 +16,7 @@
         text-transform capitalize
         width 90px
         &:after 
-            content: " : "
-
-    input         
-        width 302px
+            content " : "
 
     .simple-button
         margin-top 6px
@@ -24,6 +25,7 @@
     > div, .data-source-cue > div
         margin-bottom 4px
 
+    // dark green text color highlight on hover
     .react-selectize .dropdown .option-wrapper.highlight .simple-option
         color #a0b42a !important
 
