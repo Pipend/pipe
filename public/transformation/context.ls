@@ -1,12 +1,35 @@
 require! \moment
 
 # prelude
-{Obj, average, concat-map, drop, each, filter, find, foldr1, gcd, id, keys, map, maximum, 
-minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round, sort-by, group-by} = require \prelude-ls
+{Obj, average, concat-map, drop, each, filter, find, fold, foldr1, gcd, id, keys, map, maximum, 
+minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round, sort-by, group-by, floor, sqrt} = require \prelude-ls
 
 Rx = require \rx
 io = require \socket.io-client
 {object-id-from-date, date-from-object-id} = require \../utils.ls
+
+# [Number] -> {mean, sigma, median, length}
+summary-statistics = (xs) ->
+    median-index = floor <| xs.length / 2
+    {x, x2, median} = xs |> fold do
+        (acc, x) ->  {
+           x: acc.x + x
+           x2: acc.x2 + x * x
+           median: if acc.index == median-index then x else acc.median
+           index: acc.index + 1
+        }
+        {x: 0, x2: 0, median: null, index: 0}
+
+    mean = x / xs.length
+    sigma = sqrt (x2 / xs.length - mean * mean)
+    {
+        mean
+        sigma
+        median
+        length: xs.length
+    }
+
+
 
 # parse-date :: String -> Date
 parse-date = (s) -> new Date s
@@ -163,6 +186,8 @@ module.exports = -> {
         keys arr.0
             |> map (column) ->
                 arr |> map (row) -> row[column]
+
+    summary-statistics
 
     find-precision
 
