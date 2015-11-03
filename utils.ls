@@ -6,11 +6,15 @@ cache-store = require "./cache-stores/#{config.cache-store.type}"
 transformation-context = require \./public/transformation/context
 {EventEmitter} = require \events
 {readdir-sync} = require \fs
-{compile} = require \livescript
 md5 = require \MD5
 {any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, Str, values} = require \prelude-ls
 vm = require \vm
+
+
+# compilers \\//
+
 babel = require \babel
+{compile} = require \livescript
 
 # this method differs from public/utils.ls::compile-and-execute-livescript, 
 # it uses the native nodejs vm.run-in-new-context method to execute javascript instead of eval
@@ -68,6 +72,9 @@ export compile-and-execute-babel-p = (es6-code, context) -->
     [err, result] = compile-and-execute-babel es6-code, context
     return reject err if !!err
     resolve result
+
+# compilers //\\
+
 
 {get-all-keys-recursively} = require \./public/utils.ls
 export get-all-keys-recursively

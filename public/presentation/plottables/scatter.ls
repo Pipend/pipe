@@ -1,6 +1,6 @@
 {each} = require \prelude-ls
 module.exports = ({Plottable, plot-chart, d3, nv}) -> new Plottable do
-    (view, result, {tooltip, show-legend, color, transition-duration, x, y, x-axis, y-axis, margin}, continuation)!->
+    (view, result, {tooltip, show-legend, color, transition-duration, x, y, x-axis, y-axis, margin}, continuation) !-->
 
         <- nv.add-graph
 

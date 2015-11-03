@@ -2,7 +2,7 @@ require! \moment
 
 # prelude
 {Obj, average, concat-map, drop, each, filter, find, foldr1, gcd, id, keys, map, maximum, 
-minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round} = require \prelude-ls
+minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round, sort-by, group-by} = require \prelude-ls
 
 Rx = require \rx
 io = require \socket.io-client
@@ -65,6 +65,23 @@ fill-intervals = (list, default-value = 0) ->
         |> map -> [(round it.0 * precision), it.1] 
         |> -> fill-intervals-ints it, default-value
         |> map -> [it.0 / precision, it.1]
+
+
+# to-stacked-area :: (a -> String) -> (a -> Number) -> (a -> Number) -> [a] -> [{key :: String, total :: Number, values :: [[Number, Number, a]]]
+# map a result array to the input of stacked-area
+to-stacked-area = (key-f, x, y, result) -->
+    result
+    |> group-by key-f
+    |> fold-obj-to-list (key, values) ->
+        values := values |> map (v) ->
+            [(x v), (y v), v]
+        |> sort-by (.0)
+        
+        key: key
+        values: values
+        total: sum . map (.1) <| values
+    |> sort-by (.total * -1)
+
 
 # from-web-socket :: String -> Observer -> Subject
 from-web-socket = (address, open-observer) ->
@@ -156,6 +173,8 @@ module.exports = -> {
     round1
 
     fold-obj-to-list
+
+    to-stacked-area
 
     # credit: https://gist.github.com/Gozala/1697037
     tco: (fn) ->
