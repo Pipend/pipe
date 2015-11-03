@@ -2,7 +2,7 @@ require! \moment
 
 # prelude
 {Obj, average, concat-map, drop, each, filter, find, fold, foldr1, gcd, id, keys, map, maximum, 
-minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round, sort-by, group-by, floor, sqrt} = require \prelude-ls
+minimum, obj-to-pairs, sort, sum, tail, take, unique, mod, round, sort-by, group-by, floor, ceiling, mean, sqrt} = require \prelude-ls
 
 Rx = require \rx
 io = require \socket.io-client
@@ -10,22 +10,25 @@ io = require \socket.io-client
 
 # [Number] -> {mean, sigma, median, length}
 summary-statistics = (xs) ->
-    median-index = floor <| xs.length / 2
-    {x, x2, median} = xs |> fold do
+    ys = sort xs
+    length = ys.length
+    length1 = length - 1
+    median = if ys.length % 2 == 0 then mean [ys[floor <| ys.length1/2], ys[ceiling <| ys.length1/2]] else ys[ys.length1/2]
+
+    {x, x2} = xs |> fold do
         (acc, x) ->  {
            x: acc.x + x
            x2: acc.x2 + x * x
-           median: if acc.index == median-index then x else acc.median
            index: acc.index + 1
         }
-        {x: 0, x2: 0, median: null, index: 0}
+        {x: 0, x2: 0, index: 0}
 
-    mean = x / xs.length
-    sigma = sqrt (x2 / xs.length - mean * mean)
+    avg = x / xs.length
+    sigma = sqrt (x2 / xs.length - avg * avg)
     {
-        mean
+        avg
         sigma
-        median
+        median: median
         length: xs.length
     }
 
