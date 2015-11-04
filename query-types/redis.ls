@@ -32,11 +32,10 @@ export default-document = (data-source-cue, transpilation-language) ->
             .map ({data}) -> JSON.parse data
         """
         | \babel => """
-        (result) => {
+        result =>
             fromWebSocket("")
-                .filter ({name}) => name == ""
-                .map ({data}) => JSON.parse data
-        }
+                .filter(({name}) => name === "")
+                .map(({data}) => JSON.parse(data))
         """
         | \javascript => """
         function(result) {

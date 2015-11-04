@@ -171,7 +171,7 @@ app.get \/queries/:queryId, (req, res) ->
 # returns the default document of query type identified by config.default-data-source.type
 # /apis/defaultDocuemnt
 app.post \/apis/defaultDocument, (req, res) ->
-    {data-source-cue, transpilation-language} = req.body
+    [data-source-cue, transpilation-language] = req.body
     {default-document} = require "./query-types/#{data-source-cue.query-type}"
     res.end pretty {} <<< (default-document data-source-cue, transpilation-language) <<<
         data-source-cue: data-source-cue
