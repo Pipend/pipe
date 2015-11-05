@@ -38,11 +38,7 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
 
-# returns dasherized collection of keywords for auto-completion
-keywords-from-object = (object) ->
-    object
-        |> keys 
-        |> map dasherize
+alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
 # TODO: move it to utils
 # takes a collection of keyscores & maps them to {name, value, score, meta}
@@ -56,8 +52,12 @@ convert-to-ace-keywords = (keyscores, meta, prefix) ->
             value: text
             meta: meta
             score: score
-            
-alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
+
+# returns dasherized collection of keywords for auto-completion
+keywords-from-object = (object) ->
+    object
+        |> keys 
+        |> map dasherize
 
 # returns a hash of editor-heights used in get-initial-state and state-from-document
 # editor-heights :: Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
@@ -70,6 +70,12 @@ editor-heights = (query-editor-height = 300, transformation-editor-height = 324,
     query-editor-height: editor-heights.0
     transformation-editor-height: editor-heights.1
     presentation-editor-height: editor-heights.2
+
+# gracefully degrades if blocked by a popup blocker
+# open-window :: URL -> Void
+open-window = (url, target) !->
+    if !window.open url, target
+        alert "PLEASE DISABLE THE POPUP BLOCKER \n\nUNABLE TO OPEN: #{url}"
 
 # to-callback :: p a -> (a -> b) -> Void
 to-callback = (promise, callback) !->
@@ -115,12 +121,6 @@ execute-document = do ->
                     previous-call := {document, result-with-metadata}
                     result-with-metadata
 
-# gracefully degrades if blocked by a popup blocker
-# open-window :: URL -> Void
-open-window = (url, target) !->
-    if !window.open url, target
-        alert "PLEASE DISABLE THE POPUP BLOCKER \n\nUNABLE TO OPEN: #{url}"
-
 module.exports = React.create-class do
 
     display-name: \QueryRoute
@@ -129,6 +129,7 @@ module.exports = React.create-class do
     # Lifecycle mixin provides route-will-leave method which helps in preventing the user from loosing his work
     mixins: [History]
 
+    # React class method
     # get-default-props :: a -> Props
     get-default-props: ->
         auto-execute: false
@@ -385,8 +386,8 @@ module.exports = React.create-class do
                             on-resolution-select: (resolution) ~>
                                 uid = generate-uid!
                                 match resolution
-                                | \new-commit => @post-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
-                                | \fork => @post-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
+                                | \new-commit => @save-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: queries-in-between.0, branch-id, tree-id}
+                                | \fork => @save-document {} <<< @document-from-state! <<< {query-id: uid, parent-id: query-id, branch-id: uid, tree-id}
                                 | \reset => @set-state (@state-from-document remote-document)
                                 @set-state dialog: null, queries-in-between: null
 
@@ -539,6 +540,296 @@ module.exports = React.create-class do
                                         label null, title
                                         span null, value
     
+    # React class method
+    # get-initial-state :: a -> UIState
+    get-initial-state: ->
+        {
+            cache: @props?.cache-query ? true # user checked the cache checkbox
+            dialog: null # String (name of the dialog to display)
+            executing-op: "" # String (alphanumeric op-id of the currently running query)
+            from-cache: false # latest result is from-cache (it is returned by the server on execution)
+            pending-client-external-libs: false
+            popup: null # String (name of the popup to display)
+
+            # TAGS POPUP
+            existing-tags: [] # [String] (fetched from /apsi/tags)            
+
+            # DOCUMENT
+            query-id: null
+            parent-id: null
+            branch-id: null
+            tree-id: null
+            data-source-cue: @props.default-data-source-cue
+            query: ""
+            query-title: "Untitled query"
+            transformation: ""
+            presentation: ""
+            parameters: ""
+            tags: []
+            editor-width: 550
+            keywords-from-query-result: []
+            transpilation-language: @props.default-transpilation-language
+            client-external-libs: []
+
+        } <<< editor-heights!
+
+    # React component life cycle method
+    # component-did-mount :: a -> Void
+    component-did-mount: !->
+
+        # auto-completion for editors
+        transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        d3-keywords = keywords-from-object d3
+        @default-completers =
+            * get-completions: (editor, , , prefix, callback) ~>
+                keywords-from-query-result = @state[camelize \keywords-from-query-result]
+                range = editor.getSelectionRange!.clone!
+                    ..set-start range.start.row, 0
+                text = editor.session.get-text-range range
+                [keywords, meta] = match editor.container.id
+                    | \transformation-editor => [(unique <| transformation-keywords ++ keywords-from-query-result), \transformation]
+                    | \presentation-editor => [(unique <| if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
+                    | _ => [alphabet, editor.container.id]
+                callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
+            ...
+        ace-language-tools.set-completers @default-completers
+
+        # auto completion for tags
+        get-json \/apis/tags, (existing-tags) ~> 
+            @set-state do 
+                existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
+                    |> unique-by (.label)
+                    |> sort-by (.label)
+
+        # create a debounced version of save-to-local-storage
+        @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
+
+        # crash recovery
+        @unload-listener = (e) ~> 
+            @save-to-client-storage!
+            if @should-prevent-reload!
+                message = "You have NOT saved your query. Stop and save if your want to keep your query."
+                (e || window.event)?.return-value = message
+                message
+        
+        window.add-event-listener \beforeunload, @unload-listener
+
+        # update the size of the presentation on resize (based on size of editors)
+        $ window .on \resize, ~> @update-presentation-size!
+        @update-presentation-size!
+                
+        # request permission for push notifications
+        if notifyjs.needs-permission
+            notifyjs.request-permission!
+
+        # selects presentation content only
+        key 'command + a', (e) ~> 
+            return true if e.target != document.body
+            range = document.create-range!
+                ..select-node-contents find-DOM-node @refs.presentation
+            selection = window.get-selection!
+                ..remove-all-ranges!
+                ..add-range range
+            cancel-event e
+
+        # load the document based on the url
+        @load @props
+
+    # on-document-load :: Document -> Document -> Void
+    on-document-load: (local-document, remote-document) ->
+
+        # existing-tags must also include tags saved on client storage 
+        existing-tags = (@state.existing-tags ? []) ++ (local-document.tags ? [])
+            |> unique-by (.label)
+            |> sort-by (.label)
+
+        <~ @set-state {} <<< (@state-from-document local-document ? remote-document) <<< {remote-document, existing-tags}
+
+        @save-to-client-storage!
+
+        # create the auto-completer for ACE for the current data-source-cue
+        @setup-query-auto-completion!
+
+        # now that we know the editor width, we should update the presentation size
+        @update-presentation-size!
+
+        # redistribute the heights among the editors based on there visibility
+        @set-state editor-heights.apply do
+            @
+            <[query transformation presentation]> |> map ~>
+                {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
+
+        {cache, execute}? = @props.location.query
+
+        # update state.cache to the value (if any) present in the query string
+        <~ do ~> (callback) ~> 
+            if !!cache
+                @set-state do 
+                    cache: cache == \true
+                    callback
+            else 
+                callback!
+
+        <~ to-callback (@load-client-external-libs @state.client-external-libs, [])
+        <~ set-timeout _, 1000
+
+        # execute the query (if either config.auto-execute or query-string.execute is true)
+        # only if there's no pending-client-external-libs (check component-did-update)
+        if !!@props.auto-execute or execute == \true
+            @execute!
+
+    # React component life cycle method (invoked before props are set)
+    # component-will-receive-props :: Props -> Void
+    component-will-receive-props: (props) !->
+        
+        # return if branch & query id did not change
+        return if props.params.branch-id == @props.params.branch-id and props.params.query-id == @props.params.query-id
+
+        # return if the document with the new changes to props is already loaded
+        # after saving the document we update the url (this prevents reloading the saved document from the server)
+        return if props.params.branch-id == @state.branch-id and props.params.query-id == @state.query-id
+
+        @load props
+
+    # React component life cycle method (invoked after the render function)
+    # updates the list of auto-completers if the data-source-cue has changed
+    # component-did-update :: Props -> State -> Void
+    component-did-update: (prev-props, prev-state) !->
+
+        # call on-query-changed method, returned when setting up the auto-completer
+        # this method uses the query to build the AST which is used internally to 
+        # create the get-completions method for AceEditor
+        do ~>
+            if !!@on-query-changed-p and @state.query != prev-state.query
+                @on-query-changed-p.then ~> it @state.query
+        
+        # auto-complete
+        do ~>
+            {data-source-cue, transpilation-language} = @state
+
+            # return if the data-source-cue is not complete or there is no change in the data-source-cue
+            if (data-source-cue.complete and !(data-source-cue `is-equal-to-object` prev-state.data-source-cue)) or transpilation-language != prev-state.transpilation-language
+                @setup-query-auto-completion!
+
+                # redistribute the heights among the editors based on there visibility
+                @set-state editor-heights.apply do 
+                    @
+                    <[query transformation presentation]> |> map ~>
+                        {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                        if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
+
+    # React component life cycle method
+    # component-will-unmount :: a -> Void
+    component-will-unmount: ->
+        window.remove-event-listener \beforeunload, @unload-listener if !!@unload-listener
+
+    # loads the document from local cache (if present) or server
+    # invoked on page load or when the user changes the url
+    # load :: Props -> Void
+    load: (props) !->
+        {branch-id, query-id}? = props.params
+
+        # local branch only exists on the authors machine       
+        local-branch = branch-id in <[local localFork]>
+        
+        if !!query-id
+            
+            # local-document :: Document
+            local-document = client-storage.get-document query-id
+            
+            # :: (Promise p) => p document -> Void (State changes)
+            update-state-using-document = (document-p) !~>
+                document-p 
+                .then (document) ~> @on-document-load local-document ? document, document
+                .catch (err) ~> 
+                    alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language}"
+                    window.location.href = \/
+
+            # eg: branches/local/queries/query-id
+            if !!local-branch
+                
+                # we are on a local branch and the local-document is present
+                # we can use the local-document.data-source-cue to get the default document
+                if !!local-document
+                    {data-source-cue, transpilation-language}? = @state-from-document local-document
+                    update-state-using-document (post-json \/apis/defaultDocument, [data-source-cue, transpilation-language])
+
+                # we are on a local branch and the local-document does not exist
+                # this means its a new query, so we display the new query dialog
+                else 
+                    @set-state dialog: \new-query
+
+            # load from local storage / remote
+            # eg: branches/branch-id/queries/query-id
+            else
+                update-state-using-document get-json "/apis/queries/#{query-id}"
+
+        else
+
+            # error handled by express
+            # eg: branches/local or branches/branch-id
+            if !!branch-id 
+                throw  "not implemented at client level, (refresh the page)"
+
+            # redirect to branches/local/queries/query-id
+            # eg: branches/
+            else
+                @history.replace-state null, "/branches/local/queries/#{generate-uid!}"
+
+    # load-client-external-libs :: [String] -> [String] -> p a
+    load-client-external-libs: (next, prev) ->
+
+        # remove urls from head
+        (prev `difference` next) |> each ~>
+            switch (last url.split \.)
+            | \js => $ "head > script[src='#{url}'" .remove!
+            | \css => $ "head > link[href='#{url}'" .remove!
+
+        # add urls to head
+        urls-to-add = next `difference` prev
+        if urls-to-add.length > 0
+            
+            # load all the urls in parallel 
+            Promise.all do 
+                urls-to-add |> map (url) -> 
+
+                    # TODO: use a different technique to differentiate file types
+                    new Promise (res) ->
+                        element = switch (last url.split \.)
+                            | \js =>
+                                script = document.create-element \script
+                                    ..src = url
+                            | \css => 
+                                link = document.create-element \link
+                                    ..type = \text/css
+                                    ..rel = \stylesheet
+                                    ..href = url
+                        element.onload = ~> res \done
+                        document.head.append-child element
+
+        else 
+            new Promise (res) ~> res \done
+
+    # SIDEEFFECT
+    # uses @state.data-source-cue, @state.transpilation-language
+    # adds @on-query-changed-p :: p (String -> p AST)
+    # setup-query-auto-completion :: a -> Void
+    setup-query-auto-completion: !->
+        {data-source-cue, query, transpilation-language} = @state
+        {query-type} = data-source-cue
+        {make-auto-completer} = ui-protocol[query-type]
+
+        # set the default completers (removing the currently set query completer if any)
+        ace-language-tools.set-completers @default-completers
+
+        # @on-query-changed-p :: p (String -> p AST)
+        @on-query-changed-p = make-auto-completer (.container.id == \query-editor), [data-source-cue, transpilation-language] .then ({get-completions, on-query-changed}) ~>
+            ace-language-tools.set-completers [{get-completions}] ++ @default-completers
+            on-query-changed query
+            on-query-changed    
+
     # update-presentation-size :: a -> Void
     update-presentation-size: !->
         left = @state.editor-width + 5
@@ -681,8 +972,41 @@ module.exports = React.create-class do
         # update the ui to reflect that the op is complete
         @set-state displayed-on: Date.now!, executing-op: "" 
 
-    # post-document :: (Promise p) => Document -> p Document
-    post-document: (document-to-save) ->
+    # returns a list of document properties (from current UIState) that diverged from the remote document
+    # changes-made :: a -> [String]
+    changes-made: ->
+
+        # there are no changes made if the query does not exist on the server 
+        return [] if !@state.remote-document
+
+        unsaved-document = @document-from-state!
+        <[query transformation presentation parameters queryTitle dataSourceCue tags]>
+            |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
+
+    # converts the current UIState to Document & POST's it as a "save" request to the server
+    # save :: (Promise p) => a -> p Document
+    save: ->
+        if @changes-made!.length == 0
+            Promise.resolve @document-from-state!
+
+        else 
+            uid = generate-uid! 
+            {query-id, tree-id, parent-id}:document = @document-from-state!
+
+            # a new query-id is generated at the time of save, parent-id is set to the old query-id
+            # expect in the case of a forked-query (whose parent-id is saved in the local-storage at the time of fork)
+            @save-document do 
+                {} <<< document <<<
+                    query-id: uid
+                    parent-id: switch @props.params.branch-id
+                        | \local => null
+                        | \localFork => parent-id
+                        | _ => query-id
+                    branch-id: if (@props.params.branch-id.index-of \local) == 0 then uid else @props.params.branch-id
+                    tree-id: tree-id or uid
+
+    # save-document :: (Promise p) => Document -> p Document
+    save-document: (document-to-save) ->
         (post-json \/apis/save, document-to-save)
             .then ({query-id, branch-id}:saved-document) ~>
 
@@ -723,161 +1047,6 @@ module.exports = React.create-class do
                 | _ => alert "Error: #{err}, #{response-text}"
 
                 throw err
-    
-    # returns a list of document properties (from current UIState) that diverged from the remote document
-    # changes-made :: a -> [String]
-    changes-made: ->
-
-        # there are no changes made if the query does not exist on the server 
-        return [] if !@state.remote-document
-
-        unsaved-document = @document-from-state!
-        <[query transformation presentation parameters queryTitle dataSourceCue tags]>
-            |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
-
-    # converts the current UIState to Document & POST's it as a "save" request to the server
-    # save :: (Promise p) => a -> p Document
-    save: ->
-        if @changes-made!.length == 0
-            Promise.resolve @document-from-state!
-
-        else 
-            uid = generate-uid! 
-            {query-id, tree-id, parent-id}:document = @document-from-state!
-
-            # a new query-id is generated at the time of save, parent-id is set to the old query-id
-            # expect in the case of a forked-query (whose parent-id is saved in the local-storage at the time of fork)
-            @post-document do 
-                {} <<< document <<<
-                    query-id: uid
-                    parent-id: switch @props.params.branch-id
-                        | \local => null
-                        | \localFork => parent-id
-                        | _ => query-id
-                    branch-id: if (@props.params.branch-id.index-of \local) == 0 then uid else @props.params.branch-id
-                    tree-id: tree-id or uid
-
-    # save to client storage only if the document has loaded
-    # save-to-client-storage :: a -> Void
-    save-to-client-storage: !-> 
-        if !!@state.remote-document
-            client-storage.save-document @props.params.query-id, @document-from-state!
-
-    # loads the document from local cache (if present) or server
-    # invoked on page load or when the user changes the url
-    # load :: Props -> Void
-    load: (props) !->
-        {branch-id, query-id}? = props.params
-
-        # local branch only exists on the authors machine       
-        local-branch = branch-id in <[local localFork]>
-        
-        if !!query-id
-            
-            # local-document :: Document
-            local-document = client-storage.get-document query-id
-            
-            # :: (Promise p) => p document -> Void (State changes)
-            update-state-using-document = (document-p) !~>
-                document-p 
-                .then (document) ~> @on-document-load local-document ? document, document
-                .catch (err) ~> 
-                    alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language}"
-                    window.location.href = \/
-
-            # eg: branches/local/queries/query-id
-            if !!local-branch
-                
-                # we are on a local branch and the local-document is present
-                # we can use the local-document.data-source-cue to get the default document
-                if !!local-document
-                    {data-source-cue, transpilation-language}? = @state-from-document local-document
-                    update-state-using-document (post-json \/apis/defaultDocument, [data-source-cue, transpilation-language])
-
-                # we are on a local branch and the local-document does not exist
-                # this means its a new query, so we display the new query dialog
-                else 
-                    @set-state dialog: \new-query
-
-            # load from local storage / remote
-            # eg: branches/branch-id/queries/query-id
-            else
-                update-state-using-document get-json "/apis/queries/#{query-id}"
-
-        else
-
-            # error handled by express
-            # eg: branches/local or branches/branch-id
-            if !!branch-id 
-                throw  "not implemented at client level, (refresh the page)"
-
-            # redirect to branches/local/queries/query-id
-            # eg: branches/
-            else
-                @history.replace-state null, "/branches/local/queries/#{generate-uid!}"
-
-    # React component life cycle method
-    # component-did-mount :: a -> Void
-    component-did-mount: !->
-
-        # auto-completion for editors
-        transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        d3-keywords = keywords-from-object d3
-        @default-completers =
-            * get-completions: (editor, , , prefix, callback) ~>
-                keywords-from-query-result = @state[camelize \keywords-from-query-result]
-                range = editor.getSelectionRange!.clone!
-                    ..set-start range.start.row, 0
-                text = editor.session.get-text-range range
-                [keywords, meta] = match editor.container.id
-                    | \transformation-editor => [(unique <| transformation-keywords ++ keywords-from-query-result), \transformation]
-                    | \presentation-editor => [(unique <| if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
-                    | _ => [alphabet, editor.container.id]
-                callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
-            ...
-        ace-language-tools.set-completers @default-completers
-
-        # auto completion for tags
-        get-json \/apis/tags, (existing-tags) ~> 
-            @set-state do 
-                existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
-                    |> unique-by (.label)
-                    |> sort-by (.label)
-
-        # create a debounced version of save-to-local-storage
-        @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
-
-        # crash recovery
-        @unload-listener = (e) ~> 
-            @save-to-client-storage!
-            if @should-prevent-reload!
-                message = "You have NOT saved your query. Stop and save if your want to keep your query."
-                (e || window.event)?.return-value = message
-                message
-        
-        window.add-event-listener \beforeunload, @unload-listener
-
-        # update the size of the presentation on resize (based on size of editors)
-        $ window .on \resize, ~> @update-presentation-size!
-        @update-presentation-size!
-                
-        # request permission for push notifications
-        if notifyjs.needs-permission
-            notifyjs.request-permission!
-
-        # selects presentation content only
-        key 'command + a', (e) ~> 
-            return true if e.target != document.body
-            range = document.create-range!
-                ..select-node-contents find-DOM-node @refs.presentation
-            selection = window.get-selection!
-                ..remove-all-ranges!
-                ..add-range range
-            cancel-event e
-
-        # load the document based on the url
-        @load @props
 
     # true indicates the reload must be prevented
     # should-prevent-reload :: a -> Boolean
@@ -889,179 +1058,12 @@ module.exports = React.create-class do
             | _ => false
         @props.prevent-reload and prevent-reload
 
-    # React component life cycle method (invoked before props are set)
-    # component-will-receive-props :: Props -> Void
-    component-will-receive-props: (props) !->
-        
-        # return if branch & query id did not change
-        return if props.params.branch-id == @props.params.branch-id and props.params.query-id == @props.params.query-id
-
-        # return if the document with the new changes to props is already loaded
-        # after saving the document we update the url (this prevents reloading the saved document from the server)
-        return if props.params.branch-id == @state.branch-id and props.params.query-id == @state.query-id
-
-        @load props
-
-    # load-client-external-libs :: [String] -> [String] -> p a
-    load-client-external-libs: (next, prev) ->
-
-        # remove urls from head
-        (prev `difference` next) |> each ~>
-            switch (last url.split \.)
-            | \js => $ "head > script[src='#{url}'" .remove!
-            | \css => $ "head > link[href='#{url}'" .remove!
-
-        # add urls to head
-        urls-to-add = next `difference` prev
-        if urls-to-add.length > 0
-            
-            # load all the urls in parallel 
-            Promise.all do 
-                urls-to-add |> map (url) -> 
-
-                    # TODO: use a different technique to differentiate file types
-                    new Promise (res) ->
-                        element = switch (last url.split \.)
-                            | \js =>
-                                script = document.create-element \script
-                                    ..src = url
-                            | \css => 
-                                link = document.create-element \link
-                                    ..type = \text/css
-                                    ..rel = \stylesheet
-                                    ..href = url
-                        element.onload = ~> res \done
-                        document.head.append-child element
-
-        else 
-            new Promise (res) ~> res \done
+    # save to client storage only if the document has loaded
+    # save-to-client-storage :: a -> Void
+    save-to-client-storage: !-> 
+        if !!@state.remote-document
+            client-storage.save-document @props.params.query-id, @document-from-state!    
     
-    # SIDEEFFECT
-    # uses @state.data-source-cue, @state.transpilation-language
-    # adds @on-query-changed-p :: p (String -> p AST)
-    # setup-query-auto-completion :: a -> Void
-    setup-query-auto-completion: !->
-        {data-source-cue, query, transpilation-language} = @state
-        {query-type} = data-source-cue
-        {make-auto-completer} = ui-protocol[query-type]
-
-        # set the default completers (removing the currently set query completer if any)
-        ace-language-tools.set-completers @default-completers
-
-        # @on-query-changed-p :: p (String -> p AST)
-        @on-query-changed-p = make-auto-completer (.container.id == \query-editor), [data-source-cue, transpilation-language] .then ({get-completions, on-query-changed}) ~>
-            ace-language-tools.set-completers [{get-completions}] ++ @default-completers
-            on-query-changed query
-            on-query-changed
-    
-    # on-document-load :: Document -> Document -> Void
-    on-document-load: (local-document, remote-document) ->
-
-        # existing-tags must also include tags saved on client storage 
-        existing-tags = (@state.existing-tags ? []) ++ (local-document.tags ? [])
-            |> unique-by (.label)
-            |> sort-by (.label)
-
-        <~ @set-state {} <<< (@state-from-document local-document ? remote-document) <<< {remote-document, existing-tags}
-
-        @save-to-client-storage!
-
-        # create the auto-completer for ACE for the current data-source-cue
-        @setup-query-auto-completion!
-
-        # now that we know the editor width, we should update the presentation size
-        @update-presentation-size!
-
-        # redistribute the heights among the editors based on there visibility
-        @set-state editor-heights.apply do
-            @
-            <[query transformation presentation]> |> map ~>
-                {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
-                if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
-
-        {cache, execute}? = @props.location.query
-
-        # update state.cache to the value (if any) present in the query string
-        <~ do ~> (callback) ~> 
-            if !!cache
-                @set-state do 
-                    cache: cache == \true
-                    callback
-            else 
-                callback!
-
-        <~ to-callback (@load-client-external-libs @state.client-external-libs, [])
-        <~ set-timeout _, 1000
-
-        # execute the query (if either config.auto-execute or query-string.execute is true)
-        # only if there's no pending-client-external-libs (check component-did-update)
-        if !!@props.auto-execute or execute == \true
-            @execute!
-
-    # React component life cycle method (invoked after the render function)
-    # updates the list of auto-completers if the data-source-cue has changed
-    # component-did-update :: Props -> State -> Void
-    component-did-update: (prev-props, prev-state) !->
-
-        # call on-query-changed method, returned when setting up the auto-completer
-        # this method uses the query to build the AST which is used internally to 
-        # create the get-completions method for AceEditor
-        do ~>
-            if !!@on-query-changed-p and @state.query != prev-state.query
-                @on-query-changed-p.then ~> it @state.query
-        
-        # auto-complete
-        do ~>
-            {data-source-cue, transpilation-language} = @state
-
-            # return if the data-source-cue is not complete or there is no change in the data-source-cue
-            if (data-source-cue.complete and !(data-source-cue `is-equal-to-object` prev-state.data-source-cue)) or transpilation-language != prev-state.transpilation-language
-                @setup-query-auto-completion!
-
-                # redistribute the heights among the editors based on there visibility
-                @set-state editor-heights.apply do 
-                    @
-                    <[query transformation presentation]> |> map ~>
-                        {show-editor} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
-                        if !!show-editor then @state[camelize "#{it}-editor-height"] else 0
-
-    # component-will-unmount :: a -> Void
-    component-will-unmount: ->
-        window.remove-event-listener \beforeunload, @unload-listener if !!@unload-listener
-        
-    # React class method
-    # get-initial-state :: a -> UIState
-    get-initial-state: ->
-        {
-            cache: @props?.cache-query ? true # user checked the cache checkbox
-            dialog: null # String (name of the dialog to display)
-            executing-op: "" # String (alphanumeric op-id of the currently running query)
-            from-cache: false # latest result is from-cache (it is returned by the server on execution)
-            pending-client-external-libs: false
-            popup: null # String (name of the popup to display)
-
-            # TAGS POPUP
-            existing-tags: [] # [String] (fetched from /apsi/tags)            
-
-            # DOCUMENT
-            query-id: null
-            parent-id: null
-            branch-id: null
-            tree-id: null
-            data-source-cue: @props.default-data-source-cue
-            query: ""
-            query-title: "Untitled query"
-            transformation: ""
-            presentation: ""
-            parameters: ""
-            tags: []
-            editor-width: 550
-            keywords-from-query-result: []
-            transpilation-language: @props.default-transpilation-language
-            client-external-libs: []
-
-        } <<< editor-heights!
-
     # converting the document to a flat object makes it easy to work with 
     # state-from-document :: Document -> UIState
     state-from-document: ({
