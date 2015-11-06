@@ -1,7 +1,7 @@
 {map, minimum, maximum, pow} = require \prelude-ls
 
-module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highlighted}) -> new ReactivePlottable do 
-    (view, lifted, {iden, change, fx, margin, x, y, size, y-range, y-axis, x-axis, tooltip}:options, continuation) !->
+module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) -> new ReactivePlottable do 
+    (view, lifted, {iden, {is-highlighted, is-selected}:examinors, {fx}:signallers, margin, x, y, size, y-range, y-axis, x-axis, tooltip}:options, continuation) !->
 
         result = map unlift, lifted
 
@@ -45,11 +45,17 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
             ..domain [(result |> map size |> minimum), (result |> map size |> maximum)]
 
         
-        svg = d3.select view .append \div .attr \style, "position: absolute; left: 0px; top: 0px; width: 100%; height: 100%" .append \svg
+        dview = d3.select view
+        svg = dview.select-all 'svg.regression' .data [lifted]
+        svg-enter = svg.enter!.append \div .attr \class, \regression .attr \style, "position: absolute; left: 0px; top: 0px; width: 100%; height: 100%" .append \svg
             .attr \class, \regression
+            .append \g .attr \class, \main
+
+        dview.select 'svg.regression'
             .attr \width, width + margin.left + margin.right
             .attr \height, height + margin.top + margin.bottom
-            .append \g
+
+        svg = dview.select 'g.main'
             .attr \transform, "translate(" + margin.left + "," + margin.top + ")"
 
         if tooltip is not null
@@ -58,14 +64,15 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
                 .offset [-10, 0]
                 .html tooltip
 
-            svg.call tip
+            svg-enter.call tip
 
         
-        svg.append \g .attr \class, 'x axis'
+        svg-enter.append \g .attr \class, 'x axis'
 
 
-        svg
+        svg-enter
             .append \g .attr \class, 'y axis'
+        svg.select \g.y.axis 
             .attr \transform, "translate(0, 0)"
             .call do ->
                 d3.svg.axis!
@@ -73,8 +80,9 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
                     .orient \left
                     .tick-format y-axis.format
 
-        svg
+        svg-enter
             .append \g .attr \class, 'x axis'
+        svg.select \g.x.axis
             .attr \transform, "translate(0, #{view.client-height - margin.bottom - margin.top})"
             .call do ->
                 d3.svg.axis!
@@ -93,7 +101,7 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
                 ..attr "cy", y-scale . y . unlift
                 ..attr "r", size-scale . size . unlift
                 ..style "fill", (lifted-item) -> 
-                    if is-highlighted lifted-item then 'red' else 'blue'
+                    if (is-highlighted `por` is-selected) lifted-item then 'red' else 'blue'
 
         if tooltip is not null
             circle
@@ -110,28 +118,30 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
         x2 = result |> maximum . (map x)
         y2 = line x2
         
-        trendline = svg.selectAll \.trendline
-            .data [[x1, y1, x2, y2]]
-            .enter!
-            .append \line
-            .attr \class, \trendline
-            .attr \x1, (d) -> x-scale d[0]
-            .attr \y1, (d) -> y-scale d[1]
-            .attr \x2, (d) -> x-scale d[2]
-            .attr \y2, (d) -> y-scale d[3]
-            .attr \stroke, \black
-            .attr \stroke-width, 1
+        trendline = svg.select-all \.trendline .data [[x1, y1, x2, y2]]
+            ..enter!
+                ..append \line 
+                .attr \class, \trendline
+            ..attr \x1, (d) -> x-scale d[0]
+            ..attr \y1, (d) -> y-scale d[1]
+            ..attr \x2, (d) -> x-scale d[2]
+            ..attr \y2, (d) -> y-scale d[3]
+            ..attr \stroke, \black
+            ..attr \stroke-width, 1
 
-        svg
+        svg-enter
             ..append \text
+            .attr \class, 'text-label y'
+        svg.select \.text-label.y
             .text "y = #{(d3.format '0.2f') least-squares-coeff.0} x + #{(d3.format '0.2f') least-squares-coeff.1}"
-            .attr \class, \text-label
             .attr \x, (d) -> margin.left * 0.6
             .attr \y, (d) -> if y-scale y1 > view.client-height / 2 then margin.bottom * 0.6 else view.client-height - 2.4 * margin.bottom
 
+        svg-enter
             ..append \text
+            .attr \class, 'text-label r'
+        svg.select \.text-label.r
             .text "r square = #{(d3.format '0.2f') least-squares-coeff.2}"
-            .attr \class, \text-label
             .attr \x, (d) -> margin.left * 0.6
             .attr \y, (d) -> if y-scale y1 > view.client-height / 2 then margin.bottom else view.client-height - 2 * margin.bottom
 

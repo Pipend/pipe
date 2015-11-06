@@ -2,6 +2,9 @@
 
 {rextend} = require \./plottables/_utils.ls
 
+# type constructor for Plottable type
+# fmap :: a -> m a
+# where m is a plot state monad.
 module.exports = (fmap) ->
   # Plottable is a monad, run it by plot funciton
   class Plottable

@@ -2,7 +2,6 @@
 
 
 unlift = (.raw)
-is-highlighted = (.status.highlight ? false)
 
 fmap = (f, o) -->
     switch
@@ -21,6 +20,8 @@ sequence = ({raw, status}) ->
 # traverse :: (a -> [b]) -> m a -> [m b]
 traverse = (f) -> sequence . (fmap f)
 
+por = (f, g, m) -->
+    (f m) || (g m)
 
 {
     gen-plottable
@@ -34,16 +35,19 @@ traverse = (f) -> sequence . (fmap f)
     Plottable: ReactivePlottable
 } = (require \./../plottable.ls) fmap
 
+exports_ = {
+    ReactivePlottable, d3, plot, fmap, traverse, unlift, por
+}
 
 plottables = {
-    reactive-table: (require \./reactive-table.ls) {ReactivePlottable, d3, plot, fmap, traverse, unlift, is-highlighted}
-    reactive-regression: (require \./reactive-regression.ls) {ReactivePlottable, d3, plot, fmap, traverse, unlift, is-highlighted}
-} <<< (require \./reactive-layout.ls) {ReactivePlottable, d3, plot, fmap, unlift, is-highlighted, with-options}
+    reactive-table: (require \./reactive-table.ls) exports_
+    reactive-regression: (require \./reactive-regression.ls) exports_
+} <<< (require \./reactive-layout.ls) {ReactivePlottable, d3, plot, fmap, unlift, por, with-options}
 
 module.exports = ->
     {} <<< plottables <<< {
         ReactivePlottable
         fmap
-        is-highlighted
         unlift
+        por
     }

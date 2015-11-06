@@ -47,6 +47,9 @@ module.exports = ({Plottable, d3, plot-chart, nv, plot}) ->
     # wraps a Plottable in cell that has a size (used in layout)
     scell: (size, plotter) --> {size, plotter}
 
+    # wraps a Plottable in a flex cell
+    fcell: (grow, shrink, basis, plotter) --> {grow, shrink, basis, plotter}
+
     layout-horizontal: layout \horizontal
 
     layout-vertical: layout \vertical

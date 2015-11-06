@@ -1,7 +1,7 @@
 {id, map, filter, Obj, obj-to-pairs, sort-by} = require \prelude-ls
 
-module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highlighted}) -> new ReactivePlottable do 
-    (view, lifted, {iden, cols-order, cols, cell, cells, change, fx, toggle}:options, continuation) !-->
+module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) -> new ReactivePlottable do 
+    (view, lifted, {iden, {is-highlighted, is-selected}:examinors, row-style, cols-order, cols, cell, cells, {change, fx, toggle}:signallers}:options, continuation) !-->
 
         result = lifted |> map unlift
         cols = cols ? do -> result.0 |> Obj.keys |> (filter (.index-of \$) >> (!= 0)) |> sort-by (-> b = (cols-order.index-of it); if b == -1 then Infinity else b )
@@ -27,9 +27,11 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
             ..enter!
                 .append \tr
                 # .attr \style, (.$style) TODO:
-                .on 'click', toggle 'highlight'
+                .on 'click', toggle 'select'
+                .on 'mouseover', fx 'highlight'
+                .on 'mouseout', fx 'dehighlight'
             
-            ..attr 'style', (lifted-item) -> "background-color: #{if is-highlighted lifted-item then 'green' else 'blue'}"
+            ..attr 'style', row-style
             ..exit!.remove!
             ..select-all \td .data traverse (obj-to-pairs >> (filter ([k]) -> (cols.index-of k) > -1) >> (sort-by (([k]) -> cols.index-of k)))
                 ..enter!
@@ -55,7 +57,8 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highl
         cells: {}
         cols-order: []
         cols: null
-        change: -> console.log \change
+        # row-style :: m a -> string  (where `m a` is the lifted-item)
+        row-style: -> ''
     }
 
     

@@ -2,9 +2,11 @@
 
 {create-class, create-factory, find-DOM-node}:React = require \react
 
+examinors =
+    is-highlighted: (.status.highlight ? false)
+    is-selected: (.status.select ? false)
 
-
-module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift, is-highlighted}) ->
+module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
 
     to-react-element = (reactive-plottable, options) -> create-factory create-class do 
 
@@ -20,12 +22,12 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift, is-h
             }
 
         component-did-mount: ->
-            {change, fx, fxo, toggle} = @props
-            (plot reactive-plottable `with-options` ({change, fx, fxo, toggle} <<< options)) (find-DOM-node @refs.stub), @props.lifted
+            {signallers, examinors} = @props
+            (plot reactive-plottable `with-options` ({signallers, examinors} <<< options)) (find-DOM-node @refs.stub), @props.lifted
 
         component-did-update: ->
-            {change, fx, fxo, toggle} = @props
-            (plot reactive-plottable `with-options` ({change, fx, fxo, toggle} <<< options)) (find-DOM-node @refs.stub), @props.lifted
+            {signallers, examinors} = @props
+            (plot reactive-plottable `with-options` ({signallers, examinors} <<< options)) (find-DOM-node @refs.stub), @props.lifted
 
 
     layout = (direction, cells) -->
@@ -36,57 +38,71 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift, is-h
         new ReactivePlottable do 
             (view, results, {iden}:options, continuation) !-->
 
-                rx-cells = cells |> map ({plotter}) ->
-                    to-react-element plotter, options
+                rx-cells = cells |> map ({plotter, size, grow, shrink, basis}) ->
+                    {
+                        react-element: to-react-element plotter, options
+                        flex: if !!basis then "#{grow} #{shrink} #{basis}" else if !!size then "1 1 #{size}" else '1 1 100%'
+                    }
 
                 App = create-factory create-class do 
                     
                     render: ->        
                         
-                        React.DOM.div null, do ~> (rx-cells `zip` [0 til cells.length]) |> map ([rx-cell, index]) ~>
-                            change = ({t, v}) ~>
-                                @set-state do 
-                                    lifted: @state.lifted |> map (lifted-item) ~>
-                                        
-                                        if (iden . unlift <| lifted-item) == v 
-                                            raw: unlift lifted-item
-                                            status: {} <<< lifted-item.status <<< t
-                                        else 
-                                            lifted-item
+                        React.DOM.div do
+                            style:
+                                display: 'flex'
 
-                            # update the status of a lifted-item
-                            fxo = (updated-status, lifted-item) -->
-                                change {t: updated-status, v: iden . unlift <| lifted-item}
+                            do ~> (rx-cells `zip` [0 til cells.length]) |> map ([{react-element, flex}:rx-cell, index]) ~>
+                                change = ({t, v}) ~>
+                                    @set-state do 
+                                        lifted: @state.lifted |> map (lifted-item) ~>
+                                            
+                                            if (iden . unlift <| lifted-item) == v 
+                                                raw: unlift lifted-item
+                                                status: {} <<< lifted-item.status <<< t
+                                            else 
+                                                lifted-item
 
-                            fx = (what, lifted-item) -->
-                                o = match what
-                                | 'highlight' => {highlight: true}
-                                | 'dehighlight' => {highlight: false}
-                                | _ => throw "unsupported fx what #{what}"
+                                # update the status of a lifted-item
+                                fxo = (updated-status, lifted-item) -->
+                                    change {t: updated-status, v: iden . unlift <| lifted-item}
 
-                                fxo o, lifted-item
+                                fx = (what, lifted-item) -->
+                                    o = match what
+                                    | 'highlight' => {highlight: true}
+                                    | 'dehighlight' => {highlight: false}
+                                    | 'select' => {select: true}
+                                    | 'deselect' => {select: false}
+                                    | _ => throw "unsupported fx what #{what}"
 
-                            toggle = (what, lifted-item) -->
-                                status = lifted-item.status
-                                o = match what
-                                | 'highlight' => {highlight: !status.highlight}
-                                | _ => throw "unsupported toggle what #{what}"
-                                fxo o, lifted-item
-                            
-                            React.DOM.div do 
-                                { 
-                                    style: 
-                                        width: '100%'
-                                        height: '50%'
-                                        position: 'relative'
-                                    key: index
-                                }, 
-                                rx-cell do 
-                                    lifted: @state.lifted
-                                    change: change
-                                    fx: fx
-                                    fxo: fxo
-                                    toggle: toggle
+                                    fxo o, lifted-item
+
+                                toggle = (what, lifted-item) -->
+                                    status = lifted-item.status
+                                    o = match what
+                                    | 'highlight' => {highlight: !status.highlight}
+                                    | 'select' => {select: !status.select}
+                                    | _ => throw "unsupported toggle what #{what}"
+                                    fxo o, lifted-item
+                                
+                                React.DOM.div do 
+                                    { 
+                                        style: 
+                                            width: '100%'
+                                            height: '100%'
+                                            overflow: 'auto'
+                                            position: 'relative'
+                                            flex: flex
+                                        key: index
+                                    }, 
+                                    react-element do 
+                                        lifted: @state.lifted
+                                        signallers:
+                                            change: change
+                                            fx: fx
+                                            fxo: fxo
+                                            toggle: toggle
+                                        examinors: examinors
                             
                 
                     get-initial-state: -> 
@@ -103,8 +119,11 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift, is-h
             }
 
 
-    reactive-layout: layout
+    {
+        reactive-layout: layout
 
-    reactive-layout-horizontal: layout \horizontal
+        reactive-layout-horizontal: layout \horizontal
 
-    reactive-layout-vertical: layout \vertical
+        reactive-layout-vertical: layout \vertical
+        
+    } <<< examinors
