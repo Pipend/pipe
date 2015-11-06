@@ -1,7 +1,9 @@
 {map, minimum, maximum, pow} = require \prelude-ls
 
-module.exports = ({Plottable, d3}) -> new Plottable do
-    (view, result, {margin, x, y, size, y-range, y-axis, x-axis, tooltip}:options, continuation) !->
+module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, is-highlighted}) -> new ReactivePlottable do 
+    (view, lifted, {iden, change, fx, margin, x, y, size, y-range, y-axis, x-axis, tooltip}:options, continuation) !->
+
+        result = map unlift, lifted
 
         least-squares = (x-series, y-series) ->
             reduce-sum-func = (prev, cur) -> prev + cur
@@ -42,13 +44,13 @@ module.exports = ({Plottable, d3}) -> new Plottable do
         size-scale = d3.scale.linear!.range [3, 10]
             ..domain [(result |> map size |> minimum), (result |> map size |> maximum)]
 
+        
         svg = d3.select view .append \div .attr \style, "position: absolute; left: 0px; top: 0px; width: 100%; height: 100%" .append \svg
             .attr \class, \regression
             .attr \width, width + margin.left + margin.right
             .attr \height, height + margin.top + margin.bottom
             .append \g
             .attr \transform, "translate(" + margin.left + "," + margin.top + ")"
-
 
         if tooltip is not null
             tip = d3.tip!
@@ -82,12 +84,16 @@ module.exports = ({Plottable, d3}) -> new Plottable do
 
 
         circle = svg.select-all \circle
-            .data result
-            .enter!.append \circle
-            .attr "cx", x-scale . x
-            .attr "cy", y-scale . y
-            .attr "r", size-scale . size
-            .style "fill", (d) -> "blue"
+            .data lifted
+                ..enter!
+                    ..append \circle
+                        ..on \mouseover, fx 'highlight'
+                        ..on \mouseout, fx 'dehighlight'
+                ..attr "cx", x-scale . x . unlift
+                ..attr "cy", y-scale . y . unlift
+                ..attr "r", size-scale . size . unlift
+                ..style "fill", (lifted-item) -> 
+                    if is-highlighted lifted-item then 'red' else 'blue'
 
         if tooltip is not null
             circle

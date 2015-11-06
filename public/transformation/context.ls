@@ -13,7 +13,7 @@ summary-statistics = (xs) ->
     ys = sort xs
     length = ys.length
     length1 = length - 1
-    median = if ys.length % 2 == 0 then mean [ys[floor <| ys.length1/2], ys[ceiling <| ys.length1/2]] else ys[ys.length1/2]
+    median = if length1 % 2 == 0 then mean [ys[floor <| length1/2], ys[ceiling <| length1/2]] else ys[length1/2]
 
     {x, x2} = xs |> fold do
         (acc, x) ->  {
