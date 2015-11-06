@@ -51,6 +51,7 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
                         React.DOM.div do
                             style:
                                 display: 'flex'
+                                flex-direction: direction
 
                             do ~> (rx-cells `zip` [0 til cells.length]) |> map ([{react-element, flex}:rx-cell, index]) ~>
                                 change = ({t, v}) ~>
@@ -122,8 +123,8 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
     {
         reactive-layout: layout
 
-        reactive-layout-horizontal: layout \horizontal
+        reactive-layout-horizontal: layout \row
 
-        reactive-layout-vertical: layout \vertical
-        
+        reactive-layout-vertical: layout \column
+
     } <<< examinors
