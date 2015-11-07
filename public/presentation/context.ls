@@ -71,7 +71,7 @@ csv = (view, result) !-->
     ($ view).append pre
 
 plot-chart = (view, result, chart)->
-    d3.select view .append \div .attr \style, "position: absolute; left: 0px; top: 0px; width: 100%; height: 100%" .append \svg .datum result .call chart        
+    d3.select view .append \div .attr \style, "position: absolute; left: 0px; top: 0px; width: 100%; height: 100%" .append \svg .datum result .call chart
 
 fill-intervals-f = fill-intervals 
 

@@ -42,6 +42,7 @@ exports_ = {
 plottables = {
     reactive-table: (require \./reactive-table.ls) exports_
     reactive-regression: (require \./reactive-regression.ls) exports_
+    reactive-stacked-area: (require \./reactive-stacked-area.ls) exports_
 } <<< (require \./reactive-layout.ls) {ReactivePlottable, d3, plot, fmap, unlift, por, with-options}
 
 module.exports = ->
