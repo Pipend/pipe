@@ -4,7 +4,7 @@ fill-intervals-f = fill-intervals
 
 
 module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) -> new ReactivePlottable do 
-    (view, lifted, {iden, {is-highlighted, is-selected}:examinors, {fx}:signallers, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, fill-intervals, tooltip}:options, continuation) !->
+    (view, lifted, {iden, {is-highlighted, is-selected}:examinors, {fx}:signallers, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
 
         width = view.client-width - margin.left - margin.right
         height = view.client-height - margin.top - margin.bottom
@@ -44,7 +44,6 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
 
         layers = stack result
 
-        color = d3.scale.category20!
 
         y-scale.domain [0, (d3.max (concat-map ((.values) . unlift), layers), (-> it.y + it.y0))]
 
@@ -64,6 +63,8 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
                 ..select-all \.layer .data layers
                     ..enter!
                         ..append \path .attr \class, \layer
+                            ..on \mouseover, fx 'highlight'
+                            ..on \mouseout, fx 'dehighlight'
                     ..attr \d, -> area (unlift it).values
                     ..style \fill, -> 
                         c = color (unlift it).key
@@ -80,6 +81,7 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
         x-scale: d3.time.scale!
         y-scale: d3.scale.linear!
         fill-intervals: false
+        color: d3.scale.category20!
 
         margin: {top: 20, right:20, bottom: 50, left: 50}
     }
