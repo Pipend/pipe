@@ -34,10 +34,9 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
         if "Array" != typeof! cells
             cells := drop 1, [].slice.call arguments
 
-        alert "create-factory"
         App = create-factory create-class do 
                 
-            render: ->       
+            render: ->
 
                 rx-cells = @rx-cells 
 
@@ -100,8 +99,6 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
                                     toggle: toggle
                                 examinors: examinors
                     
-        
-        
             component-will-mount: ->
                 options = @props.options
                 @rx-cells = cells |> map ({plotter, size, grow, shrink, basis}) ->
@@ -114,7 +111,7 @@ module.exports = ({ReactivePlottable, plot, with-options, d3, fmap, unlift}) ->
         new ReactivePlottable do 
             (view, results, {iden}:options, continuation) !-->
 
-                
+                # lift the raw result to {raw, status}
                 lifted = results.map -> 
                     raw: it
                     status: {}

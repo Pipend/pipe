@@ -1,10 +1,12 @@
-{concat-map, map, unique, sort, find, id, zip-with} = require \prelude-ls
+{concat-map, map, filter, unique, sort, find, id, zip-with} = require \prelude-ls
 {fill-intervals, trend-line, rextend} = require \./../plottables/_utils.ls
 fill-intervals-f = fill-intervals
 
 
 module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) -> new ReactivePlottable do 
     (view, lifted, {iden, {is-highlighted, is-selected}:examinors, {fx}:signallers, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
+
+        t0 = Date.now!
 
         width = view.client-width - margin.left - margin.right
         height = view.client-height - margin.top - margin.bottom
@@ -16,15 +18,28 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
         if fill-intervals is not false
             all-values := all-values |> map (-> [it, 0]) |> (-> fill-intervals-f it, if fill-intervals is true then 0 else fill-intervals) |> map (.0)
         
-        result := lifted |> fmap (d) ->
-            key: key d
-            values: all-values 
-                |> map (v) -> 
-                    value = (values d) |> find (-> (x it) == v)
-                    x: v
-                    y: value |> (-> if !!it then (y it) else (fill-intervals))
-                    value: value
+        # result := lifted |> fmap (d) ->
+        #     key: key d
+        #     values: all-values 
+        #         |> map (v) -> 
+        #             value = (values d) |> find (-> (x it) == v)
+        #             x: v
+        #             y: value |> (-> if !!it then (y it) else (fill-intervals))
+        #             value: value
 
+        result := lifted |> map ({raw, status}:me) ->
+            d = raw
+            {
+                status
+                raw: do ->
+                    key: key d
+                    values: all-values 
+                        |> map (v) -> 
+                            value = (values d) |> find (-> (x it) == v)
+                            x: v
+                            y: value |> (-> if is-selected me then 0 else if !!it then (y it) else (fill-intervals))
+                            value: value
+            }
 
         stack = d3.layout.stack!
             .values (.values) . unlift
@@ -47,6 +62,8 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
 
         y-scale.domain [0, (d3.max (concat-map ((.values) . unlift), layers), (-> it.y + it.y0))]
 
+        t1 = Date.now!
+
 
         dview = d3.select view
         svg = dview.select-all 'svg.stacked-area' .data [lifted]
@@ -65,12 +82,13 @@ module.exports = ({ReactivePlottable, plot, d3, unlift, fmap, traverse, por}) ->
                         ..append \path .attr \class, \layer
                             ..on \mouseover, fx 'highlight'
                             ..on \mouseout, fx 'dehighlight'
-                    ..attr \d, -> area (unlift it).values
+                    ..interrupt!.transition!.duration 1000
+                        ..attr \d, -> area (unlift it).values
                     ..style \fill, -> 
                         c = color (unlift it).key
-                        if is-highlighted it then 'yellow' else c
+                        #if is-highlighted it then 'yellow' else c
 
-
+        console.log \d3-render, Date.now! - t1, \compute t1 - t0
 
 
     {
