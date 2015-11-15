@@ -35,7 +35,7 @@ module.exports = create-class do
             DataSourceCuePopup do
                 data-source-cue: @state.data-source-cue
                 left: -> 0
-                on-change: (data-source-cue) ~> @set-state {data-source-cue}
+                on-change: (data-source-cue) ~> @set-state data-source-cue: {} <<< data-source-cue <<< complete: true
 
             div class-name: \footer,
 
