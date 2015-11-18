@@ -162,4 +162,4 @@ module.exports = ->
         csv
         fill-intervals
         compile-livescript: (require \livescript).compile
-    }
+    } <<< Reactive: (require './reactive-plottables/context.ls')
