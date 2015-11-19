@@ -1,6 +1,6 @@
 {id, map, filter, Obj, obj-to-pairs, sort-by} = require \prelude-ls
 
-module.exports = ({{Plottable}:Reactive, d3}) ->
+module.exports = ({{Plottable, xplot}:Reactive, d3}) ->
 
 
     new Reactive.Plottable do 
@@ -12,7 +12,6 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
                 cols: do ->
                     cols |> map (c) ->
                         p = cells[iden r[c]] ? Reactive.plottable (_, meta, view, result, options) -> view.innerHTML = result
-                        #p._cplotter r[c]
                         xplot p, r[c]
                     
             #result

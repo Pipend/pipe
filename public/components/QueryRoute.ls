@@ -882,17 +882,45 @@ module.exports = React.create-class do
                 catch ex
                     return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
+                presentation-context-instance = presentation-context!
                 # compile the presentation code
-                [err, presentation-function] = compile "(#presentation\n)", ({d3, $} <<< create-context! <<< presentation-context!)
+                [err, presentation-function] = compile "(#presentation\n)", ({d3, $} <<< create-context! <<< presentation-context-instance)
                 if !!err
                     return rej "ERROR IN THE PRESENTATION COMPILATION: #{err}"
 
                 view = find-DOM-node @refs.presentation
 
+
                 # if transformation returns a stream then listen to it and update the presentation
                 if \Function == typeof! transformed-result.subscribe
                     subscription = transformed-result.subscribe (e) -> presentation-function view, e
                     res (-> subscription.dispose!)
+
+                else if (presentation-function instanceof presentation-context-instance.Reactive.Plottable)
+                    
+                    do ->
+
+                        cplotter = null
+                        meta = {} # cache the meta
+                        
+                        
+                        result-changed = (result, plottable, view) ->
+                            cplotter := plottable._cplotter result
+                            render view
+                        
+                        
+                        render = (view) ->
+                            # reactive loop
+                            change = (what, idenv, f) ~>
+                                meta[what] = {} if !meta[what]
+                                meta[what][idenv] = f meta[what][idenv]
+                                render view
+                            
+                            presentation-context-instance.Reactive.cplot cplotter, {change}, meta, view
+
+                        result-changed transformed-result, presentation-function, view
+
+                    res undefined
 
                 # otherwise invoke the presentation function once with the JSON returned from transformation
                 else

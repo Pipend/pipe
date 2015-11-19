@@ -84,4 +84,6 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
 
         layout-vertical: layout \column
 
+        cell: (plottable) -> {plottable}
+
     }

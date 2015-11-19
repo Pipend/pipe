@@ -1,9 +1,10 @@
 {Obj, Str, id, any, average, concat-map, drop, each, filter, find, foldr1, foldl, map, maximum, minimum, obj-to-pairs, pairs-to-obj, sort, sum, tail, take, unique} = require \prelude-ls
+{rextend} = require \./../plottables/_utils.ls
 
 
 Reactive = {}
 
-Reactive.Plottable = class Reactive.Plottable
+Reactive.Plottable = class Plottable
     (@calculator, @plotter, @options = {}, @continuations = ((..., callback) -> callback null), @projection = id) ->
     _cplotter: (result) ~>
         cresult = @calculator (@projection result), @options
@@ -76,14 +77,16 @@ cplot = (cplotter, change, meta, view) -->
 
 
 
+Reactive <<< {xplot, cplot}
+
 exports_ = {
-    Reactive, d3, xplot, cplot
+    Reactive, d3
 }
 
 plottables = {
     table: (require \./table.ls) exports_
-    layout: (require \./layout.ls) exports_
-}
+} <<< (require \./layout.ls) exports_
 
-module.exports = {
-} <<< plottables <<< Reactive
+Reactive <<< plottables
+
+module.exports = Reactive
