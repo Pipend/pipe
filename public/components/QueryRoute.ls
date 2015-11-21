@@ -912,11 +912,17 @@ module.exports = React.create-class do
                         render = (view) ->
                             # reactive loop
                             change = (what, idenv, f) ~>
-                                meta[what] = {} if !meta[what]
-                                meta[what][idenv] = f meta[what][idenv]
+                                meta[idenv] = {} if !meta[idenv]
+                                meta[idenv][what] = f meta[idenv][what]
                                 render view
+                            toggle = (what, idenv) ~>
+                                change what, idenv, (-> if it == false then true else false)
+                            fx = (what, idenv) ->
+                                change what, idenv, (-> true)
+                            dfx = (what, idenv) ->
+                                change what, idenv, (-> false)
                             
-                            presentation-context-instance.Reactive.cplot cplotter, {change}, meta, view
+                            presentation-context-instance.Reactive.cplot cplotter, {change, toggle, fx, dfx}, meta, view
 
                         result-changed transformed-result, presentation-function, view
 

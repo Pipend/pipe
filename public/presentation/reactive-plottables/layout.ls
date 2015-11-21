@@ -9,7 +9,13 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
     Wrapper = create-factory create-class do 
 
         render: ->
-            React.DOM.div ref: \stub
+            React.DOM.div do
+                ref: \stub
+                style:
+                    width: '100%'
+                    height: '100%'
+                    overflow: 'auto'
+                    position: 'relative'
 
         # cplotter :: Change -> Meta -> View -> IO ()  already knows about the result
 
@@ -74,7 +80,7 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
                         view
                 
             {
-                iden: id
+                iden: (.key)
             }
 
     {
@@ -85,5 +91,11 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
         layout-vertical: layout \column
 
         cell: (plottable) -> {plottable}
+
+        # wraps a Plottable in cell that has a size (used in layout)
+        scell: (size, plottable) --> {size, plottable}
+
+        # wraps a Plottable in a flex cell
+        fcell: (grow, shrink, basis, plottable) --> {grow, shrink, basis, plottable}
 
     }

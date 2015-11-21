@@ -85,6 +85,8 @@ exports_ = {
 
 plottables = {
     table: (require \./table.ls) exports_
+    regression: (require \./regression.ls) exports_
+    stacked-area: (require \./stacked-area.ls) exports_
 } <<< (require \./layout.ls) exports_
 
 Reactive <<< plottables
