@@ -2,6 +2,7 @@
 config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
 sql = require \mssql
+{compile-and-execute-livescript, compile-and-execute-babel, compile-and-execute-javascript} = require \../utils
 
 # execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
 execute-sql = (data-source, query) -->
@@ -45,7 +46,17 @@ export get-context = ->
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
 export execute = (query-database, data-source, query, transpilation, parameters) -->
     (Obj.keys parameters) |> each (key) ->
-        query := query.replace "$#{key}$", parameters[key]
+        query .= replace "$#{key}$", parameters[key]
+
+    compile-and-execute = switch transpilation
+    | \livescript => compile-and-execute-livescript
+    | \babel => compile-and-execute-babel
+    | \javascript => compile-and-execute-javascript
+
+    query .= replace /\$\{(.*?)\}\$/g, (, macro) ->
+        [err, result] = compile-and-execute macro, {} <<< parameters <<< (require \prelude-ls)
+        if !!err then throw "QUERY COMPILATION ERROR: failed to evaluate macro (#{macro}) : #{err}" else result
+
     execute-sql data-source, query
 
 # default-document :: DataSourceCue -> String -> Document
