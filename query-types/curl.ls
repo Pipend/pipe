@@ -30,10 +30,14 @@ export execute = (query-database, data-source, query, transpilation, parameters)
     [err, url] = compile-and-execute-livescript url, parameters
     return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") if !!err
 
+    # escape characters
+    url .= replace \{, '\\{'
+    url .= replace \}, '\\}'
+
     curl-process = null
 
     execute-curl = new-promise (res, rej) ->
-        curl-process := exec "curl -s #url #{options}", silent: true, (code, output) ->
+        curl-process := exec "curl -s '#url' #{options}", silent: true, (code, output) ->
             return rej Error "Error in curl #code #output", null if code != 0
             res output
 
