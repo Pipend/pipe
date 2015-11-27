@@ -905,7 +905,7 @@ module.exports = React.create-class do
                         
                         
                         result-changed = (result, plottable, view) ->
-                            cplotter := plottable._cplotter result
+                            cplotter := plottable._cplotter result, meta
                             render view
                         
                         
@@ -914,7 +914,11 @@ module.exports = React.create-class do
                             change = (what, idenv, f) ~>
                                 meta[idenv] = {} if !meta[idenv]
                                 meta[idenv][what] = f meta[idenv][what]
-                                render view
+                                console.log \what, what
+                                if what == 'select'
+                                    result-changed transformed-result, presentation-function, view
+                                else
+                                    render view
                             toggle = (what, idenv) ~>
                                 change what, idenv, (-> if it == false then true else false)
                             fx = (what, idenv) ->

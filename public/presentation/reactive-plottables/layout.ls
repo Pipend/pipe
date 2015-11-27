@@ -62,10 +62,10 @@ module.exports = ({{Plottable}:Reactive, d3}) ->
                             }
             
         new Reactive.Plottable do 
-            (result) ->
+            (result, options, meta) ->
                 cells |> map ({plottable, size, grow, shrink, basis}) ->
                     {
-                        cplotter: plottable._cplotter result
+                        cplotter: plottable._cplotter result, meta
                         flex: if !!basis then "#{grow} #{shrink} #{basis}" else if !!size then "1 1 #{size}" else '1 1 100%'
                     }
 

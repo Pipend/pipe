@@ -6,8 +6,8 @@ Reactive = {}
 
 Reactive.Plottable = class Plottable
     (@calculator, @plotter, @options = {}, @continuations = ((..., callback) -> callback null), @projection = id) ->
-    _cplotter: (result) ~>
-        cresult = @calculator (@projection result), @options
+    _cplotter: (result, meta) ~>
+        cresult = @calculator (@projection result), @options, meta
         (change, meta, view) ~~>
             @plotter change, meta, view, cresult, @options, @continuations
     _plotter: (change, meta, view, result) ~>
@@ -69,7 +69,7 @@ Reactive.project = (f, p) -->
 # Reactive.Plottable -> Change -> Meta -> View -> result -> IO ()
 xplot = (p, result, change, meta, view) -->
     #p._plotter meta, view, result  # old version
-    cplot (p._cplotter result), change, meta, view
+    cplot (p._cplotter result, meta), change, meta, view
 
 # (Change -> Meta -> View -> IO ()) -> Meta -> View -> IO ()
 cplot = (cplotter, change, meta, view) -->

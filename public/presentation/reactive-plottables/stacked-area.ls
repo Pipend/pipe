@@ -1,16 +1,12 @@
 {concat-map, map, filter, unique, sort, find, id, zip-with, group-by, take, drop, Obj, reverse, each, sort-by, empty} = require \prelude-ls
 {fill-intervals, trend-line, rextend} = require \./../plottables/_utils.ls
 fill-intervals-f = fill-intervals
-
+{to-stacked-area} = (require \./../../transformation/context.ls)!
 
 module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable do 
-    id
-    ({change, toggle, fx, dfx}:change_, meta, view, result, {iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
+    (result, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, meta) ->
 
-        t0 = Date.now!
-
-        width = view.client-width - margin.left - margin.right
-        height = view.client-height - margin.top - margin.bottom
+        result = to-stacked-area stack.key.f, stack.x.f, stack.y, result
 
         all-values = result |> concat-map (-> (values it) |> concat-map x) |> unique |> sort
 
@@ -42,6 +38,19 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
 
         layers = stack result
 
+        {
+            result
+            layers
+        }
+    ({change, toggle, fx, dfx}:change_, meta, view, {result, layers}, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
+
+        t0 = Date.now!
+
+        width = view.client-width - margin.left - margin.right
+        height = view.client-height - margin.top - margin.bottom
+
+        
+
         x-scale := x-scale.copy!
             .range [0, width]
             .domain (d3.extent (concat-map (.values), result), (.x))
@@ -65,17 +74,6 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
 
 
         bisect-date = d3.bisector (.x) .left
-
-        tip = d3.tip!.attr \class, \d3-tip 
-            # ..attr \x, (.x)
-            # ..attr \y, (.y)
-            # ..attr \width, 100
-            # ..attr \height, (d) -> 200 - d.y
-            ..attr \lass, \d3-tip
-            ..html (d) ->
-                d = d.0 if !!d.length
-                console.log \tip, d
-                d.key
 
 
         t1 = Date.now!
@@ -169,7 +167,8 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                             ..attr \d, -> area it.values
                         ..style \fill, -> 
                             c = color it.key
-                            if it.meta.highlight then effects.highlight.color else c
+                            if meta[it.key]?.highlight then effects.highlight.color else c
+                            #if it.meta.highlight then effects.highlight.color else c
                 ..select 'g.focus'
                     ..select-all 'circle' .data layers
                         ..enter!
@@ -182,9 +181,9 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                                     return if !d.values
                                     i = bisect-date d.values, time.value-of!
                                     v = d.values[i]
-                                    console.log \v, v
-                                    tip.show {key: d.key}
-                                ..on \mouseout, tip.hide
+                                    console.log \v, v, d.key
+
+                                ..on \mouseout, ->
                         ..attr 'cx', 0
                         ..attr 'cy', 0
                         ..attr 'r', 10
@@ -194,8 +193,8 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                 ..transition! .call x-axis
             ..select \.y-axis
                 ..transition!.duration 1000 .call y-axis
-            ..call tip
 
+        console.log "time", (Date.now! - t1)
 
         #console.log \d3-render, Date.now! - t1, \compute t1 - t0
 
