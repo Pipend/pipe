@@ -21,6 +21,7 @@ Reactive.plottable = (f) ->
         id  # calculator
         (change, meta, view, result, options) !-->
             f change, meta, view, result, options
+        {}
             
 
 # Attaches options to a Reactive.Plottable

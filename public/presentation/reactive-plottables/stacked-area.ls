@@ -1,10 +1,10 @@
-{concat-map, map, filter, unique, sort, find, id, zip-with, group-by, take, drop, Obj, reverse, each, sort-by, empty} = require \prelude-ls
+{concat-map, map, filter, unique, sort, find, reverse, id, zip-with, group-by, obj-to-pairs, take, drop, Obj, reverse, each, sort-by, empty} = require \prelude-ls
 {fill-intervals, trend-line, rextend} = require \./../plottables/_utils.ls
 fill-intervals-f = fill-intervals
 {to-stacked-area} = (require \./../../transformation/context.ls)!
 
 module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable do 
-    (result, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, meta) ->
+    (result, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, {meta, effects:{is-highlighted, is-selected}}) -> #TODO: helper functions from somwhere else
 
         result = to-stacked-area stack.key.f, stack.x.f, stack.y, result
 
@@ -17,17 +17,20 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
 
         result := result |> map (d) ->
             _iden = iden d
+            oiden = [_iden] |> group-by id |> obj-to-pairs |> (.0)
             {
                 key: key d
                 values: all-values 
                     |> map (v) -> 
                         value = (values d) |> find (-> (x it) == v)
+                        selected = (is-selected stack.key.iden, _iden) 
                         x: v
-                        y: value |> (-> if false == meta[_iden]?.select then 0 else if !!it then (y it) else (fill-intervals))
+                        y: value |> (-> if false == selected then 0 else if !!it then (y it) else (fill-intervals))
                         value: value
+                        _x: v
                 raw: d
-                meta: meta[_iden] ? {}
-                iden: _iden
+                meta: meta[oiden] ? {}
+                iden: oiden
             }
 
 
@@ -42,7 +45,7 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
             result
             layers
         }
-    ({change, toggle, fx, dfx}:change_, meta, view, {result, layers}, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
+    ({change, toggle, fx, dfx, is-highlighted}:change_, meta, view, {result, layers}, {stack, iden, effects, margin, key, values, x, y, x-scale, y-scale, y-axis, x-axis, color, fill-intervals, tooltip}:options, continuation) !->
 
         t0 = Date.now!
 
@@ -97,6 +100,48 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
             ..tickFormat options.y-axis.format
 
 
+        x-to-time = (time) ->
+            i = bisect-date layers[0].values, time.value-of!
+            v = layers[0].values[i]
+
+            vs = [i - 1 to i + 1] 
+                |> map (i) -> layers[0].values[i]
+                |> filter (-> !!it)
+            
+            console.log ">>>", i, layers[0].values[i]
+            #new Date layers[0].values[i].value.2.started
+            new Date layers[0].values[i]._x
+            #new Date vs.1.value.2.started
+            
+
+        move-x-axis-vline = (x) ->
+
+            # return if empty vs
+            
+            # x = match vs.length
+            # | 1 => vs[0].x
+            # | 2 => (vs[0].x + vs[1].x) / 2
+            # | 3 => (vs[0].x + vs[1].x) / 2
+
+            
+            x0 = x-scale  x
+            
+            svg.select \#vline .attr \d, "M#{x0},0 L#{x0},#{height}"
+            vline = svg.select \#vline .node!
+            svg.select-all 'path.layer' .each (d) ->
+                
+
+                intersection = Intersection.intersectShapes (new Path @), (new Path vline)
+                
+                y0 = intersection.points ? [] |> sort-by (.y) |> (.0?.y ? 0)
+            
+                circle = svg.select "\#circle-#{d.key}" 
+                    ..attr \transform, "translate(#{x0}, #{y0})" #.attr \cy, y0 .attr \cx, x0
+                    ..data {x: x0, y: y0}    
+
+            
+
+
         dview = d3.select view
         svg = dview.select-all 'svg.stacked-area' .data [result]
             ..enter!
@@ -118,36 +163,11 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                     ..on 'mousemove', ->
                         mouse-x = (d3.mouse @).0 - margin.left
                         time = x-scale.invert mouse-x
-                        i = bisect-date layers[0].values, time.value-of!
-                        v = layers[0].values[i]
-
-                        vs = [i - 1 to i + 1] 
-                            |> map (i) -> layers[0].values[i]
-                            |> filter (-> !!it)
-                        
-                        return if empty vs
-
-                        x = match vs.length
-                        | 1 => vs[0].x
-                        | 2 => (vs[0].x + vs[1].x) / 2
-                        | 3 => (vs[0].x + vs[1].x) / 2
-
-
-                        
-                        x0 = x-scale  x
-                        
-                        svg.select \#vline .attr \d, "M#{x0},0 L#{x0},#{height}"
-                        vline = svg.select \#vline .node!
-                        svg.select-all 'path.layer' .each (d) ->
-                            
-
-                            intersection = Intersection.intersectShapes (new Path @), (new Path vline)
-                            
-                            y0 = intersection.points ? [] |> sort-by (.y) |> (.0?.y ? 0)
-                        
-                            circle = svg.select "\#circle-#{d.key}" 
-                                ..attr \transform, "translate(#{x0}, #{y0})" #.attr \cy, y0 .attr \cx, x0
-                                ..data {x: x0, y: y0}
+                        #console.log \fx, 'highlight', stack.x.iden, (typeof! time), time, (x-to-time time).0.x
+                        fx 'highlight', stack.x.iden, (x-to-time time).toJSON!
+                        # [iden, x] = move-x-axis-vline time
+                        # console.log \x, x
+                        # fx 'highlight', iden, x
 
             ..attr \width, width + margin.left + margin.right
             ..attr \height, height + margin.top + margin.bottom
@@ -158,16 +178,24 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                     ..select-all \#vline .data [1]
                         ..enter!
                             ..append \path, .attr \id, 'vline' .attr \d, "M0,0 L0,#{height}" .attr \stroke, \red
+                        # ..each (d) ->
+                        #     [x]? = do -> meta[stack.x.iden] |> obj-to-pairs |> find (-> true == it.1.highlight) 
+                        #     return if !x
+                        #     x = new Date x
+                        #     console.log "vline >>", x, x.value-of!
+                        #     i = bisect-date layers[0].values, x.value-of!
+                        #     console.log "vline >>", x, i
                     ..select-all \.layer .data layers
                         ..enter!
                             ..append \path .attr \class, \layer
-                                ..on \mouseover, -> fx 'highlight', it.iden
-                                ..on \mouseout, -> dfx 'highlight', it.iden
+                                ..on \mouseover, -> fx 'highlight', stack.key.iden, it.iden
+                                ..on \mouseout, -> dfx 'highlight', stack.key.iden, it.iden
                         ..interrupt!.transition!.duration 1000
                             ..attr \d, -> area it.values
                         ..style \fill, -> 
                             c = color it.key
-                            if meta[it.key]?.highlight then effects.highlight.color else c
+                            if (is-highlighted stack.key.iden, it.key) then effects.highlight.color else c
+                            #if meta[stack.key.iden]?[it.key]?.highlight then effects.highlight.color else c
                             #if it.meta.highlight then effects.highlight.color else c
                 ..select 'g.focus'
                     ..select-all 'circle' .data layers
@@ -193,6 +221,14 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
                 ..transition! .call x-axis
             ..select \.y-axis
                 ..transition!.duration 1000 .call y-axis
+
+        do ->
+                x = do -> meta[stack.x.iden]?['highlight']
+                return if !x
+                #x = parse-int x
+                console.log ">>>> ", \move-x-axis-vline, (typeof! x), x
+                x = new Date x
+                move-x-axis-vline (x-to-time x)
 
         console.log "time", (Date.now! - t1)
 
@@ -225,5 +261,17 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
             format: d3.format ','
 
         interpolation: 'linear'
+
+        stack: 
+            key: 
+                f: (.key)
+                iden: 'key'
+            x:
+                f: (.x)
+                iden: 'x'
+            y:
+                f: (.y)
+                iden: 'y'
+
         margin: {top: 20, right:20, bottom: 50, left: 50}
     }

@@ -1,21 +1,24 @@
-{id, map, filter, Obj, obj-to-pairs, sort-by} = require \prelude-ls
+{id, map, filter, reject, group-by, Obj, obj-to-pairs, sort-by} = require \prelude-ls
+{fold-obj-to-list} = (require \./../../transformation/context.ls)!
 
 module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable do 
-    (result, {cells, cell, cols, iden, cols-order}:options) ->
+    (result, {key, sorter, cells, cell, cols, iden, cols-order}:options) ->
         cols = cols ? do -> result.0 |> Obj.keys |> (filter (.index-of \$) >> (!= 0)) |> sort-by (-> b = (cols-order.index-of it); if b == -1 then Infinity else b )
         result 
-        |> map (r) ->
-            iden: iden r
+        |> group-by key.f
+        |> fold-obj-to-list (k, r) ->
+            iden: k
             data: r
             cols: do ->
                 cols |> map (c) ->
-                    p = cells[iden r[c]] ? cell
-                    xplot p, r[c]
-
+                    p = cells[c] ? cell
+                    xplot p, (r.map -> it[c])
+            sort-key: sorter r
+        |> sort-by (.sort-key)
                 
         #result
         
-    ({change, toggle, fx, dfx}:change_, meta, view, result, {cols, row-style}:options, continuation) !-->
+    ({change, toggle, fx, dfx, is-highlighted, is-selected}:change_, meta, view, result, {key, cols, row-style}:options, continuation) !-->
             
         cols = cols ? do -> result.0 |> map (.iden)
 
@@ -40,11 +43,14 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
             ..enter!
                 ..append \tr
                     # ..attr \style, (.$style) TODO:
-                    ..on 'click', -> toggle 'select', it.iden
-                    ..on 'mouseover', -> fx 'highlight', it.iden
-                    ..on 'mouseout', -> dfx 'highlight', it.iden
+                    ..on 'click', -> toggle 'select', key.iden, it.iden
+                    ..on 'mouseover', -> fx 'highlight', key.iden, it.iden
+                    ..on 'mouseout', -> dfx 'highlight', key.iden, it.iden
             
-            ..attr 'style', -> row-style it.iden, meta[it.iden], it.data
+            ..attr 'style', -> row-style { 
+                highlight: (is-highlighted key.iden, it.iden) 
+                select: (is-selected key.iden, it.iden) 
+            }
             ..exit!.remove!
             ..select-all \td .data (({cols, iden}) -> cols |> map (col) -> {col, iden})
                 ..enter!
@@ -61,7 +67,13 @@ module.exports = ({{Plottable, xplot}:Reactive, d3}) -> new Reactive.Plottable d
         cols: null
         iden: (.id)
         cell: Reactive.plottable (_, meta, view, result, options) ->
-                view.innerHTML = result
+                view.innerHTML = result.0
         cells: {}
         row-style: (iden, meta, data) -> ''
+
+        # table is 1-dimensional
+        key:
+            f: (.key)
+            iden: 'key'
+        sorter: (ds) -> 1
     }

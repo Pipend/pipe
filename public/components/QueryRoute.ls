@@ -903,30 +903,50 @@ module.exports = React.create-class do
                         cplotter = null
                         meta = {} # cache the meta
                         
-                        
+                        change = (what, dimension, idenv, f) ~>
+                            meta[dimension] = {} if !meta[dimension]
+                            meta[dimension][idenv] = {} if !meta[dimension][idenv]
+                            meta[dimension][idenv][what] = f meta[dimension][idenv][what]
+                            
+                            if what == 'select'
+                                result-changed transformed-result, presentation-function, view
+                            else
+                                render view
+
+                        schange = (what, dimension, idenv, f) ~>
+                            meta[dimension] = {} if !meta[dimension]
+                            meta[dimension][what] = idenv
+                            render view
+
+                        change_ = (what, dimension, idenv, f) ~>
+                            match what
+                            | 'highlight' => schange what, dimension, idenv, f
+                            | _ => change what, dimension, idenv, f
+
+                        toggle = (what, dimension, idenv) ~>
+                            change_ what, dimension, idenv, (-> if it == false then true else false)
+                        fx = (what, dimension, idenv) ->
+                            change_ what, dimension, idenv, (-> true)
+                        dfx = (what, dimension, idenv) ->
+                            change_ what, dimension, idenv, (-> false)
+
+                        is-highlighted = (dimension, idenv) ->
+                            meta[dimension]?['highlight'] == idenv
+
+                        is-selected = (dimension, idenv) ->
+                            false != meta[dimension]?[idenv]?['select']
+
+                        effects = {change, toggle, fx, dfx, is-highlighted, is-selected}
+
                         result-changed = (result, plottable, view) ->
-                            cplotter := plottable._cplotter result, meta
+                            cplotter := plottable._cplotter result, {meta, effects}
                             render view
                         
                         
                         render = (view) ->
                             # reactive loop
-                            change = (what, idenv, f) ~>
-                                meta[idenv] = {} if !meta[idenv]
-                                meta[idenv][what] = f meta[idenv][what]
-                                console.log \what, what
-                                if what == 'select'
-                                    result-changed transformed-result, presentation-function, view
-                                else
-                                    render view
-                            toggle = (what, idenv) ~>
-                                change what, idenv, (-> if it == false then true else false)
-                            fx = (what, idenv) ->
-                                change what, idenv, (-> true)
-                            dfx = (what, idenv) ->
-                                change what, idenv, (-> false)
                             
-                            presentation-context-instance.Reactive.cplot cplotter, {change, toggle, fx, dfx}, meta, view
+                            presentation-context-instance.Reactive.cplot cplotter, effects, meta, view
 
                         result-changed transformed-result, presentation-function, view
 
