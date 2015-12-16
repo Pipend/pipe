@@ -37,6 +37,7 @@ ui-protocol =
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
+    elastic: require \../query-types/elastic/ui-protocol.ls
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 

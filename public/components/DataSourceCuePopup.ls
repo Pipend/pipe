@@ -11,6 +11,7 @@ ui-protocol =
     postgresql: require \../query-types/postgresql/ui-protocol.ls
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
+    elastic: require \../query-types/elastic/ui-protocol.ls
 
 module.exports = React.create-class do
 
