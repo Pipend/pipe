@@ -641,7 +641,7 @@ module.exports = React.create-class do
     on-document-load: (local-document, remote-document) ->
 
         # existing-tags must also include tags saved on client storage 
-        existing-tags = (@state.existing-tags ? []) ++ (local-document.tags ? [])
+        existing-tags = (@state.existing-tags ? []) ++ ((local-document.tags ? []) |> map -> label: it, value: it)
             |> unique-by (.label)
             |> sort-by (.label)
 
