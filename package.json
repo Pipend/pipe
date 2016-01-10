@@ -70,6 +70,7 @@
     "browserify": "^9.0.3",
     "gulp": "^3.9.0",
     "gulp-browserify": "^0.5.1",
+    "gulp-callback": "0.0.3",
     "gulp-if": "^1.2.5",
     "gulp-livescript": "^2.3.0",
     "gulp-nodemon": "^2.0.2",
