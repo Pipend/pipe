@@ -1,4 +1,4 @@
-{rextend} = require \./public/presentation/plottables/_utils.ls
+{rextend} = require \prelude-extension
 
 mongo-connection-opitons = 
     auto_reconnect: true
