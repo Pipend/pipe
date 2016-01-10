@@ -4,7 +4,8 @@
   "description": "",
   "main": "",
   "scripts": {
-    "test": "mocha test/index.ls --compilers ls:livescript"
+    "test": "mocha test/index.ls --compilers ls:livescript",
+    "configure": "cp config.ls.template config.ls"
   },
   "author": "",
   "license": "ISC",

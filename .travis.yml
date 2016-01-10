@@ -12,4 +12,5 @@ addons:
 before script:
     - npm install -g gulp
 script:
+    - npm run configure
     - gulp build

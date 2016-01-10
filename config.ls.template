@@ -1,0 +1,105 @@
+{rextend} = require \./public/presentation/plottables/_utils.ls
+
+mongo-connection-opitons = 
+    auto_reconnect: true
+    db:
+        w:1
+    server:
+        socket-options:
+            keep-alive: 1
+
+module.exports =
+    
+    # connections :: Map QueryType, (Map Server, ConnectionPrime)
+    connections:
+        mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 
+            local:
+                label: \local
+                host: \127.0.0.1
+                port: 27017
+                allow-disk-use: true
+                timeout: 1000*60*10
+        mssql: 
+            local:
+                server: ''
+                user: ''
+                password: ''
+                default-database: ''
+        postgresql:
+            local:
+                host: ''
+                port: ''
+                user: ''
+                password: ''
+                default-database: ''
+        mysql:
+            local:
+                host: ''
+                user: ''
+                password: ''
+                default-database: ''
+    
+    # default-data-source-cue :: DataSourceCue
+    default-data-source:
+        connection-kind: \pre-configured
+        query-type: \mongodb
+        connection-name: \local
+        database: \pipe
+        collection: \queries
+        complete: true
+    
+    # the default transpilation language for the new query dialog
+    default-transpilation-language: \babel # other options: javascript, livescript
+
+    # cache store config
+    cache-store:
+        type: \redis-store
+        host: \localhost
+        port: 6379
+        database: 10
+        expires-in: 2 * 24 * 60 * 60 # = 2 days
+    
+    # the js-store uses javascript object for caching & does not persist across application restarts
+    # cache-store:
+    #    type: \js-store
+    #    expires-in: 2 * 24 * 60 * 60 # = 2 days
+
+    http-port: 4081
+    
+    # query database
+    query-database-connection-string: \mongodb://localhost:27017/pipe
+    mongo-connection-opitons: mongo-connection-opitons
+
+    # the client loads images from this server
+    snapshot-server: \http://localhost:4081
+
+    # client-side decor
+    project-title: \Pipe
+
+    # query-route related config properties
+    auto-execute: true
+    cache-query: false
+    prevent-reload: false
+
+    # gulp config
+    gulp:
+        minify: false
+        reload-port: 4082
+
+    # spy config
+    spy:
+        enabled: true
+        url: \http://localhost:3010/pipe
+        storage-details:
+            * {} <<< mongo-connection-opitons <<< 
+                name: \mongo
+                connection-string: \mongodb://localhost:27017/pipe
+                insert-into:
+                    collection: \events
+            ...
+
+    # auto execute queries on load
+    auto-execute: false
+
+    # UI
+    github-ribbon: false
