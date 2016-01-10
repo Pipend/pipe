@@ -98,8 +98,5 @@ module.exports =
                     collection: \events
             ...
 
-    # auto execute queries on load
-    auto-execute: false
-
     # UI
     github-ribbon: false
