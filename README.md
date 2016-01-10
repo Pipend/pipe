@@ -1,8 +1,16 @@
-# Pipe
+Pipe
+=================================
+
+[![Build Status](https://travis-ci.org/Pipend/pipe.svg?branch=master)](https://travis-ci.org/Pipend/pipe)
 
 Pipe is a Web app for querying any data source, and analyzing and visualizing the result.
 
 LIVE DEMO: [http://reactiflux.pipend.com/](http://reactiflux.pipend.com/)
+
+# Deps
+* [transpilation](https://github.com/pipend/transpilation)
+* [pipe-transformation](https://github.com/pipend/pipe-transformation)
+* [pipe-web-client](https://github.com/pipend/pipe-web-client)
 
 # Query |> Transform |> Visualize
 
