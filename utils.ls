@@ -1,104 +1,19 @@
 # all functions in this file are for use on server-side only (either by server.ls or query-types)
-
-{bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \./async-ls
-config = require \./config
+{bind-p, from-error-value-callback, new-promise, return-p, to-callback, with-cancel-and-dispose} = require \./async-ls
+require! \./config
 cache-store = require "./cache-stores/#{config.cache-store.type}"
-transformation-context = require \./public/transformation/context
 {EventEmitter} = require \events
 {readdir-sync} = require \fs
 md5 = require \MD5
-{any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, Str, values} = require \prelude-ls
-vm = require \vm
 
-
-# compilers \\//
-
-babel = require \babel
-{compile} = require \livescript
-
-# this method differs from public/utils.ls::compile-and-execute-livescript, 
-# it uses the native nodejs vm.run-in-new-context method to execute javascript instead of eval
-# compile-and-execute-livescript :: String -> Map k, v -> [err, result]
-export compile-and-execute-livescript = (livescript-code, context) -->
-    die = (err)-> [err, null]
-    try 
-        js = compile livescript-code, {bare: true}
-    catch err
-        return die "livescript transpilation error: #{err.to-string!}"
-    try 
-        result = vm.run-in-new-context js, context
-    catch err
-        return die "javascript runtime error: #{err.to-string!}"
-    [null, result]
-
-# compile-and-execute-livescript-p :: String -> Map k, v -> p result
-export compile-and-execute-livescript-p = (livescript-code, context) -->
-    resolve, reject <- new-promise
-    [err, result] = compile-and-execute-livescript livescript-code, context
-    return reject err if !!err
-    resolve result
-
-# compile-and-execute-javascript :: String -> Map k, v -> [err, result]
-export compile-and-execute-javascript = (javascript-code, context) -->
-    die = (err)-> [err, null]
-    try 
-        result = vm.run-in-new-context javascript-code, context
-    catch err
-        return die "javascript runtime error: #{err.to-string!}"
-    [null, result]
-
-# compile-and-execute-javascript-p :: String -> Map k, v -> p result
-export compile-and-execute-javascript-p = (javascript-code, context) -->
-    resolve, reject <- new-promise
-    [err, result] = compile-and-execute-javascript javascript-code, context
-    return reject err if !!err
-    resolve result
-
-# compile-and-execute-babel :: String -> Map k, v -> [err, result]
-export compile-and-execute-babel = (es6-code, context) -->
-    die = (err)-> [err, null]
-    try 
-        javascript-code = babel.transform es6-code .code
-            .replace '"use strict";', '' .trim!
-            .replace "'use strict';", '' .trim!
-    catch err
-        return die "babel compilation error: #{err.to-string!}"
-
-    compile-and-execute-javascript javascript-code, context
-
-# compile-and-execute-babel-p :: String -> Map k, v -> p result
-export compile-and-execute-babel-p = (es6-code, context) -->
-    resolve, reject <- new-promise
-    [err, result] = compile-and-execute-babel es6-code, context
-    return reject err if !!err
-    resolve result
-
-# compilers //\\
-
+# prelude
+{any, concat-map, dasherize, difference, each, filter, find, find-index, group-by, id, 
+keys, map, maximum-by, Obj, obj-to-pairs, pairs-to-obj, reject, sort-by, Str, values} = require \prelude-ls
 
 {get-all-keys-recursively} = require \./public/utils.ls
+{compile-parameters} = require \pipe-transformation
+
 export get-all-keys-recursively
-
-# DB -> String -> p Query
-export get-latest-query-in-branch = (query-database, branch-id) -->
-    collection = query-database.collection \queries
-    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
-        * $match: {branch-id,status: true}
-        * $sort: _id: -1
-    return returnP results.0 if !!results?.0
-    new-promise (, rej) -> rej "unable to find any query in branch: #{branch-id}" 
-
-# DB -> String -> p Query
-export get-query-by-id = (query-database, query-id) -->
-    collection = query-database.collection \queries
-    results <- bindP (from-error-value-callback collection.aggregate, collection) do 
-        * $match: 
-            query-id: query-id
-            status: true
-        * $sort: _id: - 1
-        * $limit: 1
-    return returnP results.0 if !!results?.0
-    new-promise (, rej) -> rej "query not found #{query-id}"
 
 # synchronous function, uses promises for encapsulating error
 # extract-data-source :: DateSourceCue -> p DataSource
@@ -116,7 +31,7 @@ export extract-data-source = (data-source-cue) ->
             |> reject ([key]) -> (dasherize key) in <[connection-kind complete]>
             |> pairs-to-obj
 
-    returnP clean-data-source do 
+    return-p clean-data-source do 
         match data-source-cue?.connection-kind
             | \connection-string => 
                 parsed-connection-string = (query-type?.parse-connection-string data-source-cue.connection-string) or {}
@@ -126,25 +41,26 @@ export extract-data-source = (data-source-cue) ->
                 {} <<< data-source-cue <<< (connection-prime or {})
             | _ => {} <<< data-source-cue
 
-# compile-parameters :: String -> QueryParameters -> p CompiledQueryParameters
-export compile-parameters = (query-type, parameters) -->
-    res, rej <- new-promise
-    if \String == typeof! parameters
-        [err, compiled-query-parameters] = compile-and-execute-livescript parameters, (require "./query-types/#{query-type}").get-context!
-        if !!err then rej err else res (compiled-query-parameters ? {})
-    else
-        res parameters
+# DB -> String -> p Query
+export get-latest-query-in-branch = (query-database, branch-id) -->
+    collection = query-database.collection \queries
+    results <- bind-p (from-error-value-callback collection.aggregate, collection) do 
+        * $match: {branch-id,status: true}
+        * $sort: _id: -1
+    return return-p results.0 if !!results?.0
+    new-promise (, rej) -> rej "unable to find any query in branch: #{branch-id}" 
 
-# transform :: result -> String -> CompiledQueryParameters -> p transformed-result
-export transform = (query-result, transformation, parameters) -->
-    res, rej <- new-promise 
-    [err, func] = compile-and-execute-livescript "(#transformation\n)", (transformation-context! <<< (require \moment) <<< (require \prelude-ls) <<< parameters)
-    return rej err if !!err
-
-    try
-        res (func query-result)
-    catch err
-        return rej err
+# DB -> String -> p Query
+export get-query-by-id = (query-database, query-id) -->
+    collection = query-database.collection \queries
+    results <- bind-p (from-error-value-callback collection.aggregate, collection) do 
+        * $match: 
+            query-id: query-id
+            status: true
+        * $sort: _id: - 1
+        * $limit: 1
+    return return-p results.0 if !!results?.0
+    new-promise (, rej) -> rej "query not found #{query-id}"
 
 class OpsManager extends EventEmitter
 
@@ -152,25 +68,22 @@ class OpsManager extends EventEmitter
 
     # Cache parameter must be Either Boolean Number, if truthy, it indicates we should attempt to read the result from cache before executing the query
     # the Cache parameter does not affect the write behaviour, the result will always be saved to the cache store irrespective of this value
-    # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> QueryParameters -> Cache -> String -> cp result
-    execute: (query-database, {query-type, timeout}:data-source, query, transpilation, parameters, cache, op-id, op-info) ->
-
-        # get CompiledQueryParameters from QueryParameters
-        compiled-query-parameters <~ bindP (compile-parameters query-type, parameters)
+    # execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> Boolean -> String -> OpInfo -> cp result
+    execute: (query-database, {query-type, timeout}:data-source, query, transpilation-language, compiled-parameters, cache, op-id, op-info) ->
 
         # the cache key
-        key = md5 JSON.stringify {data-source, query, compiled-query-parameters, transpilation}
+        key = md5 JSON.stringify {data-source, query, transpilation-language, compiled-parameters}
 
         # connect to the cache store (we need the save function for storing the result in cache later)
-        {load, save} <~ bindP cache-store
-        cached-result <~ bindP do ~> 
+        {load, save} <~ bind-p cache-store
+        cached-result <~ bind-p do ~> 
 
             # avoid loading the document from cache store, if Cache parameter is falsy
             if typeof cache == \boolean and cache === false
                 return return-p null
 
             # load the document from cache store & use the result based on the value of Cache parameter
-            cached-result <~ bindP load key
+            cached-result <~ bind-p load key
             if !!cached-result
                 read-from-cache = [
                     typeof cache == \boolean and cache === true
@@ -194,9 +107,15 @@ class OpsManager extends EventEmitter
                     # (CancellablePromise cp) => cp result -> cp ResultWithMeta
                     cancellable-promise = do ->
                         execution-start-time = Date.now!
-                        result <- bindP ((require "./query-types/#{query-type}").execute query-database, data-source, query, transpilation, compiled-query-parameters)
+                        result <- bind-p do 
+                            (require "./query-types/#{query-type}").execute do 
+                                query-database
+                                data-source
+                                query
+                                transpilation-language
+                                compiled-parameters
                         execution-end-time = Date.now!
-                        saved-object <- bindP save key, {result, execution-start-time, execution-end-time}
+                        saved-object <- bind-p save key, {result, execution-start-time, execution-end-time}
                         return-p {} <<< saved-object <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
 
                     # cancel the promise if execution takes longer than data-source.timeout milliseconds

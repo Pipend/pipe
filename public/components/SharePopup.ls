@@ -14,7 +14,7 @@ module.exports = React.create-class do
         data-source-cue: {}
         host: ""
         # left :: Number -> Number
-        parameters: {}
+        compiled-parameters: {}
         query-id: ""
 
     # render :: a -> ReactElement
@@ -36,7 +36,7 @@ module.exports = React.create-class do
                     |> pairs-to-obj
             | _ => {}
 
-        query-string = querystring.stringify {} <<< @props.parameters <<< data-source-cue-params
+        query-string = querystring.stringify {} <<< @props.compiled-parameters <<< data-source-cue-params
 
         href = decode-URI-component match @state.export 
             | true => "http://#{@props.host}/apis/branches/#{@props.branch-id}#{latest-query-segment}/export/#{cache-segment}/#{@state.format}/#{image-size}?#{query-string}"

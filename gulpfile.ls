@@ -46,7 +46,7 @@ gulp.task \watch:presentation:styles, ->
 create-bundler = (entries) ->
     bundler = browserify {} <<< watchify.args <<< {debug: !config.gulp.minify}
         ..add entries
-        ..transform {global: false}, 'browserify-shim'
+        # ..transform {global: false}, 'browserify-shim'
         ..transform \liveify
     watchify bundler
 

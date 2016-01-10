@@ -35,7 +35,7 @@ module.exports = React.create-class do
     component-did-mount: !->
         editor = ace.edit @props.editor-id
             ..on \change, (, editor) ~> @props?.on-change editor.get-value!
-            ..set-options {enable-basic-autocompletion: true}
+            ..set-options {enable-basic-autocompletion: true, scroll-past-end: 1.0}
             ..set-show-print-margin false
             ..commands.on \afterExec ({editor, command, args}) ->
                 range = editor.getSelectionRange!.clone!

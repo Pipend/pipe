@@ -9,16 +9,14 @@ require! \notifyjs
 {all, any, camelize, concat-map, dasherize, difference, each, filter, find, keys, is-type, last, map, 
 sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj} = require \prelude-ls
 
-presentation-context = require \../presentation/context.ls
-transformation-context = require \../transformation/context.ls
+{is-equal-to-object} = require \prelude-extension
 
 # utils
-{cancel-event, compile-and-execute-livescript, compile-and-execute-javascript, compile-and-execute-babel, generate-uid, 
-is-equal-to-object, get-all-keys-recursively} = require \../utils.ls
+{cancel-event, get-all-keys-recursively} = require \../utils.ls
 
 _ = require \underscore
 {create-factory, DOM:{a, div, input, label, span, select, option, button, script}}:React = require \react
-{find-DOM-node} = require \react-dom
+{find-DOM-node}:ReactDOM = require \react-dom
 {History}:react-router = require \react-router
 Link = create-factory react-router.Link
 AceEditor = create-factory require \./AceEditor.ls
@@ -38,6 +36,8 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
+{compile-parameters, compile-transformation, compile-presentation, generate-uid}:pipe-web-client = 
+    (require \pipe-web-client) end-point: "http://#{window.location.host}"
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
@@ -83,45 +83,6 @@ to-callback = (promise, callback) !->
     promise.then (result) -> callback null, result
     promise.catch (err) -> callback err, null
 
-# get-json :: (Promise p) => String -> p a
-get-json = (url) ->
-    new Promise (res, rej) ->
-        $.getJSON url
-            ..done (result) -> res result
-            ..fail ({response-text}) -> rej response-text
-
-# post-json :: (Promise p) => 
-post-json = (url, json) ->
-    new Promise (res, rej) ->
-        $.ajax {
-            content-type: 'application/json; charset=utf-8'
-            data-type: \json
-            data: JSON.stringify json
-            type: \post
-            url: url
-        }
-            ..done (result) ~> res result
-            ..fail ({response-text}) ~> rej response-text
-
-# execute-document :: Boolean -> Document -> p result-with-metadata
-execute-document = do ->
-    
-    previous-call = null
-    
-    (document, op-id, cache) ->
-                        
-        if !!cache and !!previous-call and (previous-call.document `is-equal-to-object` document)
-            new Promise (res, rej) ->
-                <- set-timeout _, 0
-                {result, execution-end-time} = previous-call.result-with-metadata
-                res {from-cache: true, execution-duration: 0, execution-end-time, result}
-
-        else
-            (post-json \/apis/execute, {document, op-id, cache})
-                .then (result-with-metadata) -> 
-                    previous-call := {document, result-with-metadata}
-                    result-with-metadata
-
 module.exports = React.create-class do
 
     display-name: \QueryRoute
@@ -144,7 +105,7 @@ module.exports = React.create-class do
             query-title, transformation, presentation, parameters, existing-tags, tags, 
             editor-width, popup-left, popup, queries-in-between, dialog, remote-document, 
             cache, from-cache, executing-op, displayed-on, execution-error, execution-end-time, 
-            execution-duration
+            execution-duration, transpilation-language
         } = @state
 
         document.title = query-title
@@ -338,13 +299,14 @@ module.exports = React.create-class do
                             @save-to-client-storage-debounced!
 
             | \share-popup =>
-                [err, parameters-object] = compile-and-execute-livescript parameters, {}
+                {parameters, transpilation} = @document-from-state!
+                [err, compiled-parameters] = pipe-web-client.compile-parameters-sync parameters, transpilation.query
                 SharePopup do 
                     host: window.location.host
                     left: left-from-width
                     query-id: query-id
                     branch-id: branch-id
-                    parameters: if !!err then {} else parameters-object
+                    compiled-parameters: compiled-parameters
                     data-source-cue: data-source-cue
 
             | \tags-popup =>
@@ -373,9 +335,9 @@ module.exports = React.create-class do
                     | \new-query =>
                         NewQueryDialog do 
                             initial-data-source-cue: data-source-cue
-                            initial-transpilation-language: \livescript
+                            initial-transpilation-language: transpilation-language
                             on-create: (data-source-cue, transpilation-language) ~>
-                                (post-json \/apis/defaultDocument, [data-source-cue, transpilation-language])
+                                (pipe-web-client.load-default-document data-source-cue, transpilation-language)
                                     .then (document) ~> @on-document-load document, document
                                     .catch (err) ~> alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language} (#{err})"
                                     .then ~> @set-state dialog: null
@@ -395,7 +357,7 @@ module.exports = React.create-class do
                     | \settings =>
                         SettingsDialog do
                             initial-urls: @state.client-external-libs
-                            initial-transpilation-language: @state.transpilation-language
+                            initial-transpilation-language: transpilation-language
                             on-change: ({urls, transpilation-language}) ~>
                                 @load-client-external-libs urls, @state.client-external-libs
                                 @set-state do
@@ -567,7 +529,7 @@ module.exports = React.create-class do
             presentation: ""
             parameters: ""
             tags: []
-            editor-width: 550
+            editor-width: 550 
             keywords-from-query-result: []
             transpilation-language: @props.default-transpilation-language
             client-external-libs: []
@@ -579,8 +541,8 @@ module.exports = React.create-class do
     component-did-mount: !->
 
         # auto-completion for editors
-        transformation-keywords = ([transformation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        presentation-keywords = ([presentation-context!, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        transformation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        presentation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
         d3-keywords = keywords-from-object d3
         @default-completers =
             * get-completions: (editor, , , prefix, callback) ~>
@@ -597,7 +559,7 @@ module.exports = React.create-class do
         ace-language-tools.set-completers @default-completers
 
         # auto completion for tags
-        get-json \/apis/tags, (existing-tags) ~> 
+        pipe-web-client.get-all-tags!.then (existing-tags) ~>
             @set-state do 
                 existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
                     |> unique-by (.label)
@@ -640,7 +602,7 @@ module.exports = React.create-class do
     # on-document-load :: Document -> Document -> Void
     on-document-load: (local-document, remote-document) ->
 
-        # existing-tags must also include tags saved on client storage 
+        # existing-tags must also include tags saved in client storage 
         existing-tags = (@state.existing-tags ? []) ++ (local-document.tags ? [])
             |> unique-by (.label)
             |> sort-by (.label)
@@ -752,10 +714,10 @@ module.exports = React.create-class do
             if !!local-branch
                 
                 # we are on a local branch and the local-document is present
-                # we can use the local-document.data-source-cue to get the default document
+                # we can use the local-document.data-source-cue to get the default document (and use it as remote document)
                 if !!local-document
                     {data-source-cue, transpilation-language}? = @state-from-document local-document
-                    update-state-using-document (post-json \/apis/defaultDocument, [data-source-cue, transpilation-language])
+                    update-state-using-document (pipe-web-client.load-default-document data-source-cue, transpilation-language)
 
                 # we are on a local branch and the local-document does not exist
                 # this means its a new query, so we display the new query dialog
@@ -765,7 +727,7 @@ module.exports = React.create-class do
             # load from local storage / remote
             # eg: branches/branch-id/queries/query-id
             else
-                update-state-using-document get-json "/apis/queries/#{query-id}"
+                update-state-using-document pipe-web-client.load-query query-id
 
         else
 
@@ -790,25 +752,9 @@ module.exports = React.create-class do
 
         # add urls to head
         urls-to-add = next `difference` prev
-        if urls-to-add.length > 0
-            
-            # load all the urls in parallel 
-            Promise.all do 
-                urls-to-add |> map (url) -> 
 
-                    # TODO: use a different technique to differentiate file types
-                    new Promise (res) ->
-                        element = switch (last url.split \.)
-                            | \js =>
-                                script = document.create-element \script
-                                    ..src = url
-                            | \css => 
-                                link = document.create-element \link
-                                    ..type = \text/css
-                                    ..rel = \stylesheet
-                                    ..href = url
-                        element.onload = ~> res \done
-                        document.head.append-child element
+        if urls-to-add.length > 0
+            pipe-web-client.require-deps next
 
         else 
             new Promise (res) ~> res \done
@@ -845,63 +791,36 @@ module.exports = React.create-class do
         if !!@state.executing-op
             return
 
-        {query-id, branch-id, query-title, data-source-cue, query, transformation, presentation, parameters, transpilation} = @document-from-state!
+        {query-id, branch-id, query-title, data-source-cue, query, 
+        transformation, presentation, parameters, transpilation}:document-from-state = @document-from-state!
         
+        compiled-parameters <~ compile-parameters parameters, transpilation.query .then _
+
         # process-query-result :: Result -> p (a -> Void)
-        process-query-result = (result) ~> 
+        process-query-result = (result) ~>
+            transformation-function <~ compile-transformation transformation, transpilation.transformation .then _
+            presentation-function <~ compile-presentation presentation, transpilation.presentation .then _
             
-            new Promise (res, rej) ~>
-                
-                # compile parameters
-                if !!parameters and parameters.trim!.length > 0
-                    [err, parameters-object] = compile-and-execute-livescript parameters, {}
-                    console.log err if !!err
-                parameters-object ?= {}
+            # execute the transformation code
+            try
+                transformed-result = transformation-function result, compiled-parameters
+            catch ex
+                return new Promise (, rej) -> rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
 
-                # select the compile method based on the language selected in the settings dialog
-                compile = switch @state.transpilation-language
-                    | 'livescript' => compile-and-execute-livescript 
-                    | 'javascript' => compile-and-execute-javascript
-                    | 'babel' => compile-and-execute-babel
+            view = find-DOM-node @refs.presentation
 
-                # create-context :: a -> Context
-                create-context = -> {} <<< transformation-context! <<< parameters-object <<< (require \prelude-ls)
+            # if transformation returns a stream then listen to it and update the presentation
+            if \Function == typeof! transformed-result.subscribe
+                subscription = transformed-result.subscribe (e) -> presentation-function view, e, compiled-parameters
+                Promise.resolve -> subscription.dispose!
 
-                # compile the transformation code
-                [err, transformation-function] = compile "(#transformation\n)", create-context! <<<
-                    highland: require \highland
-                    JSONStream: require \JSONStream
-                    Rx: require \rx
-                    stream: require \stream
-                    util: require \util
-                if !!err
-                    return rej "ERROR IN THE TRANSFORMATION COMPILATION: #{err}"
-                
-                # execute the transformation code
+            # otherwise invoke the presentation function once with the JSON returned from transformation
+            else
                 try
-                    transformed-result = transformation-function result
+                    presentation-function view, transformed-result, compiled-parameters
                 catch ex
-                    return rej "ERROR IN THE TRANSFORMATION EXECUTAION: #{ex.to-string!}"
-
-                # compile the presentation code
-                [err, presentation-function] = compile "(#presentation\n)", ({d3, $} <<< create-context! <<< presentation-context!)
-                if !!err
-                    return rej "ERROR IN THE PRESENTATION COMPILATION: #{err}"
-
-                view = find-DOM-node @refs.presentation
-
-                # if transformation returns a stream then listen to it and update the presentation
-                if \Function == typeof! transformed-result.subscribe
-                    subscription = transformed-result.subscribe (e) -> presentation-function view, e
-                    res (-> subscription.dispose!)
-
-                # otherwise invoke the presentation function once with the JSON returned from transformation
-                else
-                    try
-                        presentation-function view, transformed-result
-                    catch ex
-                        return rej "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
-                    res undefined
+                    return new Promise (, rej) -> rej "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
+                Promise.resolve null
         
         # dispose the result of any previous execution
         <~ do ~> (callback) ~>
@@ -921,18 +840,15 @@ module.exports = React.create-class do
             ($ find-DOM-node @refs.presentation).empty!
 
             # make the ajax request and process the query result
-            {result}:result-with-metadata <~ (execute-document do 
-                {
-                    query-id
-                    branch-id
-                    query-title
-                    data-source-cue
-                    query
-                    parameters
-                    transpilation
-                }
+            op-info = document-from-state
+            {result}:result-with-metadata <~ (pipe-web-client.execute do 
+                data-source-cue
+                query
+                transpilation.query
+                compiled-parameters
+                @state.cache
                 op-id
-                @state.cache) .then
+                op-info) .then
 
             # transform and visualize the result
             dispose <~ process-query-result result .then
@@ -1008,7 +924,7 @@ module.exports = React.create-class do
 
     # save-document :: (Promise p) => Document -> p Document
     save-document: (document-to-save) ->
-        (post-json \/apis/save, document-to-save)
+        (pipe-web-client.save-document document-to-save)
             .then ({query-id, branch-id}:saved-document) ~>
 
                 # update the local storage with the saved document

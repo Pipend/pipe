@@ -19,21 +19,25 @@
                 height: 100%;
             }
         </style>
-        <meta charset="utf8"/>        
+        <meta charset="utf8"/>
+
+        <!-- document here refers to a Pipe document (not the js document object) -->
         <!-- presentation code (LiveScript), safer/easier to store inside script tag rather than a variable like parameters & transformedResult -->
-        <script type="text/plain" id="transformation" data-transpilation="<%- transpilation.transformation %>"><%- transformation %></script>
-        <script type="text/plain" id="presentation" data-transpilation="<%- transpilation.presentation %>"><%- presentation %></script>
+        <script type="text/plain" id="transformation"><%- transformation %></script>
+        <script type="text/plain" id="presentation"><%- presentation %></script>
         <script type="text/javascript">
             
+            window.transpilation = <%- JSON.stringify(transpilation) %>;
+
             // obtained from query-string
-            window.parameters = <%- JSON.stringify(parameters) %>
+            window.compiledParameters = <%- JSON.stringify(compiledParameters) %>;
 
             // obtained by executing the query on server side
-            window.queryResult = <%- JSON.stringify(queryResult) %>
+            window.queryResult = <%- JSON.stringify(queryResult) %>;
 
         </script>
         <!-- executes the presentation code using the parameters & transformedResult -->
-        <script type="text/javascript" src="/public/presentation/presentation.js"></script>        
+        <script type="text/javascript" src="/public/presentation/presentation.js"></script>
     </head>
     <body> 
         <div class="presentation"></div>

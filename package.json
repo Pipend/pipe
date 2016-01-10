@@ -4,7 +4,7 @@
   "description": "",
   "main": "",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha test/index.ls --compilers ls:livescript"
   },
   "author": "",
   "license": "ISC",
@@ -13,8 +13,6 @@
     "MD5": "^1.2.1",
     "async": "^0.9.0",
     "async-ls": "0.0.3",
-    "babel": "^5.8.23",
-    "babel-core": "^5.8.25",
     "base62": "^1.1.0",
     "bluebird": "^2.9.30",
     "body-parser": "^1.12.4",
@@ -25,12 +23,12 @@
     "cookie-parser": "^1.3.4",
     "cors": "^2.7.1",
     "csv-parse": "^1.0.0",
-    "d3-tip": "^0.6.7",
+    "d3": "^3.5.12",
     "ejs": "^2.3.1",
     "elasticsearch": "^10.0.1",
     "express": "^4.12.2",
     "highland": "^2.5.1",
-    "hiredis": "^0.4.0",
+    "hiredis": "^0.4.1",
     "history": "^1.13.0",
     "jquery-browserify": "^1.8.1",
     "jsdifflib": "^1.1.0",
@@ -41,18 +39,20 @@
     "mssql": "^2.1.5",
     "mysql": "^2.7.0",
     "notifyjs": "^1.2.5",
-    "nvd3": "git+https://github.com/novus/nvd3.git",
     "pg": "^4.4.0",
     "phantom": "^0.7.2",
-    "pipend-spy": "0.0.4",
+    "pipe-transformation": "0.0.4",
+    "pipe-web-client": "0.0.1",
+    "pipend-spy": "0.1.0",
+    "prelude-extension": "0.0.6",
     "prelude-ls": "^1.1.1",
-    "react": "^0.14.0",
+    "react": "^0.14.4",
     "react-ace": "^1.1.5",
-    "react-auto-complete": "^0.0.4",
-    "react-dom": "^0.14.0",
-    "react-router": "^1.0.0-rc4",
-    "react-selectize": "^0.3.5",
-    "redis": "^0.12.1",
+    "react-addons-css-transition-group": "^0.14.6",
+    "react-dom": "^0.14.4",
+    "react-router": "^1.0.0",
+    "react-selectize": "^0.3.7",
+    "redis": "^2.4.2",
     "request": "^2.54.0",
     "rx": "^4.0.0",
     "sentiment": "^1.0.2",
@@ -62,12 +62,11 @@
     "socket.io-client": "^1.3.5",
     "spy-web-client": "0.0.2",
     "sqlite-parser": "^0.10.2",
-    "underscore": "^1.8.3",
-    "vinyl-source-stream": "^1.1.0"
+    "transpilation": "0.0.4",
+    "underscore": "^1.8.3"
   },
   "devDependencies": {
     "browserify": "^9.0.3",
-    "browserify-shim": "^3.8.9",
     "gulp": "^3.8.11",
     "gulp-browserify": "^0.5.1",
     "gulp-if": "^1.2.5",
@@ -79,22 +78,13 @@
     "gulp-stylus": "^2.0.1",
     "gulp-uglify": "^1.2.0",
     "gulp-util": "^3.0.4",
+    "jsdom": "^3.1.2",
     "liveify": "^2.0.0",
     "livescript": "^1.4.0",
     "nib": "^1.1.0",
     "react-addons-create-fragment": "^0.14.0",
     "run-sequence": "^1.0.2",
+    "vinyl-source-stream": "^1.1.0",
     "watchify": "^2.6.0"
-  },
-  "browserify": {
-    "transform": [
-      "browserify-shim"
-    ]
-  },
-  "browserify-shim": {
-    "d3": "global:d3",
-    "nvd3": "global:nvd3",
-    "rx": "global:Rx",
-    "babel": "global:babel"
   }
 }

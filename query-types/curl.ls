@@ -2,7 +2,7 @@
 config = require \./../config
 {concat-map, each, find, filter, group-by, id, Obj, keys, map, obj-to-pairs, Str} = require \prelude-ls
 {exec} = require \shelljs
-{compile-and-execute-livescript}:utils = require \./../utils
+{compile-and-execute-sync} = require \transpilation
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source]) ->
@@ -13,22 +13,32 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)! <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, transpilation, parameters) -->
+# execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (, data-source, query, transpilation-language, parameters) -->
     {shell-command, parse} = require \./shell-command-parser
     result = parse shell-command, query
-    return (new-promise (, rej) -> rej new Error "Parsing Error #{result.0.1}") if !!result.0.1
+    
+    # parsing error
+    if !!result.0.1
+        return (new-promise (, rej) -> rej new Error "Parsing Error #{result.0.1}")
 
-    result := result.0.0.args |> concat-map id
-    url = result |> find (-> !!it.opt) |> (.opt)
+    result := result.0.0.args 
+        |> concat-map id
+
+    url = result 
+        |> find (-> !!it.opt) 
+        |> (.opt)
+
     options = result 
         |> filter (-> !!it.name) 
         |> map ({name, value}) -> 
             (if name.length > 1 then "--" else "-") + name + if !!value then " #value" else ""
         |> Str.join " "
 
-    [err, url] = compile-and-execute-livescript url, parameters
-    return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") if !!err
+    [err, url] = compile-and-execute-sync url, transpilation-language, parameters
+    
+    if !!err
+        return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") 
 
     # escape characters
     url .= replace \{, '\\{'
@@ -37,6 +47,7 @@ export execute = (query-database, data-source, query, transpilation, parameters)
     curl-process = null
 
     execute-curl = new-promise (res, rej) ->
+        console.log "curl -s '#url' #{options}"
         curl-process := exec "curl -s '#url' #{options}", silent: true, (code, output) ->
             return rej Error "Error in curl #code #output", null if code != 0
             res output

@@ -1,10 +1,7 @@
-{bindP, from-error-value-callback, new-promise, returnP, to-callback} = require \../async-ls
-{query-database-connection-string, mongo-connection-opitons}:config = require \./../config
-{map} = require \prelude-ls
-{compile-and-execute-livescript, extract-data-source, get-latest-query-in-branch, get-query-by-id, transform}:utils = require \./../utils
+{return-p} = require \../async-ls
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
-export keywords = ([data-source]) -> returnP <[]>
+export keywords = ([data-source]) -> return-p <[]>
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
@@ -12,14 +9,11 @@ export parse-connection-string = (connection-string) ->
     {host, port}
 
 # get-context :: a -> Context
-export get-context = ->
-    {object-id-from-date, date-from-object-id} = require \./../public/utils.ls
-    {} <<< (require \./default-query-context.ls)! <<< {object-id-from-date, date-from-object-id} <<< (require \prelude-ls)
+export get-context = -> {}
 
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, transpilation, parameters) -->
-    returnP null
+export execute = (query-database, data-source, query, transpilation, parameters) --> return-p null
 
 # default-document :: DataSourceCue -> String -> Document
 export default-document = (data-source-cue, transpilation-language) -> 
@@ -48,5 +42,5 @@ export default-document = (data-source-cue, transpilation-language) ->
                 })
         }
         """
-    presentation: "json"
+    presentation: \json
     parameters: ""

@@ -1,7 +1,12 @@
 {bindP, from-error-value-callback, new-promise, returnP, to-callback, with-cancel-and-dispose} = require \../async-ls
 config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
+
+# integer-type-parser :: a -> Int
+integer-type-parser = (value) -> if (typeof value == \undefined) or value == null then null else parse-int value    
 pg = require \pg
+    ..types.set-type-parser 20, integer-type-parser
+    ..types.set-type-parser 116642, integer-type-parser
 
 # execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
 execute-sql = ({user, password, host, port, database}, query) -->

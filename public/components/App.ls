@@ -107,7 +107,7 @@ render do
             path: \/
             component: App
             IndexRoute component: QueryListRoute
-            Route name: \new-query, path: "/branches" component: QueryRoute
+            Route name: \new-query, path: \/branches component: QueryRoute
             Route name: \existing-query, path: "/branches/:branchId/queries/:queryId" component: QueryRoute
             Route name: \diff, path: "/branches/:branchId/queries/:queryId/diff", component: DiffRoute
             Route name: \ops, path: "/ops", component: OpsRoute

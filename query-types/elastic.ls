@@ -2,7 +2,7 @@
 config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
 {Client} = require \elasticsearch
-{compile-and-execute-livescript, compile-and-execute-babel, compile-and-execute-javascript} = require \../utils
+{compile-and-execute-sync} = require \transpilation
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
@@ -20,14 +20,17 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, {host, index, type}, query, transpilation, parameters) -->
+# execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (query-database, {host, index, type}, query, transpilation-language, compiled-parameters) -->
     client = null
 
     with-cancel-and-dispose do 
         new-promise (res, rej) ->
             client := new Client {host}
-            [err, q] = compile-and-execute-livescript query, {} <<< get-context! <<< (require \prelude-ls) <<< parameters
+            [err, result] = compile-and-execute-sync do 
+                query
+                transpilation-language
+                {} <<< get-context! <<< (require \prelude-ls) <<< compiled-parameters
             if !!err 
                 rej err 
             else
@@ -36,7 +39,7 @@ export execute = (query-database, {host, index, type}, query, transpilation, par
                     type: type 
                     headers:
                         'Accept-Encoding': 'gzip, deflate'
-                    body: q)
+                    body: result)
                         .then res
                         .catch rej
         -> return-p \killed
@@ -51,5 +54,5 @@ export default-document = (data-source-cue, transpilation-language) ->
         """
         transformation: "id"
         presentation: "json"
-        parameters: ""
+        compiled-parameters: ""
     }
