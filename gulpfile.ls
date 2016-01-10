@@ -101,4 +101,4 @@ gulp.task \dev:server, ->
 
 gulp.task \build, <[build:components:styles build:components:scripts build:presentation:styles build:presentation:scripts]>
 gulp.task \watch, <[watch:components:styles watch:components:scripts watch:presentation:styles watch:presentation:scripts]>
-gulp.task \default, -> run-sequence \watch, <[dev:server]>
+gulp.task \default, -> run-sequence \build, <[watch dev:server]>
