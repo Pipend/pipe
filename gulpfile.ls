@@ -13,16 +13,16 @@ require! \gulp-stylus
 require! \gulp-uglify
 require! \nib
 {obj-to-pairs, filter, fold, map, group-by, Obj, sort-by, take, head} = require \prelude-ls
-if !!config?.gulp?.reload-port
-    io = (require \socket.io)!
-        ..listen config.gulp.reload-port
 source = require \vinyl-source-stream
 watchify = require \watchify
+io = null
 
+# emit-with-delay :: String -> IO()
 emit-with-delay = (event) ->
-    set-timeout do 
-        -> io.emit event
-        200
+    if !!io
+        set-timeout do 
+            -> io.emit event
+            200
 
 # COMPONENTS STYLES
 gulp.task \build:components:styles, ->
@@ -48,7 +48,6 @@ create-bundler = (entries) ->
         ..add entries
         # ..transform {global: false}, 'browserify-shim'
         ..transform \liveify
-    watchify bundler
 
 bundle = (bundler, {file, directory}:output) ->
     bundler.bundle!
@@ -59,31 +58,41 @@ bundle = (bundler, {file, directory}:output) ->
 
 # COMPONENTS SCRIPTS
 component-bundler = create-bundler \./public/components/App.ls
-bundle-components = -> bundle component-bundler, {file: "App.js", directory: "./public/components"}
+bundle-components = (bundler) -> bundle bundler, {file: "App.js", directory: "./public/components"}
 
 gulp.task \build:components:scripts, ->
-    bundle-components!
+    bundle-components component-bundler
 
-gulp.task \watch:components:scripts, ->
-    component-bundler.on \update, -> 
-        emit-with-delay \build-start if !!io
-        bundle-components!
-    component-bundler.on \time, (time) -> 
-        emit-with-delay \build-complete if !!io
-        gulp-util.log "App.js built in #{time / 1000} seconds"
+gulp.task \watch:components:scripts, ->    
+    watchified-component-bundler = watchify component-bundler
+    bundle-components watchified-component-bundler
+    watchified-component-bundler
+        .on \update, -> 
+            emit-with-delay \build-start
+            bundle-components watchified-component-bundler
+        .on \time, (time) -> 
+            emit-with-delay \build-complete
+            gulp-util.log "App.js built in #{time / 1000} seconds"
 
 # PRESENTATION SCRIPTS
 presentation-bundler = create-bundler \./public/presentation/presentation.ls
-bundle-presentation = -> bundle presentation-bundler, {file: "presentation.js", directory: "./public/presentation"}
+bundle-presentation = (bundler) -> bundle bundler, {file: "presentation.js", directory: "./public/presentation"}
 
 gulp.task \build:presentation:scripts, ->
-    bundle-presentation!
+    bundle-presentation presentation-bundler
 
 gulp.task \watch:presentation:scripts, ->
-    presentation-bundler.on \update, -> bundle-presentation!
-    presentation-bundler.on \time, (time) -> gulp-util.log "presentation.js built in #{time / 1000} seconds"
+    watchified-presentation-bundler = (watchify presentation-bundler)
+    bundle-presentation watchified-presentation-bundler
+    watchified-presentation-bundler
+        .on \update, -> bundle-presentation watchified-presentation-bundler
+        .on \time, (time) -> gulp-util.log "presentation.js built in #{time / 1000} seconds"
 
 gulp.task \dev:server, ->
+    if !!config?.gulp?.reload-port
+        io := (require \socket.io)!
+            ..listen config.gulp.reload-port
+
     gulp-nodemon do
         exec-map: ls: \lsc
         ext: \ls
@@ -92,4 +101,4 @@ gulp.task \dev:server, ->
 
 gulp.task \build, <[build:components:styles build:components:scripts build:presentation:styles build:presentation:scripts]>
 gulp.task \watch, <[watch:components:styles watch:components:scripts watch:presentation:styles watch:presentation:scripts]>
-gulp.task \default, -> run-sequence \build, <[watch dev:server]>
+gulp.task \default, -> run-sequence \watch, <[dev:server]>
