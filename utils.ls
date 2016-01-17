@@ -66,10 +66,14 @@ class OpsManager extends EventEmitter
 
     -> @ops = []
 
-    # Cache parameter must be Either Boolean Number, if truthy, it indicates we should attempt to read the result from cache before executing the query
-    # the Cache parameter does not affect the write behaviour, the result will always be saved to the cache store irrespective of this value
-    # execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> Boolean -> String -> OpInfo -> cp result
-    execute: (query-database, {query-type, timeout}:data-source, query, transpilation-language, compiled-parameters, cache, op-id, op-info) ->
+    # Cache parameter must be Either Boolean Number, if truthy, it indicates we should attempt to read the result from cache 
+    # before executing the query the Cache parameter does not affect the write behaviour, the result will always be saved to 
+    # the cache store irrespective of this value
+    # execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> Boolean -> String -> 
+    # OpInfo -> cp result
+    execute: (query-database, data-source, query, transpilation-language, compiled-parameters, cache, op-id, op-info) ->
+
+        {query-type, timeout} = data-source
 
         # the cache key
         key = md5 JSON.stringify {data-source, query, transpilation-language, compiled-parameters}
@@ -116,7 +120,10 @@ class OpsManager extends EventEmitter
                                 compiled-parameters
                         execution-end-time = Date.now!
                         saved-object <- bind-p save key, {result, execution-start-time, execution-end-time}
-                        return-p {} <<< saved-object <<< {from-cache: false, execution-duration: execution-end-time - execution-start-time}
+                        return-p {} <<< saved-object <<< {
+                            from-cache: false
+                            execution-duration: execution-end-time - execution-start-time
+                        }
 
                     # cancel the promise if execution takes longer than data-source.timeout milliseconds
                     cancel-timer = set-timeout do 
@@ -151,7 +158,8 @@ class OpsManager extends EventEmitter
                 op-info: op-info
                 parent-op-id: main-op.op-id
 
-                # wrap the cancellable promise of the main-op (this way when the child op is cancelled, it doesn't cancel the main-op)
+                # wrap the cancellable promise of the main-op 
+                # (this way when the child op is cancelled, it doesn't cancel the main-op)
                 cancellable-promise: with-cancel-and-dispose do 
                     new-promise (res, rej) -> 
                         err, result <- to-callback main-op.cancellable-promise

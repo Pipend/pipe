@@ -840,7 +840,7 @@ module.exports = React.create-class do
             ($ find-DOM-node @refs.presentation).empty!
 
             # make the ajax request and process the query result
-            op-info = document-from-state
+            op-info = document: document-from-state
             {result}:result-with-metadata <~ (pipe-web-client.execute do 
                 data-source-cue
                 query
