@@ -195,7 +195,7 @@ module.exports = React.create-class do
                 serialized-value = switch
                 | typeof! value == \Array => value.join \,
                 | _ => value
-                [key, serialized-value]
+                [key, encode-URI-component serialized-value]
             |> pairs-to-obj
             |> querystring.stringify
             |> -> "?#{it}"
