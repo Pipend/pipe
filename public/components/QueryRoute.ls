@@ -128,25 +128,22 @@ module.exports = React.create-class do
               href: \/branches
               action: ~> open-window "/branches", \_blank
 
-            * label: \Fork
-              enabled: saved-query
+            * label: if saved-query then \Fork else \Clone
               action: ~> 
-                # throw an error if the document cannot be forked (i.e when the branch id is already local or localFork)
                 {query-id, parent-id, tree-id, query-title}:document? = @document-from-state!
-                throw "cannot fork a local query, please save the query before forking it" if @props.params.branch-id in <[local localFork]>
 
                 # create a new copy of the document, update as required then save it to local storage
-                {query-id}:forked-document = {} <<< document <<< {
+                {query-id, branch-id}:forked-document = {} <<< document <<< {
                     query-id: generate-uid!
-                    parent-id: query-id
-                    branch-id: \localFork
-                    tree-id
+                    parent-id: if saved-query then query-id else null
+                    branch-id: if saved-query then \localFork else \local
+                    tree-id: if saved-query then tree-id else null
                     query-title: "Copy of #{query-title}"
                 }
                 client-storage.save-document query-id, forked-document
 
                 # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
-                open-window "/branches/localFork/queries/#{query-id}", \_blank
+                open-window "/branches/#{branch-id}/queries/#{query-id}", \_blank
 
             * label: \Save
               hotkey: "command + s"
