@@ -993,7 +993,6 @@ module.exports = React.create-class do
     # save to client storage only if the document has loaded
     # save-to-client-storage :: a -> Void
     save-to-client-storage: !-> 
-        return
         if !!@state.remote-document
             client-storage.save-document @props.params.query-id, @document-from-state!    
     
