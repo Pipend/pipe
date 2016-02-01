@@ -8,7 +8,13 @@ require! \./../config
 obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor, lines} = require \prelude-ls
 
 {date-from-object-id, get-all-keys-recursively, object-id-from-date} = require \../public/utils
-{execute-javascript, compile-and-execute-babel, compile-and-execute-livescript, compile-and-execute-livescript-sync} = require \transpilation
+{
+    execute-javascript
+    compile-and-execute
+    compile-and-execute-babel
+    compile-and-execute-livescript
+    compile-and-execute-livescript-sync
+} = require \transpilation
 Promise = require \bluebird
 require! \csv-parse
 require! \highland
@@ -212,76 +218,117 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => DB -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
 export execute = (query-database, {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->    
+
+    # aggregation-type :: String
+    # computation :: (CancellablePromise cp) => () -> cp result
     [aggregation-type, computation] <- bind-p do ->
         res, rej <- new-promise
-
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
 
-        # TODO: improve sub-type detection algorithms
-        # computation :: (CancellablePromise cp) => -> cp result
         {aggregation-type, computation} = switch
             
             # COMPUTATION: detect computation query-type by a directive
             | (query.index-of '#! computation') == 0 =>
-                aggregation-type: 'computation'
+                aggregation-type: \computation
                 computation: ->
-                    query := query.substring (query.index-of '\n') + 1 # remove the directive line
-                    aggregation-query <- bind-p (match transpilation-language
-                        | 'javascript' => execute-javascript ("f = #{query}")
-                        # no particular code for babel, same as javascript
-                        | 'babel' => compile-and-execute-babel ("f = #{query}")
-                        | _ => compile-and-execute-livescript query) query-context <<< {Promise, sequence-p, console, new-promise, bind-p, return-p, from-error-value-callback}
-                    execute-mongo-database-query-function do 
-                        data-source
-                        aggregation-query
+
+                    # remove the directive line
+                    query-without-directive = query.substring (query.index-of '\n') + 1 
+
+                    # database-query-function :: MongoDatabase -> cp result
+                    database-query-function <- bind-p compile-and-execute do 
+
+                        # code
+                        match transpilation-language
+                            | \javascript => "f = #{query-without-directive}"
+                            | \babel => "f = #{query-without-directive}"
+                            | _ => query-without-directive
+
+                        # language
+                        transpilation-language
+
+                        # context
+                        {} <<< query-context <<< {
+                            Promise
+                            bind-p
+                            console
+                            from-error-value-callback
+                            new-promise
+                            return-p
+                            sequence-p
+                        }
+                    execute-mongo-database-query-function data-source, database-query-function
             
             # MAP REDUCE: detect by presence of $map, $reduce & options
-            | (['$map', '$reduce', 'options'] |> all (k) -> (query.index-of k) > -1) =>
-                aggregation-type: 'map-reduce'
+            | (
+                <[$map $reduce options]> 
+                    |> all (stage) -> (query.index-of stage) > -1
+            ) =>
+                aggregation-type: \map-reduce
                 computation: ->
-                    # {$map, $reduce, $finalize} must be properties of a hash input to map-reduce
-                    aggregation-query <- bind-p (match transpilation-language
-                        | 'javascript' => execute-javascript ("json = #{query}")
-                        # no particular code for babel, same as javascript
-                        | 'babel' => compile-and-execute-babel "{\n#{query}\n}"
-                        | _ => compile-and-execute-livescript "{\n#{query}\n}") query-context
+                    
+                    # map-reduce-query :: {$map :: a, $reduce :: a, $finalize :: a}
+                    map-reduce-query <- bind-p compile-and-execute do 
+                        match transpilation-language
+                            | 'javascript' => "json = #{query}"
+                            | 'babel' => "{\n#{query}\n}"
+                            | _ => "{\n#{query}\n}"
+                        transpilation-language
+                        query-context
 
-                    result <- bind-p execute-mongo-database-query-function do 
-                        data-source
-                        (db) -> execute-aggregation-map-reduce (db.collection collection), aggregation-query
-                    return-p if !result.collection-name then result else {result: {collection-name: result.collection-name, tag: result.db.tag}}
+                    result <- bind-p execute-mongo-database-query-function data-source, (db) -> 
+                        execute-aggregation-map-reduce (db.collection collection), map-reduce-query
+
+                    return-p do 
+                        if !result.collection-name 
+                            result 
+                        else 
+                            result: 
+                                collection-name: result.collection-name
+                                tag: result.db.tag
             
             # AGGREGATION PIPELINE
             | _ =>
                 aggregation-type: 'pipeline'
                 computation: ->
                     aggregation-query <- bind-p match transpilation-language
-
                         # using 'json = ...' converts query to an expression from JSON
                         | \javascript => 
                             trimmed-query = trim-babel-code query
                             if trimmed-query.0 == '['
                                 execute-javascript ("json = #{query}"), query-context 
                             else
-                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mongo-syntax, execute-javascript
+                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                                    query
+                                    query-context
+                                    convert-babel-query-to-pipe-mongo-syntax
+                                    execute-javascript
 
                         | \babel => 
                             trimmed-query = trim-babel-code query
                             if trimmed-query.0 == '['
-                                compile-and-execute-babel "{\n#{query}\n}", query-context                         
+                                compile-and-execute-babel "{\n#{query}\n}", query-context
                             else 
-                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-babel-query-to-pipe-mongo-syntax, compile-and-execute-babel
+                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                                    query
+                                    query-context
+                                    convert-babel-query-to-pipe-mongo-syntax
+                                    compile-and-execute-babel
 
-                        | \livescript =>   
+                        | \livescript =>
                             trimmed-query = trim-livescript-code query
                             if trimmed-query.0 == '['
                                 compile-and-execute-livescript "\n#{query}\n", query-context
                             else if trimmed-query.0 == '*'
-                                compile-and-execute-livescript (convert-query-to-livescript-array query), query-context
+                                compile-and-execute-livescript do 
+                                    convert-query-to-livescript-array query
+                                    query-context
                             else
-                                convert-query-to-pipe-mongo-syntax-and-execute query, query-context, convert-livescript-query-to-pipe-mongo-syntax, compile-and-execute-livescript
-
-                    console.log \aggregation-query, aggregation-query
+                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                                    query
+                                    query-context
+                                    convert-livescript-query-to-pipe-mongo-syntax
+                                    compile-and-execute-livescript
 
                     execute-mongo-database-query-function do 
                         data-source
