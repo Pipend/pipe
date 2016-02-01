@@ -73,7 +73,11 @@ class OpsManager extends EventEmitter
     # OpInfo -> cp result
     execute: (query-database, data-source, query, transpilation-language, compiled-parameters, cache, op-id, op-info) ->
 
-        {query-type, timeout} = data-source
+        {query-type, timeout}:data-source <~ bind-p do ->
+            if config.high-security
+                extract-data-source config.default-data-source-cue
+            else
+                return-p data-source
 
         # the cache key
         key = md5 JSON.stringify {data-source, query, transpilation-language, compiled-parameters}
@@ -107,7 +111,7 @@ class OpsManager extends EventEmitter
             # create the main op if it doesn't exist
             main-op = 
                 | typeof main-op == \undefined =>
-                        
+
                     # (CancellablePromise cp) => cp result -> cp ResultWithMeta
                     cancellable-promise = do ->
                         execution-start-time = Date.now!

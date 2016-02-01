@@ -31,10 +31,15 @@ export connections = ({connection-name, database}) -->
     # get-connections :: (CancellablePromise cp) => a -> cp Connections
     get-connections = ->
         res <- new-promise
+        connections = (config?.connections?.mongodb or {}) 
+            |> obj-to-pairs
+            |> map ([name, value]) -> {label: (value.label or name), value: name}
         res do 
-            connections: (config?.connections?.mongodb or {}) 
-                |> obj-to-pairs
-                |> map ([name, value]) -> {label: (value.label or name), value: name}
+            connections: do ->
+                if !!config.high-security 
+                    [config?.default-data-source-cue?.connection-name |> -> label: it, value: it]
+                else 
+                    connections
 
     # get-databases :: (Promise p) => String -> k p Databases
     get-databases = (connection-name) ->
@@ -51,7 +56,10 @@ export connections = ({connection-name, database}) -->
                 admin = db.admin!
                 {databases} <- bind-p (from-error-value-callback admin.list-databases, admin)!
                 return-p (databases |> map (.name))
-        return-p {connection-name, databases}
+
+        return-p do 
+            connection-name: connection-name
+            databases: if config.high-security then [config?.default-data-source-cue?.database] else databases
 
     # get-collections :: (CancellablePromise cp) => String -> String -> cp Collections
     get-collections = (connection-name, database) -->
@@ -67,7 +75,13 @@ export connections = ({connection-name, database}) -->
                         return name if (name.index-of \.) == -1
                         name .split \. .1
             Math.floor Math.random! * 1000000
-        return-p {connection-name, database, collections}
+
+        {default-data-source-cue}? = config
+
+        return-p do 
+            connection-name: connection-name
+            database: if config.high-security then default-data-source-cue?.database else database
+            collections: if config.high-security then [default-data-source-cue?.collection] else collections
 
     switch
         | !connection-name => get-connections!
@@ -196,7 +210,7 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
         if \connected != db.server-config?._server-state
             return new-promise (, rej) -> rej new Error "_server-state is not connected"
 
-        in-prog-collection = db.collection \$cmd.sys.inprog            
+        in-prog-collection = db.collection \$cmd.sys.inprog
         data <- bind-p (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
         delta = new Date!.value-of! - start-time
         op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
