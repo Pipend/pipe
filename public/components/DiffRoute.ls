@@ -3,7 +3,7 @@ require! \./AceEditor.ls
 {DOM:{div, h1, table}}:React = require \react
 $ = require \jquery-browserify
 require! \../client-storage.ls
-{is-equal-to-object} = require \../utils.ls
+{is-equal-to-object} = require \prelude-extension
 {build-view, SequenceMatcher, string-as-lines}:diff = require \jsdifflib
 
 module.exports = React.create-class do
