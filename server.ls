@@ -23,11 +23,17 @@ require! \querystring
 require! \redis
 
 # utils
-{transform, extract-data-source, compile-parameters, get-query-by-id, 
-get-latest-query-in-branch, get-op, cancel-op, running-ops, ops-manager}:utils = require \./utils
+{
+    transform, extract-data-source, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops, ops-manager
+}:utils = require \./utils
 
+# connect to query database
 err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
-return console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}" if !!err
+
+if !!err
+    console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}"
+    return
+
 console.log "successfully connected to #{query-database-connection-string}"
 
 {compile-parameters, compile-transformation} = require \pipe-transformation
@@ -472,15 +478,27 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
         # find the query-id & title
-        err, [data-source, {branch-id, query-id, query-title, query, transformation}:document, parsed-query-string] <- to-callback do ->
+        err, [data-source, document, parsed-query-string] <- to-callback do ->
+
+            # use query-id if present, otherwise get the latest document for the given branch-id
             {data-source-cue}:document <- bind-p do ->
-                return (get-query-by-id query-database, req.params.query-id) if !!req.params.query-id
-                get-latest-query-in-branch query-database, req.params.branch-id
+                if !!req.params.query-id
+                    (get-query-by-id query-database, req.params.query-id) 
+                else
+                    get-latest-query-in-branch query-database, req.params.branch-id
+
+            # extract & separate data-source-cue from query-string
             [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
+
+            # extract data-source from data-source-cue (composed with data-source-cue-params extract from querystring above)
             data-source <- bind-p (extract-data-source {} <<< data-source-cue <<< data-source-cue-params)
             return-p [data-source, document, parsed-query-string]
+
         return die res, err if !!err
 
+        {branch-id, query-id, query-title, query, transformation, transpilation} = document
+
+        # client side name for the snapshot image or text/json/csv file, part of the response header
         filename = query-title.replace /\s/g, '_'
 
         if format in text-formats
@@ -501,36 +519,46 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             | \text => download \txt, \text/plain, pretty transformed-result
 
         else
-            # use the query-id for naming the file
+            
+            # server side name of the image file (composed of query-id or branch-id & current time)
             image-file = if snapshot then "public/snapshots/#{branch-id}.png" else "tmp/#{branch-id}_#{query-id}_#{Date.now!}.png"
+
+            # create and setup phantom instance
             {create-page, exit} <- phantom.create
             {open, render}:page <- create-page
             page.set \viewportSize, {width, height}
             page.set \onLoadFinished, ->
                 page.evaluate do 
+
+                    # this function is ran by phantom in the page context (therefore has access to document & window)
                     ->
                         document.body.children.0.style <<< {
                             width: "#{window.inner-width}px"
                             height: "#{window.inner-height}px"
                             overflow: \hidden
                         }
+
                     ->
                         <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
                         <- render image-file
                         if snapshot
                             res.end "snapshot saved to #{image-file}"
+
+                        # tell the browser to download the file
                         else
                             res.set \Content-disposition, "attachment; filename=#{filename}.png"
                             res.set \Content-type, \image/png
                             create-read-stream image-file .pipe res
+
                         exit!
 
-            # compose the url for executing the query
+            # if this is a snapshot, then get the parameters from the document, otherwise use the querystring
             err, query-params <- to-callback do -> 
                 if snapshot
-                    compile-parameters data-source.query-type, document.parameters
+                    compile-parameters document.parameters, transpilation.query, {}
                 else 
                     return-p req.query
+
             open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
 
 # api :: save query
@@ -557,7 +585,9 @@ app.post \/apis/save, (req, res) ->
 
         return die res, pretty {queries-in-between}
     
-    err, records <- query-database.collection \queries .insert req.body <<< {user: req.user, creation-time: new Date!.get-time!, status: true}, {w: 1}
+    err, records <- query-database.collection \queries .insert do 
+        {} <<< req.body <<< {user: req.user, creation-time: new Date!.get-time!, status: true}
+        {w: 1}
     return die res, err if !!err
 
     res.set \Content-Type, \application/json
