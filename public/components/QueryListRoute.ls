@@ -72,27 +72,31 @@ module.exports = React.create-class do
                                             | _ => selected-tags ++ tag
                                 tag
                 
-                div do 
-                    id: \buttons
-                    class-name: \buttons
-                    
-                    # IMPORT BUTTON
-                    Link do 
-                        id: \import
-                        class-name: \import
-                        to: \/import
-                        'Import'
+                if !config.high-security
 
-                    # TASK MANAGER
-                    Link do 
-                        id: \task-manager
-                        class-name: \task-manager
-                        to: \/ops
-                        'Task Manager'
+                    div do 
+                        id: \buttons
+                        class-name: \buttons
+                        
+                        # IMPORT BUTTON
+                        Link do 
+                            id: \import
+                            class-name: \import
+                            to: \/import
+                            'Import'
 
-                # COPYRIGHT
-                div class-name: \copy-right,
-                    "© #{new Date!.get-full-year!} Pipend"
+                        # TASK MANAGER
+                        Link do 
+                            id: \task-manager
+                            class-name: \task-manager
+                            to: \/ops
+                            'Task Manager'
+
+                if !config.high-security
+
+                    # COPYRIGHT
+                    div class-name: \copy-right,
+                        "© #{new Date!.get-full-year!} Pipend"
 
             # RIGHT SIDE
             div class-name: \queries-container,

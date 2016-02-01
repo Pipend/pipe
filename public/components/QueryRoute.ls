@@ -1,5 +1,6 @@
 ace-language-tools = require \brace/ext/language_tools 
 require! \../client-storage.ls
+config = require \../../config.ls
 window.d3 = require \d3
 $ = require \jquery-browserify
 {key} = require \keymaster
@@ -145,6 +146,7 @@ module.exports = React.create-class do
 
                 # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
                 open-window "/branches/#{branch-id}/queries/#{query-id}", \_blank
+              show: !config.high-security
 
             * label: \Clone
               action: ~> 
@@ -162,10 +164,12 @@ module.exports = React.create-class do
 
                 # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
                 open-window "/branches/#{branch-id}/queries/#{query-id}", \_blank
+              show: !config.high-security
 
             * label: \Save
               hotkey: "command + s"
               action: ~> @save!
+              show: !config.high-security
 
             * label: \Cache
               highlight: if from-cache then 'rgba(0,255,0,1)' else null
@@ -197,6 +201,7 @@ module.exports = React.create-class do
             * label: 'Data Source'
               pressed: \data-source-cue-popup == popup
               action: toggle-popup \data-source-cue-popup
+              show: !config.high-security
 
             * label: \Parameters
               pressed: \parameters-popup == popup
@@ -205,6 +210,7 @@ module.exports = React.create-class do
             * label: \Tags
               pressed: \tags-popup == popup
               action: toggle-popup \tags-popup
+              show: !config.high-security
 
             * label: \Reset
               enabled: saved-query

@@ -53,7 +53,7 @@
     "react-addons-shallow-compare": "^0.14.7",
     "react-dom": "^0.14.4",
     "react-router": "^1.0.0",
-    "react-selectize": "^0.5.2",
+    "react-selectize": "latest",
     "redis": "^2.4.2",
     "request": "^2.54.0",
     "rx": "^4.0.0",

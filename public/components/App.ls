@@ -8,7 +8,7 @@ Router = create-factory react-router.Router
 Route = create-factory react-router.Route
 IndexRoute = create-factory react-router.IndexRoute
 
-# routes
+# routes 
 require! \./DiffRoute.ls
 require! \./OpsRoute.ls
 require! \./QueryRoute.ls
