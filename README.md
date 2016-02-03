@@ -5,7 +5,7 @@ Pipe
 
 Pipe is a Web app for querying any data source, and analyzing and visualizing the result.
 
-LIVE DEMO: [http://reactiflux.pipend.com/](http://reactiflux.pipend.com/)
+LIVE DEMO: [http://rf.pipend.com/](http://rf.pipend.com/)
 
 # Deps
 * [transpilation](https://github.com/pipend/transpilation)
