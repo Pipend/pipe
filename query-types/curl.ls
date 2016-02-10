@@ -35,7 +35,10 @@ export execute = (, data-source, query, transpilation-language, parameters) -->
             (if name.length > 1 then "--" else "-") + name + if !!value then " #value" else ""
         |> Str.join " "
 
-    [err, url] = compile-and-execute-sync url, transpilation-language, parameters
+    [err, url] = compile-and-execute-sync do 
+        url
+        transpilation-language
+        parameters |> Obj.map -> it ? ""
     
     if !!err
         return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") 
