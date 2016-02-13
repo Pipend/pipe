@@ -17,7 +17,7 @@ LibrarySelect = create-factory create-class do
 
     # render :: a -> ReactElement
     render: ->
-        url-regex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/
+        url-regex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\@\w \.-]*)*\/?$/
 
         SimpleSelect do
             class-name: @props.id
