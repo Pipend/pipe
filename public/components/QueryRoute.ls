@@ -339,6 +339,7 @@ module.exports = React.create-class do
                         overflow: \visible
                     key: \tags-popup
                     MultiSelect do 
+                        theme: \dark
                         create-from-search: (os, vs, search) ->   
                             return null if search.length == 0 or search in map (.label), ([] ++ (os ? []) ++ (vs ? []))
                             label: search, value: search

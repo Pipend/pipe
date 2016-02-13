@@ -23,6 +23,7 @@ module.exports = React.create-class do
             React.DOM.label null, @props.label
             SimpleSelect {
                 disabled
+                theme: \dark
                 value: 
                     | typeof value == \undefined => undefined
                     | _ =>

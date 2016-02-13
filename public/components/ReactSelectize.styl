@@ -1,30 +1,65 @@
-@require '../../node_modules/react-selectize/src/index.css'
+@require '../../node_modules/react-selectize/themes/index.css'
 
-.react-selectize
-    border 1px solid black
-    box-shadow inset 1px 2px 3px 0 rgba(0, 0, 0, 0.5)
+.react-selectize.dark
+    font-family Helvetica Neue, Helvetica, Arial, sans-serif
+
+.react-selectize.dark.control-wrapper
     display inline-block
     width 300px
 
-    &.open
-        border-bottom-left-radius 0px
-        border-bottom-right-radius 0px
-
     .react-selectize-control
-        border none
-        min-height 22px
+        background-color white
+        border 1px solid black
+        border-radius 4px
+        box-shadow inset 1px 2px 3px 0 rgba(0, 0, 0, 0.5)
 
-        input 
-            color #202020 !important
-            padding 0px !important
-            margin 3px
+        .react-selectize-placeholder
+            text-indent 8px
 
-    .react-selectize-dropdown-container .react-selectize-dropdown, .react-selectize-dropdown
-        background-color rgb(73, 73, 73)
-        box-shadow 0px 1px 5px rgba(0,0,0,0.4)
-        border none
+        .react-selectize-selected-values
+            padding-left 5px
 
-        .option-wrapper.highlight
+    &.open
+
+        &.flipped
+
+            .react-selectize-control
+                border-bottom-left-radius 4px
+                border-bottom-right-radius 4px
+                border-top-left-radius 0px
+                border-top-right-radius 0px
+
+        &:not(.flipped)
+            
+            .react-selectize-control
+                border-bottom-left-radius 0px
+                border-bottom-right-radius 0px
+                border-top-left-radius 4px
+                border-top-right-radius 4px
+
+
+// dropdown-menu present in document.body when props.tether is true
+.react-selectize.dark.dropdown-menu
+    background-color rgb(73, 73, 73)
+    box-shadow 0px 1px 5px rgba(0,0,0,0.4)
+    border none
+
+    &.flipped
+        border-top-left-radius 4px
+        border-top-right-radius 4px
+
+    &:not(.flipped)
+        border-bottom-left-radius 4px
+        border-bottom-right-radius 4px
+
+    .simple-group-title
+        display flex
+        align-items center
+        color #fff
+        padding 5px 8px
+
+    .option-wrapper
+        &.highlight
             background-color #262626
 
         .simple-option
@@ -33,11 +68,14 @@
             color white
             padding 5px 10px
 
-        .simple-option a, .no-results-found a 
-            color #a0b42a
+    .no-results-found
+        padding 5px 10px
 
-    .react-selectize-arrow 
-        top 11px !important
+    .simple-option a, .no-results-found a 
+        color #a0b42a
 
-    .react-selectize-reset 
-        display none !important
+// MULTI SELECT
+.multi-select.react-selectize.dark.control-wrapper .react-selectize-selected-values .simple-value
+    background #efefef
+    border-radius 4px
+    color #333
