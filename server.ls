@@ -524,21 +524,10 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             image-file = if snapshot then "public/snapshots/#{branch-id}.png" else "tmp/#{branch-id}_#{query-id}_#{Date.now!}.png"
 
             # create and setup phantom instance
-            ph <- bind-p phantom.create!
-            page <- bind-p ph.create-page!
-            <- bind-p page.property \viewportSize, {width, height}
-            <- bind-p page.property do
-                \onLoadFinished
-                ->
-                    <- bind-p page.evaluate do
-
-                        # this function is ran by phantom in the page context (therefore has access to document & window)
-                        ->
-                            document.body.children.0.style <<< {
-                                width: "#{window.inner-width}px"
-                                height: "#{window.inner-height}px"
-                                overflow: \hidden
-                            }
+            phantom-instance <- bind-p phantom.create!
+            phantom-page <- bind-p phantom-instance.create-page!
+            <- bind-p phantom-page.property \viewportSize, {width, height}
+            <- bind-p phantom-page.property \clipRect, {width, height}
 
             # if this is a snapshot, then get the parameters from the document, otherwise use the querystring
             err, query-params <- to-callback do -> 
@@ -546,10 +535,16 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                     compile-parameters document.parameters, transpilation.query, {}
                 else 
                     return-p req.query
+            return die res, err if !!err
 
-            <- bind-p page.open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
+            # load the page in phantom
+            <- bind-p phantom-page.open do 
+                "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
+
+            # give the page time to settle in before taking a screenshot
             <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
-            <- bind-p page.render image-file
+            <- bind-p phantom-page.render image-file
+
             if snapshot
                 res.end "snapshot saved to #{image-file}"
 
@@ -558,7 +553,8 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                 res.set \Content-disposition, "attachment; filename=#{filename}.png"
                 res.set \Content-type, \image/png
                 create-read-stream image-file .pipe res
-            ph.exit!
+
+            phantom-instance.exit!
 
 # api :: save query
 app.post \/apis/save, (req, res) ->
