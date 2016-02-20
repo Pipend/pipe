@@ -524,33 +524,21 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
             image-file = if snapshot then "public/snapshots/#{branch-id}.png" else "tmp/#{branch-id}_#{query-id}_#{Date.now!}.png"
 
             # create and setup phantom instance
-            {create-page, exit} <- phantom.create
-            {open, render}:page <- create-page
-            page.set \viewportSize, {width, height}
-            page.set \onLoadFinished, ->
-                page.evaluate do 
+            ph <- bind-p phantom.create!
+            page <- bind-p ph.create-page!
+            <- bind-p page.property \viewportSize, {width, height}
+            <- bind-p page.property do
+                \onLoadFinished
+                ->
+                    <- bind-p page.evaluate do
 
-                    # this function is ran by phantom in the page context (therefore has access to document & window)
-                    ->
-                        document.body.children.0.style <<< {
-                            width: "#{window.inner-width}px"
-                            height: "#{window.inner-height}px"
-                            overflow: \hidden
-                        }
-
-                    ->
-                        <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
-                        <- render image-file
-                        if snapshot
-                            res.end "snapshot saved to #{image-file}"
-
-                        # tell the browser to download the file
-                        else
-                            res.set \Content-disposition, "attachment; filename=#{filename}.png"
-                            res.set \Content-type, \image/png
-                            create-read-stream image-file .pipe res
-
-                        exit!
+                        # this function is ran by phantom in the page context (therefore has access to document & window)
+                        ->
+                            document.body.children.0.style <<< {
+                                width: "#{window.inner-width}px"
+                                height: "#{window.inner-height}px"
+                                overflow: \hidden
+                            }
 
             # if this is a snapshot, then get the parameters from the document, otherwise use the querystring
             err, query-params <- to-callback do -> 
@@ -559,7 +547,18 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                 else 
                     return-p req.query
 
-            open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
+            <- bind-p page.open "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
+            <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
+            <- bind-p page.render image-file
+            if snapshot
+                res.end "snapshot saved to #{image-file}"
+
+            # tell the browser to download the file
+            else
+                res.set \Content-disposition, "attachment; filename=#{filename}.png"
+                res.set \Content-type, \image/png
+                create-read-stream image-file .pipe res
+            ph.exit!
 
 # api :: save query
 app.post \/apis/save, (req, res) ->

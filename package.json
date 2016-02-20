@@ -41,7 +41,7 @@
     "mysql": "^2.7.0",
     "notifyjs": "^1.2.5",
     "pg": "^4.4.0",
-    "phantom": "^0.7.2",
+    "phantom": "^2.0.0-alpha.4",
     "pipe-transformation": "latest",
     "pipe-web-client": "latest",
     "pipend-spy": "latest",
