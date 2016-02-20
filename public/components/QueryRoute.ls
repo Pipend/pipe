@@ -753,12 +753,13 @@ module.exports = React.create-class do
 
         else
 
-            # error handled by express
+            # handled by express, redirects the user to the latest query
             # eg: branches/local or branches/branch-id
             if !!branch-id 
                 throw  "not implemented at client level, (refresh the page)"
 
-            # redirect to branches/local/queries/query-id
+            # this is the url used by 'New Query' button
+            # it redirects user to branches/local/queries/query-id 
             # eg: branches/
             else
                 @history.replace-state null, "/branches/local/queries/#{generate-uid!}"
@@ -919,7 +920,7 @@ module.exports = React.create-class do
         return [] if !@state.remote-document
 
         unsaved-document = @document-from-state!
-        <[query transformation presentation parameters queryTitle dataSourceCue tags]>
+        <[query transformation presentation parameters queryTitle dataSourceCue tags transpilation]>
             |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
 
     # converts the current UIState to Document & POST's it as a "save" request to the server
