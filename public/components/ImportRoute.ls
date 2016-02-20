@@ -8,11 +8,12 @@ DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 last, map, sort-by, sum, round, obj-to-pairs, pairs-to-obj, take, unique, unique-by, initial, last, Obj} = require \prelude-ls
 $ = require \jquery-browserify
 client-storage = require \../client-storage.ls
-{is-equal-to-object, compile-and-execute-livescript} = require \../utils.ls
+{is-equal-to-object} = require \prelude-extension
+{compile-and-execute-livescript-sync} = require \transpilation
 {readFile, readMinNBytes, readNLines, readTakeN} = require \../lazy-file-reader.ls
 csv-parse = require \csv-parse
-JSONStream = require "JSONStream"
-highland = require "highland"
+JSONStream = require \JSONStream
+highland = require \highland
 
 save-to-client-storage = (state) ->
     client-storage.save-document "import-data-source-cue", state.data-source-cue
@@ -318,7 +319,7 @@ module.exports = React.create-class {
             return 
 
         ObjectID = (-> it)
-        [err, transformationf] = compile-and-execute-livescript transformation, {JSONStream, highland, csv-parse, ObjectID} <<< (require \prelude-ls)
+        [err, transformationf] = compile-and-execute-livescript-sync transformation, {JSONStream, highland, csv-parse, ObjectID} <<< (require \prelude-ls)
         if !!err
             @set-state {error: "Error in parsing the parser script.\n#{err.toString!}", status: "file-selected"}
             return
