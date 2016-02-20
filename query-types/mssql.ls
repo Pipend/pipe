@@ -2,7 +2,7 @@
 config = require \./../config
 {concat-map, each, group-by, Obj, keys, map, obj-to-pairs} = require \prelude-ls
 sql = require \mssql
-{compile-and-execute-sync} = require \../utils
+{compile-and-execute-sync} = require \transpilation
 
 # execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
 execute-sql = (data-source, query) -->
