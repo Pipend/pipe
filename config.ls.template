@@ -51,13 +51,16 @@ module.exports =
     # the default transpilation language for the new query dialog
     default-transpilation-language: \babel # other options: javascript, livescript
 
-    # cache store config
+    # memory store
     cache-store:
-        type: \redis-store
-        host: \localhost
-        port: 6379
-        database: 10
-        expires-in: 2 * 24 * 60 * 60 # = 2 days
+        name: \redis-store
+        \redis-store :
+            host: \localhost
+            port: 6379
+            database: 10
+            expires-in: 2 * 86400 # 2 days
+        \js-store : 
+            expires-in: 2 * 86400 # 2 days
     
     # the js-store uses javascript object for caching & does not persist across application restarts
     # cache-store:

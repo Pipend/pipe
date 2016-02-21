@@ -1,7 +1,8 @@
 # all functions in this file are for use on server-side only (either by server.ls or query-types)
 {bind-p, from-error-value-callback, new-promise, return-p, to-callback, with-cancel-and-dispose} = require \./async-ls
 require! \./config
-cache-store = require "./cache-stores/#{config.cache-store.type}"
+cache-store-name = config.cache-store.name
+cache-store-p = (require "./cache-stores/#{cache-store-name}") config.cache-store[cache-store-name]
 {EventEmitter} = require \events
 {readdir-sync} = require \fs
 md5 = require \MD5
@@ -83,7 +84,7 @@ class OpsManager extends EventEmitter
         key = md5 JSON.stringify {data-source, query, transpilation-language, compiled-parameters}
 
         # connect to the cache store (we need the save function for storing the result in cache later)
-        {load, save} <~ bind-p cache-store
+        {load, save} <~ bind-p cache-store-p
         cached-result <~ bind-p do ~> 
 
             # avoid loading the document from cache store, if Cache parameter is falsy

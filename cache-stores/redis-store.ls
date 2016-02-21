@@ -1,10 +1,8 @@
 redis = require \redis
-{bindP, from-error-value-callback, new-promise, returnP} = require \../async-ls
-{cache-store} = require \../config
-{host, port, database, expires-in}? = cache-store
+{bind-p, from-error-value-callback, new-promise, return-p} = require \../async-ls
 
-# p Store
-module.exports = do ->
+# :: RedisStoreConfig -> p Store
+module.exports = ({host, port, database, expires-in}?) ->
     res, rej <- new-promise
     redis-client = redis.create-client port, host, {}
         ..on \connect, ->
@@ -15,14 +13,14 @@ module.exports = do ->
 
                 # store :: String -> object -> p object
                 save: (key, object) -->
-                    <- bindP (from-error-value-callback redis-client.set, redis-client) key, (JSON.stringify object)
-                    <- bindP (from-error-value-callback redis-client.expire, redis-client) key, expires-in
-                    returnP object
+                    <- bind-p (from-error-value-callback redis-client.set, redis-client) key, (JSON.stringify object)
+                    <- bind-p (from-error-value-callback redis-client.expire, redis-client) key, expires-in
+                    return-p object
 
                 # load :: String -> object -> p object
                 load: (key) ->
-                    result <- bindP (from-error-value-callback redis-client.get, redis-client) key
-                    returnP JSON.parse result
+                    result <- bind-p (from-error-value-callback redis-client.get, redis-client) key
+                    return-p JSON.parse result
 
                 # remove :: String -> p Boolean
                 remove: (key) ->
