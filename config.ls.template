@@ -53,13 +53,19 @@ module.exports =
 
     # memory store
     cache-store:
-        name: \redis-store
-        \redis-store :
+
+        # select the store to use (in this case, js)
+        name: \js
+
+        # config for js store
+        js: 
+            expires-in: 2 * 86400 # 2 days
+
+        # config for redis store
+        redis:
             host: \localhost
             port: 6379
             database: 10
-            expires-in: 2 * 86400 # 2 days
-        \js-store : 
             expires-in: 2 * 86400 # 2 days
     
     # the js-store uses javascript object for caching & does not persist across application restarts
