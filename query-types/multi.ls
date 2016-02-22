@@ -2,7 +2,7 @@
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
 {camelize, id, map} = require \prelude-ls
-{extract-data-source, get-latest-query-in-branch, get-query-by-id, ops-manager, transform}:utils = require \./../utils
+{extract-data-source}:utils = require \./../utils
 {compile-and-execute-sync} = require \transpilation
 {compile-transformation} = require \pipe-transformation
 
@@ -16,15 +16,11 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)! <<< {object-id-from-date, date-from-object-id} <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (
-    {get-query-by-id, get-latest-query-in-branch}:query-store
-    data-source
-    query
-    transpilation-language
-    compiled-parameters
-) -->
+# execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (ops-manager, query-store, data-source, query, transpilation-language, compiled-parameters) -->
     
+    {get-query-by-id, get-latest-query-in-branch} = query-store
+
     # generate-op-id :: () -> String
     generate-op-id = -> "#{Math.floor Math.random! * 1000}"
 
@@ -69,7 +65,7 @@ export execute = (
                 document <- bind-p (get-latest-query-in-branch branch-id)
                 run-query document, compiled-parameters
 
-    if !!err then (new-promise (, rej) -> rej err) else transpiled-code
+    if err then (new-promise (, rej) -> rej err) else transpiled-code
 
 # default-document :: DataSourceCue -> String -> Document
 export default-document = (data-source-cue, transpilation-language) -> 

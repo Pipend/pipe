@@ -230,8 +230,9 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     with-cancel-and-dispose execute-query-function, cancel, dispose
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
-export execute = (, {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->    
+# execute :: (CancellablePromise cp) => 
+#  OpsManager -> QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
+export execute = (, , {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->
 
     # aggregation-type :: String
     # computation :: (CancellablePromise cp) => () -> cp result

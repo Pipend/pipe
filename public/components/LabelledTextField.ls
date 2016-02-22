@@ -6,13 +6,14 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        class-name: ""
         label: ""
         value: ""
         on-change: (value) !->
 
     # render :: a -> ReactElement
     render: ->
-        div class-name: \labelled-text-field,
+        div class-name: "labelled-text-field #{@props.class-name}",
             label null, @props.label
             input do
                 type: \text

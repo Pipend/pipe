@@ -53,8 +53,8 @@ module.exports =
 
     # query store
     query-store:
-        name: \mongo
-        mongo:
+        name: \mongodb
+        mongodb:
             connection-string: \mongodb://localhost:27017/queries
             connection-options:
                 auto_reconnect: true

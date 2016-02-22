@@ -10,12 +10,9 @@ module.exports = ({connection-string, connection-options}) ->
     err, query-database <- MongoClient.connect connection-string, connection-options
 
     if !!err
-        console.log "unable to connect to #{connection-string}: #{err.to-string!}"
         rej err
 
     else
-
-        console.log "successfully connected to #{connection-string}"
 
         # db-op :: String -> String -> (... -> p result)
         db-op = (function-name, collection-name) ->
@@ -25,9 +22,10 @@ module.exports = ({connection-string, connection-options}) ->
         # aggregate-queries :: [a] -> p result
         aggregate-queries = db-op \aggregate, \queries
 
-        # update-queries :: a -> b -> c -> p result
+        # update-queries :: b -> c -> d -> p result
         update-queries = db-op \update, \queries
 
+        # insert-query :: Document -> p InsertedDocument
         insert-query = db-op \insert, \queries
 
         res do 
@@ -112,7 +110,7 @@ module.exports = ({connection-string, connection-options}) ->
                         {branch-id, latest-query, snapshot}
                     |> sort-by (.latest-query.creation-time * -1)
 
-            # String -> p Query
+            # get-latest-query-in-branch :: String -> p Query
             get-latest-query-in-branch: (branch-id) ->
                 results <- bind-p aggregate-queries do
                     * $match: {branch-id,status: true}
@@ -131,7 +129,7 @@ module.exports = ({connection-string, connection-options}) ->
                     * $sort: _id: sort-order
                     * $limit: (.limit)
 
-            # String -> p Query
+            # get-query-by-id :: String -> p Query
             get-query-by-id: (query-id) ->
                 results <- bind-p aggregate-queries do
                     * $match: 
@@ -187,7 +185,7 @@ module.exports = ({connection-string, connection-options}) ->
                     |> unique
                     |> sort
 
-            # save-query :: 
+            # save-query :: Document -> p InsertedDocument
             save-query: ({branch-id, parent-id}:document) ->
 
                 # get the latest query in the branch

@@ -13,8 +13,8 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)! <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (, data-source, query, transpilation-language, parameters) -->
+# execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (, , data-source, query, transpilation-language, parameters) -->
     {shell-command, parse} = require \./shell-command-parser
     result = parse shell-command, query
     

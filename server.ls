@@ -23,11 +23,12 @@ require! \querystring
 require! \redis
 
 # utils
-{transform, extract-data-source, get-query-by-id, get-latest-query-in-branch, 
-get-op, cancel-op, running-ops, ops-manager}:utils = require \./utils
+{transform, extract-data-source, get-latest-query-in-branch, 
+get-op, get-query-by-id, cancel-op, running-ops}:utils = require \./utils
 
 {compile-parameters, compile-transformation} = require \pipe-transformation
 
+# QueryStore
 err, query-store <- to-callback do 
     (require "./query-stores/#{config.query-store.name}") config.query-store[config.query-store.name]
 
@@ -49,6 +50,21 @@ else
     get-tags
     save-query
 } = query-store
+
+# CacheStore
+err, cache-store <- to-callback do 
+    (require "./cache-stores/#{config.cache-store.name}") config.cache-store[config.cache-store.name]
+
+if err 
+    console.log "unable to connect to cache store: #{err.to-string!}"
+    return
+
+else
+    console.log "successfully connected to cache store"
+
+# OpsManager
+require! \./OpsManager
+ops-manager = new OpsManager cache-store
 
 # Res -> Error -> Void
 die = (res, err) !->
@@ -92,17 +108,16 @@ send = (response, promise) !->
 
 # with-optional-params :: [String] -> [String] -> [String]
 with-optional-params = (routes, params) -->
-    routes 
-        |> fold do 
-            (acc, value) ->
-                new-routes = [0 to params.length]
-                    |> map (i) ->
-                        [0 til i] 
-                            |> map -> ":#{params[it]}"
-                            |> Str.join \/
-                    |> map -> "#{value}/#{it}"
-                acc ++ new-routes
-            []
+    routes |> fold do 
+        (acc, value) ->
+            new-routes = [0 to params.length]
+                |> map (i) ->
+                    [0 til i] 
+                        |> map -> ":#{params[it]}"
+                        |> Str.join \/
+                |> map -> "#{value}/#{it}"
+            acc ++ new-routes
+        []
 
 app = express!
     ..set \views, __dirname + \/
