@@ -43,8 +43,8 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (query-database, data-source, query, transpilation-language, compiled-parameters) -->
+# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (, data-source, query, transpilation-language, compiled-parameters) -->
     (Obj.keys compiled-parameters) |> each (key) ->
         query .= replace "$#{key}$", compiled-parameters[key]
 

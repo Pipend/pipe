@@ -12,8 +12,8 @@ export parse-connection-string = (connection-string) ->
 export get-context = -> {}
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => DB -> DataSource -> String -> CompiledQueryParameters -> cp result
-export execute = (query-database, data-source, query, transpilation, parameters) --> return-p null
+# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> CompiledQueryParameters -> cp result
+export execute = (, data-source, query, transpilation, parameters) --> return-p null
 
 # default-document :: DataSourceCue -> String -> Document
 export default-document = (data-source-cue, transpilation-language) -> 

@@ -1,7 +1,7 @@
 redis = require \redis
 {bind-p, from-error-value-callback, new-promise, return-p} = require \../async-ls
 
-# :: RedisStoreConfig -> p Store
+# :: RedisStoreConfig -> p CacheStore
 module.exports = ({host, port, database, expires-in}?) ->
     res, rej <- new-promise
     redis-client = redis.create-client port, host, {}

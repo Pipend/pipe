@@ -16,8 +16,14 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)! <<< {object-id-from-date, date-from-object-id} <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (query-database, data-source, query, transpilation-language, compiled-parameters) -->
+# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (
+    {get-query-by-id, get-latest-query-in-branch}:query-store
+    data-source
+    query
+    transpilation-language
+    compiled-parameters
+) -->
     
     # generate-op-id :: () -> String
     generate-op-id = -> "#{Math.floor Math.random! * 1000}"
@@ -32,7 +38,7 @@ export execute = (query-database, data-source, query, transpilation-language, co
         # execute the query
         {result} <- bind-p do ->
             ops-manager.execute do 
-                query-database
+                query-store
                 data-source
                 query
                 transpilation?.query
@@ -55,12 +61,12 @@ export execute = (query-database, data-source, query, transpilation-language, co
 
             # run-query :: (CancellablePromise) => String, Parameters? -> cp result
             run-query: (query-id, compiled-parameters = {}) ->
-                document <- bind-p (get-query-by-id query-database, query-id)
+                document <- bind-p (get-query-by-id query-id)
                 run-query document, compiled-parameters
 
             # run-latest-query :: (CancellablePromise) => String, Parameters? -> cp result
             run-latest-query: (branch-id, compiled-parameters = {}) ->
-                document <- bind-p (get-latest-query-in-branch query-database, branch-id)
+                document <- bind-p (get-latest-query-in-branch branch-id)
                 run-query document, compiled-parameters
 
     if !!err then (new-promise (, rej) -> rej err) else transpiled-code

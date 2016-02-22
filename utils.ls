@@ -42,27 +42,6 @@ export extract-data-source = (data-source-cue) ->
                 {} <<< data-source-cue <<< (connection-prime or {})
             | _ => {} <<< data-source-cue
 
-# DB -> String -> p Query
-export get-latest-query-in-branch = (query-database, branch-id) -->
-    collection = query-database.collection \queries
-    results <- bind-p (from-error-value-callback collection.aggregate, collection) do 
-        * $match: {branch-id,status: true}
-        * $sort: _id: -1
-    return return-p results.0 if !!results?.0
-    new-promise (, rej) -> rej "unable to find any query in branch: #{branch-id}" 
-
-# DB -> String -> p Query
-export get-query-by-id = (query-database, query-id) -->
-    collection = query-database.collection \queries
-    results <- bind-p (from-error-value-callback collection.aggregate, collection) do 
-        * $match: 
-            query-id: query-id
-            status: true
-        * $sort: _id: - 1
-        * $limit: 1
-    return return-p results.0 if !!results?.0
-    new-promise (, rej) -> rej "query not found #{query-id}"
-
 class OpsManager extends EventEmitter
 
     -> @ops = []

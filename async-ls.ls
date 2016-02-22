@@ -7,20 +7,20 @@ CancellationError = ((@message) !-> @name = \CancellationError)
 with-cancel-and-dispose = (p, f, g = (->)) ->
     p.then (result) -> 
         g!
-        returnP result
+        return-p result
     p.catch Promise.CancellationError, (e) ->
         p = f!
             ..finally -> g!
         throw (new CancellationError p)
 
-# bindP :: (CancellablePromise cp) => cp a -> (a -> cp b) -> cp b
-bindP = (p, f) -> p.then (a) -> f a
+# bind-p :: (CancellablePromise cp) => cp a -> (a -> cp b) -> cp b
+bind-p = (p, f) -> p.then (a) -> f a
 
 # new-promise :: (CancellablePromise cp) => ((x -> Void) -> (Error -> Void) -> Void) -> cp x
 new-promise = (callback) -> new Promise ((res, rej) -> callback res, rej) .cancellable!
 
-# returnP :: (CancellablePromise cp) => a -> cp a
-returnP = (a) -> new-promise (res) -> res a
+# return-p :: (CancellablePromise cp) => a -> cp a
+return-p = (a) -> new-promise (res) -> res a
 
 # from-error-value-callback :: ((Error, result) -> void, Object?) -> CancellablePromise result
 from-error-value-callback = (f, self = null) ->
@@ -48,11 +48,11 @@ to-callback = (p, callback) !-->
         err, result <- to-callback err?.message
         callback (err or result), null
 
-# sequenceP :: (CancellablePromise cp) => [cp a] -> cp [a]
-sequenceP = ([p, ...ps]) ->
-    return returnP [] if !p
-    a <- bindP p
-    as <- bindP (sequenceP ps)
+# sequence-p :: (CancellablePromise cp) => [cp a] -> cp [a]
+sequence-p = ([p, ...ps]) ->
+    return return-p [] if !p
+    a <- bind-p p
+    as <- bind-p (sequence-p ps)
     [a] ++ as
 
-module.exports = {with-cancel-and-dispose, bindP, returnP, from-error-value-callback, to-callback, new-promise, sequenceP}
+module.exports = {with-cancel-and-dispose, bind-p, return-p, from-error-value-callback, to-callback, new-promise, sequence-p}

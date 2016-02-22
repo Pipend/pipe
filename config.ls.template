@@ -38,7 +38,7 @@ module.exports =
                 user: ''
                 password: ''
                 default-database: ''
-    
+
     # default-data-source-cue :: DataSourceCue
     default-data-source:
         connection-kind: \pre-configured
@@ -50,6 +50,19 @@ module.exports =
     
     # the default transpilation language for the new query dialog
     default-transpilation-language: \babel # other options: javascript, livescript
+
+    # query store
+    query-store:
+        name: \mongo
+        mongo:
+            connection-string: \mongodb://localhost:27017/queries
+            connection-options:
+                auto_reconnect: true
+                db:
+                    w:1
+                server:
+                    socket-options:
+                        keep-alive: 1
 
     # memory store
     cache-store:
@@ -75,10 +88,6 @@ module.exports =
 
     http-port: 4081
     
-    # query database
-    query-database-connection-string: \mongodb://localhost:27017/pipe
-    mongo-connection-opitons: mongo-connection-opitons
-
     # the client loads images from this server
     snapshot-server: \http://localhost:4081
 

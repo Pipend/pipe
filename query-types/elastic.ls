@@ -20,8 +20,8 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => Database -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (query-database, {host, index, type}, query, transpilation-language, compiled-parameters) -->
+# execute :: (CancellablePromise cp) => QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (, {host, index, type}, query, transpilation-language, compiled-parameters) -->
     client = null
 
     with-cancel-and-dispose do 

@@ -5,7 +5,7 @@ Busboy = require \busboy
 
 # config
 {file-streams, http-port, mongo-connection-opitons, project-title, 
-query-database-connection-string, redis-channels, socket-io-port, snapshot-server}:config = require \./config
+redis-channels, socket-io-port, snapshot-server}:config = require \./config
 
 require! \express
 {create-read-stream, readdir} = require \fs
@@ -14,7 +14,7 @@ require! \moment
 {record-req}? = (require \pipend-spy) config?.spy?.storage-details
 
 # prelude
-{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by, 
+{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by,
 Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
 
 require! \phantom
@@ -23,20 +23,46 @@ require! \querystring
 require! \redis
 
 # utils
-{
-    transform, extract-data-source, get-query-by-id, get-latest-query-in-branch, get-op, cancel-op, running-ops, ops-manager
-}:utils = require \./utils
-
-# connect to query database
-err, query-database <- MongoClient.connect query-database-connection-string, mongo-connection-opitons
-
-if !!err
-    console.log "unable to connect to #{query-database-connection-string}: #{err.to-string!}"
-    return
-
-console.log "successfully connected to #{query-database-connection-string}"
+{transform, extract-data-source, get-query-by-id, get-latest-query-in-branch, 
+get-op, cancel-op, running-ops, ops-manager}:utils = require \./utils
 
 {compile-parameters, compile-transformation} = require \pipe-transformation
+
+err, query-store <- to-callback do 
+    (require "./query-stores/#{config.query-store.name}") config.query-store[config.query-store.name]
+
+if err 
+    console.log "unable to connect to query store: #{err.to-string!}"
+    return
+
+else
+    console.log "successfully connected to query store"
+
+{
+    delete-branch
+    delete-query
+    get-branches
+    get-latest-query-in-branch
+    get-queries
+    get-query-by-id
+    get-query-version-history
+    get-tags
+    save-query
+} = query-store
+
+# Res -> Error -> Void
+die = (res, err) !->
+    console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
+    res.status 500 .send err
+
+# partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
+partition-data-source-cue-params = (query) ->
+    query
+        |> obj-to-pairs 
+        |> partition (0 ==) . (.0.index-of 'dsc-') 
+        |> ([ds, qs]) -> 
+            [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
+                |> map pairs-to-obj
 
 # query-parser :: String -> a
 # query-parser :: [String] -> [a]
@@ -59,13 +85,32 @@ query-parser = (value) ->
             | _ => id
         value-parser value
 
+# send :: ExpressResponse -> p object -> ()
+send = (response, promise) !->
+    err, result <- to-callback promise
+    if err then die response, err else response.send result
+
+# with-optional-params :: [String] -> [String] -> [String]
+with-optional-params = (routes, params) -->
+    routes 
+        |> fold do 
+            (acc, value) ->
+                new-routes = [0 to params.length]
+                    |> map (i) ->
+                        [0 til i] 
+                            |> map -> ":#{params[it]}"
+                            |> Str.join \/
+                    |> map -> "#{value}/#{it}"
+                acc ++ new-routes
+            []
+
 app = express!
     ..set \views, __dirname + \/
     ..engine \.html, (require \ejs).__express
     ..set 'view engine', \ejs
     ..use (require \cors)!
     ..use (require \serve-favicon) __dirname + '/public/images/favicon.png'
-    ..use (require \cookie-parser)!    
+    ..use (require \cookie-parser)!
     ..use (req, res, next) ->
 
         current-time = Date.now!
@@ -111,30 +156,6 @@ app = express!
         res.status \content-type, \image/png
         res.end!
 
-
-
-# Res -> Error -> Void
-die = (res, err) !->
-    console.log "DEAD BECAUSE OF ERROR: #{err.to-string!}"
-    res.status 500 .end err.to-string!
-
-# with-optional-params :: [String] -> [String] -> [String]
-with-optional-params = (routes, params) -->
-    routes 
-        |> fold do 
-            (acc, value) ->
-                new-routes = [0 to params.length]
-                    |> map (i) ->
-                        [0 til i] 
-                            |> map -> ":#{params[it]}"
-                            |> Str.join \/
-                    |> map -> "#{value}/#{it}"
-                acc ++ new-routes
-            []
-
-pretty = -> JSON.stringify it, null, 4
-json = -> JSON.stringify it
-
 # render index.html
 <[
     \/ 
@@ -168,12 +189,12 @@ json = -> JSON.stringify it
 
 # redirects you to the latest query in the branch i.e /branches/branchId/queries/queryId
 app.get \/branches/:branchId, (req, res) ->
-    err, {query-id, branch-id}? <- to-callback (get-latest-query-in-branch query-database, req.params.branch-id)
+    err, {query-id, branch-id}? <- to-callback (get-latest-query-in-branch req.params.branch-id)
     if !!err then die res, err else res.redirect "/branches/#{branch-id}/queries/#{query-id}"
 
 # redirects you to /branches/:branchId/queries/queryId
 app.get \/queries/:queryId, (req, res) ->
-    err, {query-id, branch-id}? <- to-callback (get-query-by-id query-database, req.params.query-id)
+    err, {query-id, branch-id}? <- to-callback (get-query-by-id req.params.query-id)
     if !!err then die res, err else res.redirect "/branches/#{branch-id}/queries/#{query-id}"
 
 # api :: default-document
@@ -182,7 +203,7 @@ app.get \/queries/:queryId, (req, res) ->
 app.post \/apis/defaultDocument, (req, res) ->
     [data-source-cue, transpilation-language] = req.body
     {default-document} = require "./query-types/#{data-source-cue.query-type}"
-    res.end pretty {} <<< (default-document data-source-cue, transpilation-language) <<<
+    res.send {} <<< (default-document data-source-cue, transpilation-language) <<<
         data-source-cue: data-source-cue
         query-title: 'Untitled query'
         tags: []
@@ -200,41 +221,7 @@ app.post \/apis/defaultDocument, (req, res) ->
     /apis/branches/:branchId
 ]> |> each (route) ->
     app.get route, (req, res) ->
-        err, files <- readdir \public/snapshots
-        err, results <- query-database.collection \queries .aggregate do 
-            * $match: {status: true} <<< (if !!req.params.branch-id  then {branch-id: req.params.branch-id} else {})
-            * $sort: _id : 1
-            * $group: 
-                _id: \$branchId
-                branch-id: $last: \$branchId
-                query-id: $last: \$queryId
-                query-title: $last: \$queryTitle
-                data-source-cue: $last: \$dataSourceCue
-                presentation: $last: \$presentation
-                tags: $last: \$tags
-                user: $last: \$user
-                creation-time: $last: \$creationTime
-            * $project:
-                _id: 0
-                branch-id: 1
-                query-id: 1
-                query-title: 1
-                data-source-cue: 1
-                tags: 1
-                user: 1
-                creation-time: 1
-
-        return die res, err if !!err
-        res.set \Content-type, \application/json
-        res.end pretty do 
-            results
-                |> map ({branch-id}:latest-query) -> 
-                    {
-                        branch-id
-                        latest-query
-                        snapshot: "#{snapshot-server}/public/snapshots/#{branch-id}.png"
-                    }
-                |> sort-by (.latest-query.creation-time * -1)
+        send res, (get-branches req.params.branch-id)
 
 # api :: list of queries
 # returns a list of queries optionally filtered by branch-id 
@@ -245,38 +232,21 @@ app.post \/apis/defaultDocument, (req, res) ->
     /apis/branches/:branchId/queries
 ]> |> each (route) ->
     app.get route, (req, res) ->
-        pipeline =
-            * $sort: _id: (req.parsed-query?.sort-order or 1)
-            * $limit: (req.parsed-query?.limit) or 100
-        err, results <- query-database.collection \queries .aggregate do
-            (if !!req.params.branch-id then [$match: branch-id: req.params.branch-id] else []) ++ pipeline
-        if !!err then die res, err else res.end pretty results
+        {branch-id, parsed-query}? = req.params
+        {sort-order, limit}? = parsed-query
+        send res, (get-queries branch-id, sort-order, limit)
 
+# api :: query version history
 app.get \/apis/queries/:queryId/tree, (req, res) ->
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match:
-            query-id: req.params.query-id
-            status: true
-        * $project:
-            tree-id: 1
-    return die res, err if !!err
-    return die res, "unable to find query #{req.params.query-id}" if results.length == 0
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match:
-            tree-id: results.0.tree-id
-            status: true
-        * $sort: _id: 1
-        * $project:
-            parent-id: 1
-            branch-id: 1
-            query-id: 1
-            query-title: 1
-            creation-time: 1
-            selected: $eq: [\$queryId, req.params.query-id]
-    return die res, err if !!err
-    res.end pretty do 
-        results 
-            |> map ({creation-time}: query)-> {} <<< query <<< {creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"}
+    err, history <- to-callback get-query-version-history req.params.query-id
+    if err
+        die res, err 
+    else
+        res.send do
+            history |> map ({query-id, creation-time}:commit) ->
+                {} <<< commit <<< 
+                    selected: query-id == req.params.query-id
+                    creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"
 
 # api :: query details
 # returns all the data about a query 
@@ -287,37 +257,14 @@ app.get \/apis/queries/:queryId/tree, (req, res) ->
     /apis/branches/:branchId/queries/:queryId
 ]> |> each (route) ->
     app.get route, (req, res) ->
-        err, document <- to-callback (get-query-by-id query-database, req.params.query-id)
-        if !!err then die res, err else res.end pretty document
+        send res, (get-query-by-id req.params.query-id)
+        
 
 # api :: delete branch
 # sets the status property of all the queries in the branch to false
 # /apis/branches/:branchId/delete
 app.get "/apis/branches/:branchId/delete", (req, res)->
-
-    (err, results) <- query-database.collection \queries .aggregate do 
-        * $match: 
-            branch-id: req.params.branch-id
-        * $project:
-            query-id: 1
-            parent-id: 1
-    return die res, err if !!err
-    
-    parent-id = difference do
-        results |> map (.parent-id)
-        results |> map (.query-id)
-
-    # set the status of all queries in the branch to false i.e delete 'em all
-    (err) <- query-database.collection \queries .update {branch-id: req.params.branch-id}, {$set: {status: false}}, {multi: true}
-    return die res, err if !!err
-
-    # reconnect the children to the parent of the branch
-    criterion =
-        $and: 
-            * branch-id: $ne: req.params.branch-id
-            * parent-id: $in: results |> map (.query-id)
-    (err, queries-updated) <- query-database.collection \queries .update criterion, {$set: {parent-id: parent-id.0}}, {multi:true}
-    if !!err then die res, err else res.end parent-id.0
+    send res, (delete-branch req.params.branch-id)
 
 # api :: delete query 
 # sets the status property of th query to false
@@ -328,18 +275,7 @@ app.get "/apis/branches/:branchId/delete", (req, res)->
     /apis/branches/:branchId/queries/:queryId/delete
 ]> |> each (route) ->
     app.get route, (req, res) ->
-        err, results <- query-database.collection \queries .aggregate do 
-            * $match:
-                query-id: req.params.query-id
-        return die res, err if !!err
-        
-        err <- query-database.collection \queries .update {query-id: req.params.query-id}, {$set: {status: false}}
-        return die res err if !!err
-
-        err, queries-updated <- query-database.collection \queries .update {parent-id: req.params.query-id}, {$set: {parent-id: results.0.parent-id}}, {multi:true}
-        return die res err if !!err
-
-        res.end results.0.parent-id
+        send res, (delete-query req.params.query-id)
 
 # api :: execute query
 # executes the query object present in req.body
@@ -359,7 +295,7 @@ app.post \/apis/execute, (req, res) ->
 
         # execute the query and emit the op-started on socket.io
         ops-manager.execute do 
-            query-database
+            query-store
             data-source
             query
             transpilation-language
@@ -368,16 +304,7 @@ app.post \/apis/execute, (req, res) ->
             op-id
             {url: req.url} <<< op-info
 
-    if !!err then die res, err else res.end json result
-
-# partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
-partition-data-source-cue-params = (query) ->
-    query
-        |> obj-to-pairs 
-        |> partition (0 ==) . (.0.index-of 'dsc-') 
-        |> ([ds, qs]) -> 
-            [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
-                |> map pairs-to-obj
+    if !!err then die res, err else res.send result
 
 # api :: execute query
 # retrieves the query from query-id or branch-id and returns the execution result
@@ -398,12 +325,22 @@ partition-data-source-cue-params = (query) ->
         err, render <- to-callback do ->
 
             # get the query from query-id (if present) otherwise get the latest query in the branch-id
-            {query-id, data-source-cue, transpilation, query, transformation, presentation, client-external-libs}:document <- bind-p do ->
+            document <- bind-p do ->
                 if !!query-id
-                    get-query-by-id query-database, query-id
+                    get-query-by-id query-id
 
                 else
-                    get-latest-query-in-branch query-database, branch-id
+                    get-latest-query-in-branch branch-id
+
+            {
+                query-id
+                data-source-cue
+                transpilation
+                query
+                transformation
+                presentation
+                client-external-libs
+            } = document
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
             [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query 
@@ -416,7 +353,7 @@ partition-data-source-cue-params = (query) ->
             op-info = document
             {result} <- bind-p do 
                 ops-manager.execute do 
-                    query-database
+                    query-store
                     data-source
                     query
                     transpilation.query
@@ -427,11 +364,11 @@ partition-data-source-cue-params = (query) ->
 
             switch display
             | \query => 
-                return-p (res) !-> res.end json result
+                return-p (res) !-> res.send result
 
             | \transformation => 
                 transformation-function <- bind-p compile-transformation transformation, transpilation.transformation
-                return-p (res) !-> res.end json (transformation-function result, compiled-parameters)
+                return-p (res) !-> res.send (transformation-function result, compiled-parameters)
 
             | _ => 
                 return-p (res) !-> 
@@ -448,7 +385,7 @@ partition-data-source-cue-params = (query) ->
 
 # api :: running ops
 app.get \/apis/ops, (req, res) ->
-    res.end pretty ops-manager.running-ops!
+    res.send ops-manager.running-ops!
 
 # api :: cancel op
 app.get \/apis/ops/:opId/cancel, (req, res) ->
@@ -482,10 +419,11 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
 
             # use query-id if present, otherwise get the latest document for the given branch-id
             {data-source-cue}:document <- bind-p do ->
-                if !!req.params.query-id
-                    (get-query-by-id query-database, req.params.query-id) 
+                if req.params.query-id
+                    get-query-by-id req.params.query-id
+
                 else
-                    get-latest-query-in-branch query-database, req.params.branch-id
+                    get-latest-query-in-branch req.params.branch-id
 
             # extract & separate data-source-cue from query-string
             [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
@@ -504,7 +442,15 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
         if format in text-formats
             err, transformed-result <- to-callback do ->
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                {result} <- bind-p (ops-manager.execute query-database, data-source, query, parsed-query-string, cache, query-id, {document, url: req.url})
+                {result} <- bind-p (ops-manager.execute do 
+                    query-store
+                    data-source
+                    query
+                    parsed-query-string
+                    cache
+                    query-id
+                    {document, url: req.url}
+                )
                 transformed-result <- bind-p (transform result, transformation, parsed-query-string)
                 return-p transformed-result
             return die res, err if !!err
@@ -515,8 +461,8 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
                 res.end content
 
             match format
-            | \json => download \json, \application/json, pretty transformed-result
-            | \text => download \txt, \text/plain, pretty transformed-result
+            | \json => download \json, \application/json, transformed-result
+            | \text => download \txt, \text/plain, transformed-result
 
         else
             
@@ -539,7 +485,8 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
 
             # load the page in phantom
             <- bind-p phantom-page.open do 
-                "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation?#{querystring.stringify query-params}"
+                "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation" +
+                querystring.stringify query-params
 
             # give the page time to settle in before taking a screenshot
             <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
@@ -558,40 +505,12 @@ app.get \/apis/ops/:opId/cancel, (req, res) ->
 
 # api :: save query
 app.post \/apis/save, (req, res) ->
-
-    err, results <- query-database.collection \queries .aggregate do 
-        * $match:
-            branch-id: req.body.branch-id
-            status: true
-        * $project:
-            query-id: 1
-            parent-id: 1
-        * $sort: _id: -1
-    return die res, err.to-string! if !!err
-
-    if !!results?.0 and results.0.query-id != req.body.parent-id
-
-        index-of-parent-query = results |> find-index (.query-id == req.body.parent-id)
-
-        queries-in-between = [0 til results.length] 
-            |> map -> [it, results[it].query-id]
-            |> filter ([index])-> index < index-of-parent-query
-            |> map (.1)
-
-        return die res, pretty {queries-in-between}
-    
-    err, records <- query-database.collection \queries .insert do 
-        {} <<< req.body <<< {user: req.user, creation-time: new Date!.get-time!, status: true}
-        {w: 1}
-    return die res, err if !!err
-
-    res.set \Content-Type, \application/json
-    res.status 200 .end pretty records.0
+    send res, (save-query req.body)
 
 # api :: {{query-type}} connections
 app.get \/apis/queryTypes/:queryType/connections, (req, res) ->
     err, result <- to-callback ((require "./query-types/#{req.params.query-type}").connections req.query)
-    if !!err then die res, err else res.end pretty result
+    if !!err then die res, err else res.send result
 
 # api :: keywords
 app.post \/apis/keywords, (req, res) ->
@@ -599,20 +518,11 @@ app.post \/apis/keywords, (req, res) ->
         [data-source-cue, ...rest] = req.body
         {query-type}:data-source <- bind-p (extract-data-source data-source-cue)
         (require "./query-types/#{query-type}").keywords [data-source] ++ rest
-    if !!err then die res, err else res.end pretty result
+    if !!err then die res, err else res.send result
 
 # api :: tags
 app.get \/apis/tags, (req, res) ->
-    err, results <- query-database .collection \queries .aggregate do 
-        * $match: tags: $exists: true 
-        * $project: tags: 1
-        * $unwind: \$tags
-    res.end do 
-        results
-            |> map (.tags) >> (.to-lower-case!) >> (.trim!)
-            |> unique
-            |> sort
-            |> -> JSON.stringify it
+    send res, get-tags!
 
 app.post \/apis/queryTypes/:queryType/import, (req, res) ->
 
@@ -630,9 +540,6 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
     exception = null
     busboy = new Busboy headers: req.headers
         ..on \file, (fieldname, file, filename, encoding, mimetype) ->
-            console.log \file, fieldname, filename, encoding, mimetype
-            console.log \doc, doc
-
             upload doc.data-source-cue, doc.parser, file
                 ..then (result) ->
                     res.end <| JSON.stringify result
@@ -640,10 +547,8 @@ app.post \/apis/queryTypes/:queryType/import, (req, res) ->
                 ..catch (error) ->
                     res.end <| JSON.stringify error: error.toString!
                     req.destroy!
-
             
         ..on \field, (fieldname, val, fieldnameTruncated, valTruncated) ->
-            console.log \field, fieldname, val, fieldnameTruncated, valTruncated
             if "doc" == fieldname
                 doc := JSON.parse val
 
