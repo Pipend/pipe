@@ -15,8 +15,13 @@ require! \querystring
 url-parser = (require \url).parse
 {extract-data-source}:utils = require \./utils
 
-# pure function does not mutate express app object
-# :: QueryStore -> OpsManager -> Spy -> {routes :: [ExpressRoute], middlewares :: [ExpressMiddleware]}
+# ExpressRoute :: {
+#     methods :: [String]
+#     patterns :: [String]
+#     optional-params :: [String]
+#     request-handler :: ExpressRequest -> ExpressResponse -> ()
+# }
+# QueryStore -> OpsManager -> Spy -> [ExpressRoute]
 module.exports = (query-store, ops-manager, {record-req}) ->
 
     {
@@ -36,54 +41,61 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         console.log "DEAD BECAUSE OF ERROR:", err
         res.status 500 .send err
 
-    middlewares =
+    generate-user-id-and-session =
+        methods: <[use]>
+        request-handler: (req, res, next) ->
+            current-time = Date.now!
 
-        *   request-handler: (req, res, next) ->
-                current-time = Date.now!
+            # user id (ensure that it is always an integer)                
+            user-id = 
+                | !!req.cookies.user-id => parse-int req.cookies.user-id
+                | _ =>
+                    res.cookie \userId, current-time, {maxAge: 100 * 365 * 24 * 60 * 60 * 1000, httpOnly: false}
+                    current-time
 
-                # user id (ensure that it is always an integer)                
-                user-id = 
-                    | !!req.cookies.user-id => parse-int req.cookies.user-id
-                    | _ =>
-                        res.cookie \userId, current-time, {maxAge: 100 * 365 * 24 * 60 * 60 * 1000, httpOnly: false}
-                        current-time
+            # session id (ensure that it is always an integer)        
+            session-id = 
+                | !!req.cookies.session-id => parse-int req.cookies.session-id
+                | _ => 
+                    res.cookie \sessionId, current-time, {httpOnly: false} 
+                    current-time
 
-                # session id (ensure that it is always an integer)        
-                session-id = 
-                    | !!req.cookies.session-id => parse-int req.cookies.session-id
-                    | _ => 
-                        res.cookie \sessionId, current-time, {httpOnly: false} 
-                        current-time
+            req <<< {user-id, session-id}
+            next!
 
-                req <<< {user-id, session-id}
-                next!
+    parse-query-string =
+        methods: <[use]>
+        request-handler: (req, res, next) ->
+            if req.query
+                req.parsed-query = query-parser req.query 
+            next!
 
-        *   request-handler: (req, res, next) ->
-                if req.query
-                    req.parsed-query = query-parser req.query 
-                next!
-
-        *   request-handler: (req, res, next) ->
-                if req.method == \POST
-                    body = ""
-                    size = 0
-                    req.on \data, -> 
-                        size += it.length
-                        if size > 4e6
-                            res.write-head 413, \Connection : \close
-                            res.end "File size exceeded"
-                        body += it 
-                    req.on \end, ->
-                        req <<< body: JSON.parse body
-                        next!
-
-                else
+    restrict-post-body-size =
+        methods: <[use]>
+        request-handler: (req, res, next) ->
+            if req.method == \POST
+                body = ""
+                size = 0
+                req.on \data, -> 
+                    size += it.length
+                    if size > 4e6
+                        res.write-head 413, \Connection : \close
+                        res.end "File size exceeded"
+                    body += it 
+                req.on \end, ->
+                    req <<< body: JSON.parse body
                     next!
 
-        *   patterns: <[/public]>
+            else
+                next!
+
+    static-directories = 
+        *   methods: <[use]>
+            patterns: <[/public]>
             request-handler: express.static "#__dirname/public/"
 
-        *   patterns: <[/node_modules]>
+        *   methods: <[use]>
+            patterns: <[/node_modules]>
             request-handler: express.static "#__dirname/node_modules/"
 
     # solves 404 errors
@@ -95,7 +107,7 @@ module.exports = (query-store, ops-manager, {record-req}) ->
             res.end!
 
     # render index.html
-    static-routes = 
+    routes-that-render-index-html = 
         methods: <[get]>
         patterns: <[
             / 
@@ -559,5 +571,9 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         * save-query
         * tags
 
-    middlewares: middlewares
-    routes: [non-existant-snapshots] ++ static-routes ++ redirects ++ api-routes
+    [generate-user-id-and-session, parse-query-string, restrict-post-body-size] ++ 
+    static-directories ++ 
+    [non-existant-snapshots] ++ 
+    routes-that-render-index-html ++ 
+    redirects ++ 
+    api-routes

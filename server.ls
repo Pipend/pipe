@@ -39,7 +39,7 @@ spy =
         record: (event-object) -> return-p [event-object]
         record-req: (req, event-object) -> return-p [event-object]
 
-{middlewares, routes} = (require \./routes) query-store, ops-manager, spy
+routes = (require \./routes) query-store, ops-manager, spy
 
 app = express!
     ..set \views, __dirname + \/
@@ -48,14 +48,6 @@ app = express!
     ..use (require \cors)!
     ..use (require \serve-favicon) __dirname + '/public/images/favicon.png'
     ..use (require \cookie-parser)!
-
-middlewares |> each ({patterns or [], request-handler}?) !->
-    if patterns.length > 0
-        patterns |> each (pattern) ->
-            app.use pattern, request-handler
-
-    else
-        app.use request-handler
 
 # with-optional-params :: [String] -> [String] -> [String]
 with-optional-params = (routes, params) -->
@@ -72,8 +64,12 @@ with-optional-params = (routes, params) -->
 
 routes |> each ({methods, patterns, optional-params or [], request-handler}?) !->
     methods |> each (method) !->
-        (patterns `with-optional-params` optional-params) |> each (pattern) ->
-            app[method] pattern, request-handler
+        if patterns
+            (patterns `with-optional-params` optional-params) |> each (pattern) ->
+                app[method] pattern, request-handler
+
+        else
+            app[method] request-handler
 
 server = app.listen http-port
 console.log "listening for connections on port: #{http-port}"
