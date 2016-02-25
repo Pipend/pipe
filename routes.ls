@@ -4,8 +4,11 @@ Busboy = require \busboy
 require! \express
 {create-read-stream, readdir} = require \fs
 require! \moment
+require! \passport
+GitHubStrategy = require \passport-github2 .Strategy
 require! \phantom
 {compile-parameters, compile-transformation} = require \pipe-transformation
+require! \express-session
 
 # prelude
 {any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by,
@@ -21,8 +24,8 @@ url-parser = (require \url).parse
 #     optional-params :: [String]
 #     request-handler :: ExpressRequest -> ExpressResponse -> ()
 # }
-# QueryStore -> OpsManager -> Spy -> [ExpressRoute]
-module.exports = (query-store, ops-manager, {record-req}) ->
+# Map StrategyName, StrategyConfig -> QueryStore -> OpsManager -> Spy -> [ExpressRoute]
+module.exports = (strategies, query-store, ops-manager, {record-req}) ->
 
     {
         delete-branch
@@ -41,27 +44,63 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         console.log "DEAD BECAUSE OF ERROR:", err
         res.status 500 .send err
 
-    generate-user-id-and-session =
+    passport
+        ..use do 
+            new GitHubStrategy do 
+                strategies.github
+                (access-token, refresh-token, profile, callback) ->
+                    callback null, profile
+
+        ..serialize-user (user, callback) ->
+            callback null, user
+
+        ..deserialize-user (obj, callback) ->
+            callback null, obj
+
+    session-middlewares = 
+        *   methods: <[use]>
+            request-handler: express-session do 
+                resave: false
+                save-uninitialized: false
+                secret: 'test'
+
+        *   methods: <[use]>
+            request-handler: passport.initialize!
+
+        *   methods: <[use]>
+            request-handler: passport.session!
+
+    oauth-routes = 
+        *   methods: <[get]>
+            patterns: <[/auth/github]>
+            middlewares: 
+                *   passport.authenticate do 
+                        \github
+                        scope: <[user:email]>
+                ...
+
+        *   methods: <[get]>
+            patterns: <[/auth/github/callback]>
+            middlewares:
+                *   passport.authenticate do 
+                        \github
+                        failure-redirect: \/login
+                        success-redirect: \/
+                ...
+
+    login-page = 
+        methods: <[get]>
+        patterns: <[/login]>
+        request-handler: (req, res) ->
+            res.send "login"
+
+    ensure-authenticated = 
         methods: <[use]>
         request-handler: (req, res, next) ->
-            current-time = Date.now!
-
-            # user id (ensure that it is always an integer)                
-            user-id = 
-                | !!req.cookies.user-id => parse-int req.cookies.user-id
-                | _ =>
-                    res.cookie \userId, current-time, {maxAge: 100 * 365 * 24 * 60 * 60 * 1000, httpOnly: false}
-                    current-time
-
-            # session id (ensure that it is always an integer)        
-            session-id = 
-                | !!req.cookies.session-id => parse-int req.cookies.session-id
-                | _ => 
-                    res.cookie \sessionId, current-time, {httpOnly: false} 
-                    current-time
-
-            req <<< {user-id, session-id}
-            next!
+            if req.is-authenticated!
+                next!
+            else
+                res.redirect \/login
 
     parse-query-string =
         methods: <[use]>
@@ -107,7 +146,7 @@ module.exports = (query-store, ops-manager, {record-req}) ->
             res.end!
 
     # render index.html
-    routes-that-render-index-html = 
+    index-html = 
         methods: <[get]>
         patterns: <[
             / 
@@ -120,23 +159,11 @@ module.exports = (query-store, ops-manager, {record-req}) ->
             /ops
         ]>
         request-handler: (req, res) !->
-
-            # impression id increments every time the user visits these routes
-            impression-id = 
-                | !!req.cookies?.impression-id => (parse-int req.cookies.impression-id) + 1
-                | _ => 1
-            res.cookie \impressionId, impression-id, {httpOnly: false}
-
-            # record visit event
             record-req do 
                 req
-                user-id: req.user-id
-                session-id: req.session-id
-                impression-id: impression-id
                 event-type: \visit
 
-            viewbag = {req.user-id, req.session-id, impression-id}
-            res.render \public/index.html, {viewbag}
+            res.render \public/index.html
 
     # render-query :: ExpressResponse -> p Query -> ()
     render-query = (res, query-p) !->
@@ -153,7 +180,6 @@ module.exports = (query-store, ops-manager, {record-req}) ->
             patterns: <[/queries/:queryId]>
             request-handler: (req, res) ->
                 render-query get-query-by-id req.params.query-id
-        ...
     
     # send :: ExpressResponse -> p object -> ()
     send = (response, promise) !->
@@ -571,9 +597,10 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         * save-query
         * tags
 
-    [generate-user-id-and-session, parse-query-string, restrict-post-body-size] ++ 
-    static-directories ++ 
-    [non-existant-snapshots] ++ 
-    routes-that-render-index-html ++ 
-    redirects ++ 
+    session-middlewares ++
+    oauth-routes ++
+    [login-page, parse-query-string, restrict-post-body-size] ++
+    static-directories ++
+    [non-existant-snapshots, index-html] ++
+    redirects ++
     api-routes

@@ -1,15 +1,13 @@
 {rextend} = require \prelude-extension
 
-mongo-connection-opitons = 
-    auto_reconnect: true
-    db:
-        w:1
-    server:
-        socket-options:
-            keep-alive: 1
-
 module.exports =
     
+    authentication:
+        strategies:
+            github:
+                clientID: ''
+                client-secret: ''
+
     # connections :: Map QueryType, (Map Server, ConnectionPrime)
     connections:
         mongodb: # is a hash of connection-primes (server-connection, database-connection or ...) 

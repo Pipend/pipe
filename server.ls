@@ -3,7 +3,7 @@ require! \base62
 require! \body-parser
 {http-port}:config = require \./config
 require! \express
-{each, fold, map, Str} = require \prelude-ls
+{each, fold, map, reject, Str} = require \prelude-ls
 
 # QueryStore
 err, query-store <- to-callback do 
@@ -39,7 +39,7 @@ spy =
         record: (event-object) -> return-p [event-object]
         record-req: (req, event-object) -> return-p [event-object]
 
-routes = (require \./routes) query-store, ops-manager, spy
+routes = (require \./routes) config.authentication.strategies, query-store, ops-manager, spy
 
 app = express!
     ..set \views, __dirname + \/
@@ -62,14 +62,30 @@ with-optional-params = (routes, params) -->
             acc ++ new-routes
         []
 
-routes |> each ({methods, patterns, optional-params or [], request-handler}?) !->
+# add-to-express-app :: String -> [a] -> ()
+add-to-express-app = (method, args) !->
+    app[method].apply do 
+        app
+        args |> reject -> typeof it == \undefined
+
+routes |> each ({
+    methods, 
+    patterns, 
+    middlewares or [], 
+    optional-params or [], 
+    request-handler
+}?) !->
     methods |> each (method) !->
         if patterns
-            (patterns `with-optional-params` optional-params) |> each (pattern) ->
-                app[method] pattern, request-handler
+            (patterns `with-optional-params` optional-params) |> each (pattern) -> 
+                add-to-express-app do 
+                    method
+                    [pattern] ++ middlewares ++ [request-handler]
 
         else
-            app[method] request-handler
+            add-to-express-app do
+                method
+                middlewares ++ [request-handler]
 
 server = app.listen http-port
 console.log "listening for connections on port: #{http-port}"
