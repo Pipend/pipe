@@ -205,13 +205,13 @@ split-by-space = do ->
 # symb :: String -> Parser String
 symb = token . string
  
-# parses a series infix operator op.
+# parses a series infix operator task.
 # it ends with the last lhs (that is the rhs of the last operator in the chain)
 # chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
-chainl1 = (p, op) -->
+chainl1 = (p, task) -->
   a <- bind p
   rest = (a) -> (do ->
-    f <- bind <| op
+    f <- bind <| task
     b <- bind p
     rest (a `f` b)) `por` (unit a)
   rest a

@@ -1,4 +1,5 @@
-{bind-p, from-error-value-callback, new-promise, return-p, sequence-p, to-callback, with-cancel-and-dispose} = require \../async-ls
+{Promise, bind-p, from-error-value-callback, from-non-cancellable, new-promise, 
+return-p, reject-p, sequence-p, to-callback, with-cancel-and-dispose} = require \../async-ls
 require! \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
@@ -15,7 +16,6 @@ obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor, lines} = requ
     compile-and-execute-livescript
     compile-and-execute-livescript-sync
 } = require \transpilation
-Promise = require \bluebird
 require! \csv-parse
 require! \highland
 require! \JSONStream
@@ -26,27 +26,22 @@ export parse-connection-string = (connection-string) ->
     {host, port, database, collection}
 
 # connections :: (CancellablePromise cp) => a -> cp b
-export connections = ({connection-name, database}) --> 
-
+export connections = (project, {connection-name, database}) --> 
+    
     # get-connections :: (CancellablePromise cp) => a -> cp Connections
     get-connections = ->
         res <- new-promise
-        connections = (config?.connections?.mongodb or {}) 
+        connections = (project.connections?.mongodb or {}) 
             |> obj-to-pairs
             |> map ([name, value]) -> {label: (value.label or name), value: name}
-        res do 
-            connections: do ->
-                if !!config.high-security 
-                    [config?.default-data-source-cue?.connection-name |> -> label: it, value: it]
-                else 
-                    connections
+        res connections: connections
 
     # get-databases :: (Promise p) => String -> k p Databases
     get-databases = (connection-name) ->
-        {host, port}:connection? = config?.connections?.mongodb?[connection-name]
-        return (new-promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
-
-        # return the database in the config, if the connection is a "database-connection"
+        {host, port}:connection? = project.connections?.mongodb?[connection-name]
+        return reject-p new Error "connection name: #{connection-name} not found in project" if !connection
+        
+        # return the database in the project, if the connection is a "database-connection"
         return return-p {connection-name, databases: [connection.database]} if !!connection?.database
 
         # return the list of all databases, if the connection is a "server-connection"
@@ -54,35 +49,42 @@ export connections = ({connection-name, database}) -->
             {host, port, database: \admin}
             (db) ->
                 admin = db.admin!
-                {databases} <- bind-p (from-error-value-callback admin.list-databases, admin)!
-                return-p (databases |> map (.name))
+                {databases} <- bind-p admin.list-databases!
+                databases 
+                    |> map (.name)
+                    |> return-p
 
         return-p do 
             connection-name: connection-name
-            databases: if config.high-security then [config?.default-data-source-cue?.database] else databases
+            databases: databases
 
     # get-collections :: (CancellablePromise cp) => String -> String -> cp Collections
     get-collections = (connection-name, database) -->
-        {host, port}:connection? = config?.connections?.mongodb?[connection-name]
-        return returnK (new Promise (, rej) -> rej new Error "connection name: #{connection-name} not found in /config.ls") if !connection
+        {host, port}:connection? = project.connections?.mongodb?[connection-name]
+        return reject-p new Error "connection name: #{connection-name} not found in project" if !connection
 
         collections <- bind-p execute-mongo-database-query-function do
             {host, port, database: connection?.database or database}
             (db) ->
-                results <- bind-p (from-error-value-callback db.collection-names, db)!
-                return-p do
-                    results |> map ({name}) ->
-                        return name if (name.index-of \.) == -1
-                        name .split \. .1
+                resolve, reject <- new-promise
+                err, collections <- db.list-collections! .to-array
+                if err 
+                    reject err
+                else
+                    collections
+                        |> map ({name}) ->
+                            if (name.index-of \.) == -1
+                                name
+                            else
+                                name .split \. .1
+                        |> resolve
             Math.floor Math.random! * 1000000
-
-        {default-data-source-cue}? = config
-
+        
         return-p do 
             connection-name: connection-name
-            database: if config.high-security then default-data-source-cue?.database else database
-            collections: if config.high-security then [default-data-source-cue?.collection] else collections
-
+            database: database
+            collections: collections
+    
     switch
         | !connection-name => get-connections!
         | !database => get-databases connection-name
@@ -174,8 +176,8 @@ export get-context = ->
 
 # execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-pipeline = (allow-disk-use, collection, query) --> 
-    (from-error-value-callback collection.aggregate, collection) query, {allow-disk-use}
-
+    ((from-error-value-callback collection.aggregate, collection) query, {allow-disk-use})
+    
 # execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
     (from-error-value-callback collection.map-reduce, collection) do 
@@ -188,38 +190,43 @@ execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finaliz
 # can also be used to perform db.****** functions
 # execute-mongo-database-query-function :: (CancellablePromise cp) => DataSource -> (MongoDatabase -> p result) -> cp result
 export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function) -->
-
+    
     # establish a connection to the server
-    server = new Server host, port
-    mongo-client = new MongoClient server, {native_parser: true}
+    mongo-client = new MongoClient!
+    
     mongo-client <- bind-p with-cancel-and-dispose do 
-        (from-error-value-callback mongo-client.open, mongo-client)!
-        -> mongo-client.close!; return-p \killed-early
+        (from-error-value-callback mongo-client.connect, mongo-client) "mongodb://#{host}:#{port}/#{database}"
+        -> return-p \killed-early
 
     # execute the query
     db = null
     start-time = null
 
-    # dispose :: () -> Void
+    # dispose :: () -> ()
     dispose = !->
         db.close!
         mongo-client.close!
 
     # kill :: (CancellablePromise cp) => () -> cp kill-result
     cancel = ->
-        if \connected != db.server-config?._server-state
-            return new-promise (, rej) -> rej new Error "_server-state is not connected"
-
-        in-prog-collection = db.collection \$cmd.sys.inprog
-        data <- bind-p (from-error-value-callback in-prog-collection.find-one, in-prog-collection)!
-        delta = new Date!.value-of! - start-time
-        op = data.inprog |> sort-by (-> delta - it.microsecs_running / 1000) |> (.0)
-        if !op
-            return new-promise (, rej) -> rej new Error "query could not be found\nStarted at: #{start-time}"
+        if \connected == db.server-config?._server-state
+            {inprog} <- bind-p (db.collection \$cmd.sys.inprog .find-one {})
+            
+            milliseconds-running = Date.now! - start-time
+            
+            op = inprog 
+                |> sort-by ({microsecs_running}) -> milliseconds-running - (microsecs_running / 1000)
+                |> (.0)
+                
+            if op
+                # same as (db.kill-op opid)
+                db.collection \$cmd.sys.killop .find-one op: op.opid .then -> \killed
+                
+            else
+                reject-p new Error "query could not be found\nStarted at: #{start-time}"
         
-        killop-collection = db.collection \$cmd.sys.killop
-        <- bind-p ((from-error-value-callback killop-collection.find-one, killop-collection) {op : op.opid})
-        return-p \killed
+        else
+            reject-p new Error "_server-state is not connected"
 
     # execute-query-function :: () -> p result
     execute-query-function = do ->
@@ -231,15 +238,13 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
 
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => 
-#  OpsManager -> QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
+#  TaskManager -> QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
 export execute = (, , {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->
-
     # aggregation-type :: String
     # computation :: (CancellablePromise cp) => () -> cp result
     [aggregation-type, computation] <- bind-p do ->
         res, rej <- new-promise
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
-
         {aggregation-type, computation} = switch
             
             # COMPUTATION: detect computation query-type by a directive
@@ -306,7 +311,8 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
             | _ =>
                 aggregation-type: 'pipeline'
                 computation: ->
-                    aggregation-query <- bind-p match transpilation-language
+                    aggregation-query <- bind-p do 
+                        match transpilation-language
                         # using 'json = ...' converts query to an expression from JSON
                         | \javascript => 
                             trimmed-query = trim-babel-code query
@@ -343,15 +349,17 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                                     query
                                     query-context
                                     convert-livescript-query-to-pipe-mongo-syntax
-                                    compile-and-execute-livescript
+                                    from-non-cancellable compile-and-execute-livescript
 
                     execute-mongo-database-query-function do 
                         data-source
-                        (db) -> execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
+                        (db) -> 
+                            execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
 
         res [aggregation-type, computation]
     
     computation!
+    
 
 # default-document :: DataSourceCue -> String -> Document
 export default-document = (data-source-cue, transpilation-language) ->     
@@ -378,11 +386,8 @@ import-json = (file, data-source) ->
     execute-mongo-database-query-function do
         data-source
         (db) ->
-
             resolve, reject <- new-promise
-
             collection = db.collection data-source.collection
-
             stream = JSONStream.parse "*"
             file.pipe stream
             i = 0

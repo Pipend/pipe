@@ -16,53 +16,48 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)! <<< {object-id-from-date, date-from-object-id} <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (ops-manager, query-store, data-source, query, transpilation-language, compiled-parameters) -->
-    
-    {get-query-by-id, get-latest-query-in-branch} = query-store
-
-    # generate-op-id :: () -> String
-    generate-op-id = -> "#{Math.floor Math.random! * 1000}"
+# execute :: (CancellablePromise cp) => TaskManager -> Store1 -> DataSource -> String -> String -> Parameters -> cp result
+# Store1 ::
+#   get-document-version :: String -> Int -> cp Document 
+#   get-latest-document :: String -> cp Document
+export execute = (execute, {get-document-version, get-latest-document}, data-source, query, transpilation-language, compiled-parameters) -->
 
     # run-query :: (CancellablePromise) => Query, CompiledQuerycompiled-parameters? -> cp result
     run-query = (document, compiled-parameters = {}) ->
         
+        {document-id, version, data-source-cue, query, transformation, transpilation}? = document
+        
         # get the data-source from data-source-cue
-        {query-id, branch-id, query-title, data-source-cue, query, transformation, transpilation}? = document
         data-source <- bind-p (extract-data-source data-source-cue)
 
         # execute the query
         {result} <- bind-p do ->
-            ops-manager.execute do 
-                query-store
+            execute do 
+                document-id: document-id
+                version: version
+                document-title: query-title
+                query-type: data-source.query-type
                 data-source
                 query
                 transpilation?.query
                 compiled-parameters
                 false
-                generate-op-id!
-                document:
-                    query-id: query-id
-                    branch-id: branch-id
-                    query-title: query-title
-                    data-source-cue: data-source-cue
-
-        transformation-function <- bind-p compile-transformation transformation, transpilation.transformation
-        return-p transformation-function result, compiled-parameters
+        transformation-function <- bind-p (compile-transformation transformation, transpilation.transformation)
+        transformation-function result, compiled-parameters
 
     [err, transpiled-code] = compile-and-execute-sync do 
         query
         transpilation-language
         {} <<< get-context! <<< (require \prelude-ls) <<< compiled-parameters <<< (require \../async-ls) <<<
 
-            # run-query :: (CancellablePromise) => String, Parameters? -> cp result
-            run-query: (query-id, compiled-parameters = {}) ->
-                document <- bind-p (get-query-by-id query-id)
+            # run-query :: (CancellablePromise) => String, Int, Parameters? -> cp result
+            run-query: (query-id, version, compiled-parameters = {}) ->
+                document <- bind-p (get-document-version query-id, version)
                 run-query document, compiled-parameters
 
             # run-latest-query :: (CancellablePromise) => String, Parameters? -> cp result
             run-latest-query: (branch-id, compiled-parameters = {}) ->
-                document <- bind-p (get-latest-query-in-branch branch-id)
+                document <- bind-p (get-latest-document branch-id)
                 run-query document, compiled-parameters
 
     if err then (new-promise (, rej) -> rej err) else transpiled-code

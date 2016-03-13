@@ -20,9 +20,9 @@ execute-sql = (data-source, query) -->
         -> if !!connection then connection.close!
 
 # connections :: (CancellablePromise cp) => a -> cp b
-export connections = ->
+export connections = (project, {connection-name, database}) --> 
     returnP do 
-        connections: (config?.connections?.mssql or {}) 
+        connections: (project.connections?.mssql or {}) 
             |> obj-to-pairs
             |> map ([name, value]) ->
                 label: (value?.label or name)
@@ -43,7 +43,7 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+# execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
 export execute = (, , data-source, query, transpilation-language, compiled-parameters) -->
     (Obj.keys compiled-parameters) |> each (key) ->
         query .= replace "$#{key}$", compiled-parameters[key]

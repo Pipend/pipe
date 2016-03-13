@@ -105,7 +105,7 @@ module.exports = React.create-class do
             query-id, branch-id, tree-id, transpilation-language, data-source-cue, query, 
             query-title, transformation, presentation, parameters, existing-tags, tags, 
             editor-width, popup-left, popup, queries-in-between, dialog, remote-document, 
-            cache, from-cache, executing-op, displayed-on, execution-error, execution-end-time, 
+            cache, from-cache, executing-task, displayed-on, execution-error, execution-end-time, 
             execution-duration, transpilation-language
         } = @state
 
@@ -180,7 +180,7 @@ module.exports = React.create-class do
             * label: \Execute
               enabled: data-source-cue.complete
               hotkey: "command + enter"
-              show: !executing-op
+              show: !executing-task
               action: ~> 
                 @props.record do 
                     event-type: \execute-query
@@ -189,8 +189,8 @@ module.exports = React.create-class do
                 @execute!
 
             * label: \Cancel
-              show: !!executing-op
-              action: ~> $.get "/apis/ops/#{executing-op}/cancel"
+              show: !!executing-task
+              action: ~> $.get "/apis/ops/#{executing-task}/cancel"
 
             * label: \Dispose
               show: !!@state.dispose
@@ -496,7 +496,7 @@ module.exports = React.create-class do
                 # PRESENTATION CONTAINER
                 div do
                     ref: camelize \presentation-container
-                    class-name: "presentation-container #{if !!executing-op then 'executing' else ''}"
+                    class-name: "presentation-container #{if !!executing-task then 'executing' else ''}"
 
                     # PRESENTATION: operations on this div are not controlled by react
                     div ref: \presentation, class-name: \presentation, id: \presentation
@@ -531,7 +531,7 @@ module.exports = React.create-class do
         {
             cache: @props?.cache-query ? true # user checked the cache checkbox
             dialog: null # String (name of the dialog to display)
-            executing-op: "" # String (alphanumeric op-id of the currently running query)
+            executing-task: "" # String (alphanumeric task-id of the currently running query)
             from-cache: false # latest result is from-cache (it is returned by the server on execution)
             pending-client-external-libs: false
             popup: null # String (name of the popup to display)
@@ -811,7 +811,7 @@ module.exports = React.create-class do
     # execute :: a -> Void
     execute: !->
 
-        if !!@state.executing-op
+        if !!@state.executing-task
             return
 
         {query-id, branch-id, query-title, data-source-cue, query, 
@@ -851,11 +851,11 @@ module.exports = React.create-class do
             @state.dispose!
             @set-state {dispose: undefined}, callback
 
-        # generate a unique op id
-        op-id = generate-uid!
+        # generate a unique task id
+        task-id = generate-uid!
 
-        # update the ui to reflect that an op is going to start
-        @set-state executing-op: op-id
+        # update the ui to reflect that an task is going to start
+        @set-state executing-task: task-id
 
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
 
@@ -863,15 +863,15 @@ module.exports = React.create-class do
             ($ find-DOM-node @refs.presentation).empty!
 
             # make the ajax request and process the query result
-            op-info = document: document-from-state
+            task-info = document: document-from-state
             {result}:result-with-metadata <~ (pipe-web-client.execute do 
                 data-source-cue
                 query
                 transpilation.query
                 compiled-parameters
                 @state.cache
-                op-id
-                op-info) .then
+                task-id
+                task-info) .then
 
             # transform and visualize the result
             dispose <~ process-query-result result .then
@@ -909,8 +909,8 @@ module.exports = React.create-class do
                     notify-click: -> window.focus!
                 notification.show!
 
-        # update the ui to reflect that the op is complete
-        @set-state displayed-on: Date.now!, executing-op: "" 
+        # update the ui to reflect that the task is complete
+        @set-state displayed-on: Date.now!, executing-task: "" 
 
     # returns a list of document properties (from current UIState) that diverged from the remote document
     # changes-made :: a -> [String]

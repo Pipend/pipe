@@ -1,5 +1,5 @@
 {bind-p, return-p} = require \../async-ls
-{cache-store} = require \../config
+{memory-store} = require \../config
 
 # :: JSStoreConfig -> p CacheStore
 module.exports = ({expires-in}?) ->

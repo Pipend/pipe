@@ -1,107 +1,98 @@
-{bind-p, from-error-value-callback, new-promise, return-p, to-callback} = require \./async-ls
+{bind-p, return-p, to-callback} = require \./async-ls
 require! \base62
-Busboy = require \busboy
 require! \express
-{create-read-stream, readdir} = require \fs
-require! \moment
+require! \express-session
+RedisSessionStore = (require \connect-redis) express-session
 require! \passport
 GitHubStrategy = require \passport-github2 .Strategy
-require! \phantom
-{compile-parameters, compile-transformation} = require \pipe-transformation
-require! \express-session
+{camelize, each, id, map, Obj, obj-to-pairs, pairs-to-obj, partition} = require \prelude-ls
+require! \./exceptions/UnAuthenticatedException
+require! \./exceptions/UnAuthorizedException
+{compile-transformation} = require \pipe-transformation
 
-# prelude
-{any, camelize, difference, each, filter, find, find-index, fold, group-by, id, map, maximum-by,
-Obj, obj-to-pairs, pairs-to-obj, partition, reject, Str, sort, sort-by, unique, values} = require \prelude-ls
+# Res -> Error -> Void
+die = (res, err) !->
+    console.log "DEAD BECAUSE OF ERROR:", err
+    res.status 500 .send err
 
-require! \querystring
-url-parser = (require \url).parse
-{extract-data-source}:utils = require \./utils
+# partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
+partition-data-source-cue-params = (query) ->
+    query
+    |> obj-to-pairs 
+    |> partition (0 ==) . (.0.index-of 'dsc-') 
+    |> ([ds, qs]) -> 
+        [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
+            |> map pairs-to-obj
 
-# ExpressRoute :: {
-#     methods :: [String]
-#     patterns :: [String]
-#     optional-params :: [String]
-#     request-handler :: ExpressRequest -> ExpressResponse -> ()
-# }
-# Map StrategyName, StrategyConfig -> QueryStore -> OpsManager -> Spy -> [ExpressRoute]
-module.exports = (strategies, query-store, ops-manager, {record-req}) ->
+# query-parser :: String -> a
+# query-parser :: [String] -> [a]
+# query-parser :: Map String, String -> Map String, a
+query-parser = (value) ->
+    match typeof! value
+    | \Array => value |> map -> query-parser it
+    | \Object =>
+        value
+            |> obj-to-pairs
+            |> map ([key, value]) -> [key, query-parser value]
+            |> pairs-to-obj
+    | \String =>
+        value-parser =
+            | (/^(\-|\+)*\d+$/g.test value) => parse-int
+            | (/^(\-|\+)*(\d|\.)+$/g.test value) => parse-float
+            | value == \true => -> true
+            | value == \false => -> false
+            | value == '' => -> undefined
+            | _ => id
+        value-parser value
 
+# send :: ExpressResponse -> p object -> ()
+send = (response, promise) !->
+    err, result <- to-callback promise
+    if err then die response, err else response.send result
+
+module.exports = (
+    strategies
     {
-        delete-branch
-        delete-query
-        get-branches
-        get-latest-query-in-branch
-        get-queries
-        get-query-by-id
-        get-query-version-history
-        get-tags
-        save-query
-    } = query-store
-
-    # Res -> Error -> Void
-    die = (res, err) !->
-        console.log "DEAD BECAUSE OF ERROR:", err
-        res.status 500 .send err
-
-    passport
-        ..use do 
-            new GitHubStrategy do 
-                strategies.github
-                (access-token, refresh-token, profile, callback) ->
-                    callback null, profile
-
-        ..serialize-user (user, callback) ->
-            callback null, user
-
-        ..deserialize-user (obj, callback) ->
-            callback null, obj
-
-    session-middlewares = 
-        *   methods: <[use]>
-            request-handler: express-session do 
-                resave: false
-                save-uninitialized: false
-                secret: 'test'
-
-        *   methods: <[use]>
-            request-handler: passport.initialize!
-
-        *   methods: <[use]>
-            request-handler: passport.session!
-
-    oauth-routes = 
-        *   methods: <[get]>
-            patterns: <[/auth/github]>
-            middlewares: 
-                *   passport.authenticate do 
-                        \github
-                        scope: <[user:email]>
-                ...
-
-        *   methods: <[get]>
-            patterns: <[/auth/github/callback]>
-            middlewares:
-                *   passport.authenticate do 
-                        \github
-                        failure-redirect: \/login
-                        success-redirect: \/
-                ...
-
-    login-page = 
-        methods: <[get]>
-        patterns: <[/login]>
-        request-handler: (req, res) ->
-            res.send "login"
-
-    ensure-authenticated = 
-        methods: <[use]>
-        request-handler: (req, res, next) ->
-            if req.is-authenticated!
-                next!
+        public-actions, 
+        authentication-dependant-actions, 
+        authorization-dependant-actions,
+    }
+    spy
+) ->
+    
+    handle = (p, response) -->
+        ex, result <- to-callback p
+        if ex
+            if ex instanceof UnAuthorizedException
+                response.send 'You must be a Collaborator'
+            else if ex instanceof UnAuthenticatedException 
+                response.redirect '/login'
             else
-                res.redirect \/login
+                response.send "Unknown error: #{ex}"
 
+        else
+            if 'Function' == typeof! result
+                result response
+            else
+                response.send result
+
+    ensure-authorized = (f, req, res) -->
+        handle do 
+            (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) -> f actions, req, res
+            res
+
+    ensure-authenticated = (f, req, res) -->
+        handle do 
+            (authentication-dependant-actions req.user?._id).then (actions) --> f actions, req, res
+            res
+
+    no-security = (f, req, res) -->
+        handle do
+            public-actions!.then (actions) -> f actions, req, res
+            res
+
+    ## ---------- MIDDLEWARE -----------
+    
     parse-query-string =
         methods: <[use]>
         request-handler: (req, res, next) ->
@@ -112,7 +103,7 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
     restrict-post-body-size =
         methods: <[use]>
         request-handler: (req, res, next) ->
-            if req.method == \POST
+            if req.method in <[POST PUT]>
                 body = ""
                 size = 0
                 req.on \data, -> 
@@ -128,99 +119,171 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
             else
                 next!
 
-    static-directories = 
-        *   methods: <[use]>
-            patterns: <[/public]>
-            request-handler: express.static "#__dirname/public/"
-
-        *   methods: <[use]>
-            patterns: <[/node_modules]>
-            request-handler: express.static "#__dirname/node_modules/"
-
-    # solves 404 errors
-    non-existant-snapshots = 
-        methods: <[get]>
-        patterns: <[/public/snapshots/*]>
-        request-handler: (, res) ->
-            res.status \content-type, \image/png
-            res.end!
-
-    # render index.html
-    index-html = 
-        methods: <[get]>
-        patterns: <[
-            / 
-            /branches 
-            /branches/:branchId/queries/:queryId
-            /branches/:branchId/queries/:queryId/diff
-            /branches/:branchId/queries/:queryId/tree
-            /creatives
-            /import
-            /ops
-        ]>
-        request-handler: (req, res) !->
-            record-req do 
-                req
-                event-type: \visit
-
-            res.render \public/index.html
-
-    # render-query :: ExpressResponse -> p Query -> ()
-    render-query = (res, query-p) !->
-        err, {branch-id, query-id} <- to-callback query-p
-        if err then die res, err else res.redirect "/branches/#{branch-id}/queries/#{query-id}"
-
-    redirects = 
-        *   methods: <[get]>
-            patterns: <[/branches/:branchId]>
-            request-handler: (req, res) -> 
-                render-query get-latest-query-in-branch req.params.branch-id
-
-        *   methods: <[get]>
-            patterns: <[/queries/:queryId]>
-            request-handler: (req, res) ->
-                render-query get-query-by-id req.params.query-id
+    # ----------- AUTH -----------
     
-    # send :: ExpressResponse -> p object -> ()
-    send = (response, promise) !->
-        err, result <- to-callback promise
-        if err then die response, err else response.send result
+    passport
+        ..use new GitHubStrategy strategies.github, (, , profile, callback) ->
+            to-callback do
+                do ->
+                    {get-user-by-oauth-id, insert-user} <- bind-p public-actions!
+                    user <- bind-p (get-user-by-oauth-id \github, profile._json.id )
+                    if user 
+                        return-p user
+                    else
+                        insert-user github-profile: profile._json
+                callback
+        
+        ..serialize-user ({_id}?, callback) ->
+            callback null, _id
 
-    # returns a list of branches where each item has the branch-id and the latest-query in that branch
-    branches = 
-        methods: <[get]>
-        patterns: <[/apis/branches]>
+        ..deserialize-user (_id, callback) ->
+            callback null, {_id}
+
+    init-express-session =
+        methods: <[use]>
+        request-handler: express-session do 
+            resave: false
+            save-uninitialized: false
+            secret: 'test'
+            store: new RedisSessionStore do 
+                host: \127.0.0.1
+                port: 6379
+
+    init-passport =
+        methods: <[use]>
+        request-handler: passport.initialize!
+
+    init-passport-session =
+        methods: <[use]>
+        request-handler: passport.session!
+
+    login-page =
+        methods: <[get post]>
+        patterns: <[/login]>
         request-handler: (req, res) ->
-            send res, get-branches!
+            res.send "login"
 
-    # information about a single branch 
-    branch-details = 
+    github-oauth-redirect =
         methods: <[get]>
-        patterns: <[/apis/branches/:branchId]>
-        request-handler: (req, res) ->
-            send do 
-                res
-                get-branches req.params.branch-id .then ([branch]?) -> branch ? {}
+        patterns: <[/auth/github]>
+        middlewares: 
+            *   passport.authenticate do 
+                    \github
+                    scope: <[user:email]>
+            ...
 
-    cancel-op = 
+    github-oauth-callback =
         methods: <[get]>
-        patterns: <[/apis/ops/:opId/cancel]>
-        request-handler: (req, res) ->
-            [err, op] = ops-manager.cancel-op req.params.op-id
-            if err then die res, err else res.end \cancelled 
+        patterns: <[/auth/github/callback]>
+        middlewares:
+            *   passport.authenticate do 
+                    \github
+                    failure-redirect: \/login
+                    success-redirect: \/
 
-    connections = 
-        methods: <[get]>
-        patterns: <[/apis/queryTypes/:queryType/connections]>
-        request-handler: (req, res) ->
-            send do 
-                res
-                (require "./query-types/#{req.params.query-type}").connections req.query
-
-    # returns the default document of query type identified by config.default-data-source.type
-    default-document =  
+    # ----------- PROJECTS -----------
+    
+    # create a new project for the user-id (owner)
+    # requires user to be only authenticated 
+    insert-project = 
         methods: <[post]>
-        patterns: <[/apis/defaultDocument]>
+        patterns: <[/apis/projects]>
+        request-handler: ensure-authenticated (actions, req) ->
+            actions.insert-project req.body
+    
+    # get my projects
+    get-projects = 
+        methods: <[get]>
+        patterns: <[/apis/projects]>
+        request-handler: ensure-authenticated (actions, req) ->
+            actions.get-projects req.user?._id
+
+    get-projects-by-user-id = 
+        methods: <[get]>
+        patterns: <[/apis/users/:userId/projects]>
+        request-handler: ensure-authenticated (actions, req) ->
+            actions.get-projects req.params.user-id
+            
+    get-project = 
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.get-project req.params.project-id
+                
+    update-project = 
+        methods: <[put]>
+        patterns: <[/apis/projects/:projectId]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.update-project req.body
+                
+    # can be invoked by owner only     
+    delete-project = 
+        methods: <[delete]>
+        patterns: <[/apis/projects/:projectId]>
+        request-handler: ensure-authorized (actions, req) ->
+            console.log \DELETE
+            actions.delete-project!
+    
+    # ----------- DOCUMENTS -----------
+
+    save-document =
+        methods: <[post]>
+        patterns: <[/apis/projects/:projectId/documents]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.save-document req.body
+
+    # information about a single document
+    get-document-version =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/documents/:documentId/versions/:version]>
+        request-handler: 
+            ensure-authorized (actions, req) -> 
+                actions.get-document-version req.params.document-id, (parse-int req.params.version)
+    
+    get-document-history =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/documents/:documentId/versions]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.get-document-history req.params.document-id
+
+    # returns a list of queries where each item has the query-id and its latest-version
+    get-documents-in-a-project =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/documents]>
+        request-handler: ensure-authorized (actions) -> 
+            actions.get-documents-in-a-project!
+
+    # can be invoked by owner, admin or collaborator
+    # sets the status property of all the versions of the document to false
+    delete-document-and-hisotry =
+        methods: <[delete]>
+        patterns: <[/apis/projects/:projectId/documents/:documentId]>
+        request-handler: ensure-authorized (actions, req) -> 
+            actions.delete-document-and-history req.params.document-id
+    
+    # can be invoked by owner, admin or collaborator
+    # sets the status property of the given version of the document to false
+    delete-document-version =
+        methods: <[delete]>
+        patterns: <[/apis/projects/:projectId/documents/:documentId/versions/:version]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.delete-document-version req.params.document-id, (parse-int req.params.version)
+
+    # ----------- EDITOR -----------
+    
+    # returns a list of all the databases/collections or databases/tables (Depending on queryType)
+    # used in the dropdown
+    connections =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/queryTypes/:queryType/connections]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.get-connections req.params.query-type, req.query
+
+    #TODO: must be re-implemented
+    # returns the default document for the given query-type & transpilation-language
+    default-document =
+        methods: <[post]>
+        patterns: <[/apis/projects/:projectId/defaultDocument]>
         request-handler: (req, res) ->
             [data-source-cue, transpilation-language] = req.body
             {default-document} = require "./query-types/#{data-source-cue.query-type}"
@@ -233,165 +296,156 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
                     transformation: transpilation-language
                     presentation: transpilation-language
 
-    # sets the status property of all the queries in the branch to false
-    delete-branch = 
-        methods: <[get]>
-        patterns: <[/apis/branches/:branchId/delete]>
-        request-handler: (req, res) ->
-            send res, (query-store.delete-branch req.params.branch-id)
-
-    # sets the status property of th query to false
-    delete-query = 
-        methods: <[get]>
-        patterns: <[
-            /apis/queries/:queryId/delete
-            /apis/branches/:branchId/queries/:queryId/delete
-        ]>
-        request-handler: (req, res) ->
-            send res, (query-store.delete-query req.params.query-id)
-
-    execute-post = 
+    #TODO: must be re-implemented with authorization
+    keywords =
         methods: <[post]>
-        patterns: <[/apis/execute]>
+        patterns: <[/apis/projects/:projectId/keywords]>
         request-handler: (req, res) ->
-
-            # pattern match the required fields
-            {data-source-cue, query, transpilation-language, compiled-parameters, cache, op-id, op-info}? = req.body
-
-            # convert document.data-source-cue to data-source used by the execute method
-            {timeout}:data-source <- bindP (extract-data-source data-source-cue)
-
-            # set the req / res timeout from data-source
-            [req, res] |> each (.connection.set-timeout timeout ? 90000)
-
-            # execute the query and emit the op-started on socket.io
+            [data-source-cue, ...rest] = req.body
             send do 
-                res
-                ops-manager.execute do 
-                    query-store
-                    data-source
-                    query
-                    transpilation-language
-                    compiled-parameters
-                    cache
-                    op-id
-                    {url: req.url} <<< op-info
+                res 
+                extract-data-source data-source-cue .then ({query-type}:data-source) ->
+                    (require "./query-types/#{query-type}").keywords [data-source] ++ rest
 
-    # partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
-    partition-data-source-cue-params = (query) ->
-        query
-        |> obj-to-pairs 
-        |> partition (0 ==) . (.0.index-of 'dsc-') 
-        |> ([ds, qs]) -> 
-            [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
-                |> map pairs-to-obj
-
-    # query-parser :: String -> a
-    # query-parser :: [String] -> [a]
-    # query-parser :: Map String, String -> Map String, a
-    query-parser = (value) ->
-        match typeof! value
-        | \Array => value |> map -> query-parser it
-        | \Object =>
-            value
-                |> obj-to-pairs
-                |> map ([key, value]) -> [key, query-parser value]
-                |> pairs-to-obj
-        | \String =>
-            value-parser =
-                | (/^(\-|\+)*\d+$/g.test value) => parse-int
-                | (/^(\-|\+)*(\d|\.)+$/g.test value) => parse-float
-                | value == \true => -> true
-                | value == \false => -> false
-                | value == '' => -> undefined
-                | _ => id
-            value-parser value
-
-    execute-query =
+    # ----------- EXECUTION -----------
+    
+    execute-post =
+        methods: <[post]>
+        patterns: <[/apis/projects/:projectId/documents/:documentId/versions/:version/execute]>
+        request-handler: ensure-authorized (actions, req, res) ->
+            document-id = req.params.document-id
+            version = (parse-int req.params.version)
+            
+            # pattern match the required fields
+            {
+                task-id
+                display
+                data-source-cue
+                query
+                transpilation-language
+                compiled-parameters
+                cache
+            }? = req.body
+            
+            # set the req / res timeout from data-source
+            {timeout}:data-source <- bind-p actions.extract-data-source data-source-cue
+            [req, res] |> each (.connection.set-timeout timeout ? 90000)
+            
+            {result} <- bind-p actions.execute do
+                task-id
+                {} <<< display <<< 
+                    url: req.url
+                    method: req.method
+                    user-agent: req.headers[\user-agent]
+                document-id
+                version
+                data-source-cue
+                query
+                transpilation-language
+                compiled-parameters
+                cache
+                
+            return-p result
+            
+    execute-document =
         methods: <[get]>
         patterns: <[
-            /apis/branches/:branchId/execute
-            /apis/queries/:queryId/execute
-            /apis/branches/:branchId/queries/:queryId/execute
+            /apis/projects/:projectId/documents/:documentId/execute
+            /apis/projects/:projectId/documents/:documentId/versions/:version/execute
         ]>
         optional-params: <[cache display]>
-        request-handler: (req, res) ->
-            {branch-id, query-id, cache, display or \query}? = req.params
+        request-handler: ensure-authorized (actions, req, res) ->
+            {document-id, version, cache, display or \query}? = req.params
             cache = if !!cache then query-parser cache else false
-            op-id = base62.encode Date.now!
+            task-id = base62.encode Date.now!
 
-            # Error -> (Res -> Void) -> Void
-            err, render <- to-callback do ->
+            # get the query from query-id (if present) otherwise get the latest query in the branch-id
+            document <- bind-p do ->
+                if !!document-id and !!version
+                    actions.get-document-version document-id, (parse-int version)
 
-                # get the query from query-id (if present) otherwise get the latest query in the branch-id
-                document <- bind-p do ->
-                    if !!query-id
-                        get-query-by-id query-id
+                else
+                    actions.get-latest-document document-id
 
-                    else
-                        get-latest-query-in-branch branch-id
+            {
+                version
+                data-source-cue
+                transpilation
+                query
+                transformation
+                presentation
+                client-external-libs
+            } = document
 
-                {
-                    query-id
+            # user can override PartialDataSource properties by providing ds- parameters in the query string
+            [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query 
+
+            # req/res timeout
+            {timeout}:data-source <- bind-p actions.extract-data-source {} <<< data-source-cue <<< data-source-cue-params
+            [req, res] |> each (.connection.set-timeout timeout ? 90000)
+
+            # execute the query
+            task-info = document
+            {result} <- bind-p do 
+                actions.execute do 
+                    task-id
+                    url: req.url
+                    method: req.method
+                    user-agent: req.headers[\user-agent]
+                    document-title: document.title
+                    document-id
+                    version
                     data-source-cue
-                    transpilation
                     query
-                    transformation
-                    presentation
-                    client-external-libs
-                } = document
-
-                # user can override PartialDataSource properties by providing ds- parameters in the query string
-                [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query 
-
-                # req/res timeout
-                {timeout}:data-source <- bind-p extract-data-source {} <<< data-source-cue <<< data-source-cue-params
-                [req, res] |> each (.connection.set-timeout timeout ? 90000)
-
-                # execute the query
-                op-info = document
-                {result} <- bind-p do 
-                    ops-manager.execute do 
-                        query-store
-                        data-source
-                        query
-                        transpilation.query
-                        compiled-parameters
-                        cache
-                        op-id
-                        {url: req.url} <<< op-info
-
-                switch display
-                | \query => 
-                    return-p (res) !-> res.send result
-
-                | \transformation => 
-                    transformation-function <- bind-p compile-transformation transformation, transpilation.transformation
-                    return-p (res) !-> res.send (transformation-function result, compiled-parameters)
-
-                | _ => 
-                    return-p (res) !-> 
-                        res.render \public/presentation/presentation.html, {
-                            query-result: result
-                            transpilation
-                            transformation
-                            presentation
-                            compiled-parameters
-                            client-external-libs
-                        }
-
-            if !!err then die res, err else render res
+                    transpilation.query
+                    compiled-parameters
+                    cache
             
+            # returns :: p (res) -> IO ()
+            switch display
+            | \query => 
+                return-p (res) !-> res.send result
+
+            | \transformation => 
+                transformation-function <- bind-p (compile-transformation transformation, transpilation.transformation)
+                return-p (res) !-> res.send (transformation-function result, compiled-parameters)
+
+            | _ => 
+                return-p (res) !-> 
+                    res.render \public/presentation/presentation.html, {
+                        query-result: result
+                        transpilation
+                        transformation
+                        presentation
+                        compiled-parameters
+                        client-external-libs
+                    }
+    
+    # ----------- OPS -----------
+                
+    ops =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/tasks]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.running-tasks!
+
+    cancel-task =
+        methods: <[get]>
+        patterns: <[/apis/projects/:projectId/tasks/:taskId/cancel]>
+        request-handler: ensure-authorized (actions, req) ->
+            actions.cancel-task req.params.task-id
+
+    # ----------- EXPORT -----------
+
     # export a screenshot of the result
-    export-query = 
+    export-document =
         methods: <[get]>
         patterns: <[
-            /apis/branches/:branchId/export
-            /apis/queries/:queryId/export
-            /apis/branches/:branchId/queries/:queryId/export
+            /apis/projects/:projectId/documents/:documentId/versions/:version/export
+            /apis/projects/:projectId/documents/:documentId/export
         ]>
         optional-params: <[cache format width height timeout]>
-        request-handler: (req, res) ->
+        request-handler: ensure-authorized (actions, req, res) ->
             {cache, format or 'png', width or 720, height or 480, timeout}? = req.params
             cache := if !!cache then query-parser cache else false
             {snapshot} = req.query
@@ -399,27 +453,23 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
             # validate format
             text-formats = <[json text]>
             valid-formats = <[png]> ++ text-formats
-            return die res, new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
+            return reject-p new Error "invalid format: #{format}, did you mean json?" if !(format in valid-formats)
 
             # find the query-id & title
-            err, [data-source, document, parsed-query-string] <- to-callback do ->
 
-                # use query-id if present, otherwise get the latest document for the given branch-id
-                {data-source-cue}:document <- bind-p do ->
-                    if req.params.query-id
-                        get-query-by-id req.params.query-id
+            # use query-id if present, otherwise get the latest document for the given branch-id
+            {data-source-cue}:document <- bind-p do ->
+                if req.params.document-id
+                    get-query-by-id req.params.document-id
 
-                    else
-                        get-latest-query-in-branch req.params.branch-id
+                else
+                    get-latest-query-in-branch req.params.branch-id
 
-                # extract & separate data-source-cue from query-string
-                [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
+            # extract & separate data-source-cue from query-string
+            [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
 
-                # extract data-source from data-source-cue (composed with data-source-cue-params extract from querystring above)
-                data-source <- bind-p (extract-data-source {} <<< data-source-cue <<< data-source-cue-params)
-                return-p [data-source, document, parsed-query-string]
-
-            return die res, err if err
+            # extract data-source from data-source-cue (composed with data-source-cue-params extract from querystring above)
+            data-source <- bind-p actions.extract-data-source {} <<< data-source-cue <<< data-source-cue-params
 
             {branch-id, query-id, query-title, query, transformation, transpilation} = document
 
@@ -427,29 +477,27 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
             filename = query-title.replace /\s/g, '_'
 
             if format in text-formats
-                err, transformed-result <- to-callback do ->
-                    [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                    {result} <- bind-p (ops-manager.execute do 
-                        query-store
-                        data-source
-                        query
-                        parsed-query-string
-                        cache
-                        query-id
-                        {document, url: req.url}
-                    )
-                    transformed-result <- bind-p (transform result, transformation, parsed-query-string)
-                    return-p transformed-result
-                return die res, err if err
+                [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
+                {result} <- bind-p (task-manager.execute do 
+                    persistent-store
+                    data-source
+                    query
+                    parsed-query-string
+                    cache
+                    query-id
+                    {document, url: req.url}
+                )
+                transformed-result <- bind-p (transform result, transformation, parsed-query-string)
 
-                download = (extension, content-type, content) ->
-                    res.set \Content-disposition, "attachment; filename=#{filename}.#{extension}"
-                    res.set \Content-type, content-type
-                    res.end content
-
-                match format
-                | \json => download \json, \application/json, transformed-result
-                | \text => download \txt, \text/plain, transformed-result
+                return-p (res) ->
+                    download = (extension, content-type, content) ->
+                        res.set \Content-disposition, "attachment; filename=#{filename}.#{extension}"
+                        res.set \Content-type, content-type
+                        res.end content
+    
+                    match format
+                    | \json => download \json, \application/json, transformed-result
+                    | \text => download \txt, \text/plain, transformed-result
 
             else
                 
@@ -468,139 +516,108 @@ module.exports = (strategies, query-store, ops-manager, {record-req}) ->
                 <- bind-p phantom-page.property \clipRect, {width, height}
 
                 # if this is a snapshot, then get the parameters from the document, otherwise use the querystring
-                err, query-params <- to-callback do -> 
+                query-params <- bind-p do ->
                     if snapshot
                         compile-parameters document.parameters, transpilation.query, {}
                     else 
                         return-p req.query
-                return die res, err if err
 
                 # load the page in phantom
                 <- bind-p phantom-page.open do 
-                    "http://127.0.0.1:#{http-port}/apis/queries/#{query-id}/execute/#{cache}/presentation" +
+                    "http://127.0.0.1:#{http-port}/apis/projects/#{query-id}/execute/#{cache}/presentation" +
                     querystring.stringify query-params
 
                 # give the page time to settle in before taking a screenshot
                 <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
                 <- bind-p phantom-page.render image-file
+                
+                set-timeout do
+                    -> phantom-instance.exit!
+                    250
 
-                if snapshot
-                    res.end "snapshot saved to #{image-file}"
+                return-p (res) ->
+                    if snapshot
+                        res.end "snapshot saved to #{image-file}"
+    
+                    # tell the browser to download the file
+                    else
+                        res.set \Content-disposition, "attachment; filename=#{filename}.png"
+                        res.set \Content-type, \image/png
+                        create-read-stream image-file .pipe res
 
-                # tell the browser to download the file
-                else
-                    res.set \Content-disposition, "attachment; filename=#{filename}.png"
-                    res.set \Content-type, \image/png
-                    create-read-stream image-file .pipe res
+    # ----------- STATIC -----------
 
-                phantom-instance.exit!
+    static-directories =
+        *   methods: <[use]>
+            patterns: <[/public]>
+            request-handler: express.static "#__dirname/public/"
 
-    import-data = 
-        methods: <[post]>
-        patterns: <[/apis/queryTypes/:queryType/import]>
-        request-handler: (req, res) ->
+        *   methods: <[use]>
+            patterns: <[/node_modules]>
+            request-handler: express.static "#__dirname/node_modules/"
+        ...
             
-            upload = (data-source-cue, parser, file) ->
-                {timeout}:data-source <- bind-p (extract-data-source data-source-cue)
-                [req, res] |> each (.connection.set-timeout timeout ? 90000)
-                (require "./query-types/#{req.params.query-type}").import-stream file, parser, data-source, res
-
-            doc = null
-            busboy = new Busboy headers: req.headers
-                ..on \file, (fieldname, file, filename, encoding, mimetype) ->
-                    upload doc.data-source-cue, doc.parser, file
-                        ..then (result) ->
-                            res.send result
-
-                        ..catch (error) ->
-                            res.send error: error.toString!
-                            req.destroy!
-                    
-                ..on \field, (fieldname, val) ->
-                    if "doc" == fieldname
-                        doc := JSON.parse val
-
-            res.set \Content-type, \application/json
-            res.set \Transfer-Encoding, \chunked
-            req.pipe busboy
-
-
-    keywords = 
-        methods: <[post]>
-        patterns: <[/apis/keywords]>
-        request-handler: (req, res) ->
-            [data-source-cue, ...rest] = req.body
-            send do 
-                res 
-                extract-data-source data-source-cue .then ({query-type}:data-source) ->
-                    (require "./query-types/#{query-type}").keywords [data-source] ++ rest
-
-    ops = 
+    # solves 404 errors
+    non-existant-snapshots =
         methods: <[get]>
-        patterns: <[/apis/ops]>
-        request-handler: (req, res) -> 
-            res.send ops-manager.running-ops!
-
-    # returns all the data about a query 
-    query-details = 
+        patterns: <[/public/snapshots/*]>
+        request-handler: (, res) ->
+            res.status \content-type, \image/png
+            res.end!
+            
+    # render index.html
+    index-html =
         methods: <[get]>
         patterns: <[
-            /apis/queries/:queryId 
-            /apis/branches/:branchId/queries/:queryId
+            / 
+            /documents 
+            /documents/:documentId/versions/:version
+            /documents/:documentId/versions/:version/diff
+            /documents/:documentId/versions/:version/tree
+            /creatives
+            /import
+            /ops
         ]>
-        request-handler: (req, res) ->
-            send res, (get-query-by-id req.params.query-id)
+        request-handler: (req, res) !->
+            spy.record-req do 
+                req
+                event-type: \visit
+                
+            res.render \public/index.html
 
-    query-version-history = 
-        methods: <[get]>
-        patterns: <[/apis/queries/:queryId/tree]>
-        request-handler: (req, res) ->
-            err, history <- to-callback get-query-version-history req.params.query-id
-            if err
-                die res, err 
-            else
-                res.send do
-                    history |> map ({query-id, creation-time}:commit) ->
-                        {} <<< commit <<< 
-                            selected: query-id == req.params.query-id
-                            creation-time: moment creation-time .format "ddd, DD MMM YYYY, hh:mm:ss a"
-
-    save-query = 
-        methods: <[post]>
-        patterns: <[/apis/save]>
-        request-handler: (req, res) ->
-            send res, (query-store.save-query req.body)
-
-
-    tags = 
-        methods: <[get]>
-        patterns: <[\/apis/tags]>
-        request-handler :(, res) ->
-            send res, get-tags!
-
-    api-routes =
-        * branches
-        * branch-details
-        * cancel-op
-        * connections
-        * default-document 
-        * delete-branch
-        * delete-query
-        * execute-query
-        * execute-post
-        * export-query
-        * import-data
-        * keywords
-        * ops
-        * query-details
-        * query-version-history
-        * save-query
-        * tags
-
-    session-middlewares ++
-    oauth-routes ++
-    [login-page, parse-query-string, restrict-post-body-size] ++
-    static-directories ++
-    [non-existant-snapshots, index-html] ++
-    redirects ++
-    api-routes
+    [
+        parse-query-string
+        restrict-post-body-size
+        init-express-session
+        init-passport
+        init-passport-session
+        github-oauth-redirect
+        github-oauth-callback
+        login-page
+    ] ++ 
+    static-directories ++ 
+    [
+        non-existant-snapshots
+        index-html
+        
+        insert-project
+        get-project
+        get-projects
+        get-projects-by-user-id
+        update-project
+        delete-project
+        
+        save-document
+        get-document-version
+        get-document-history
+        get-documents-in-a-project
+        delete-document-version
+        delete-document-and-hisotry
+        
+        connections
+        default-document
+        execute-post
+        execute-document
+        ops
+        cancel-task
+    ]

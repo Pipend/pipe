@@ -38,7 +38,7 @@ module.exports =
                 default-database: ''
 
     # default-data-source-cue :: DataSourceCue
-    default-data-source:
+    default-data-source-cue:
         connection-kind: \pre-configured
         query-type: \mongodb
         connection-name: \local
@@ -49,8 +49,8 @@ module.exports =
     # the default transpilation language for the new query dialog
     default-transpilation-language: \babel # other options: javascript, livescript
 
-    # query store
-    query-store:
+    # persistent store
+    persistent-store:
         name: \mongodb
         mongodb:
             connection-string: \mongodb://localhost:27017/queries
@@ -61,9 +61,16 @@ module.exports =
                 server:
                     socket-options:
                         keep-alive: 1
+    
+    # config for unit tests 
+    testing:
+        persistent-store:
+            mongodb: 
+                connection-string: \mongodb://localhost:27017/pipe-test 
+                connection-options: mongodb-connection-options
 
     # memory store
-    cache-store:
+    memory-store:
 
         # select the store to use (in this case, js)
         name: \js
@@ -80,8 +87,8 @@ module.exports =
             expires-in: 2 * 86400 # 2 days
     
     # the js-store uses javascript object for caching & does not persist across application restarts
-    # cache-store:
-    #    type: \js-store
+    # memory-store:
+    #    type: \js
     #    expires-in: 2 * 24 * 60 * 60 # = 2 days
 
     http-port: 4081

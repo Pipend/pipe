@@ -1,0 +1,2 @@
+describe \stores, ->
+    require \./mongodb

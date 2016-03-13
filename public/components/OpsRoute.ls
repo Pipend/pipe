@@ -27,7 +27,7 @@ module.exports = React.create-class do
                     * label: \CPU
                     * label: \Actions
                       sortable: false
-                      render-cell: ({op-id, branch-id, query-id}:cell) ~>
+                      render-cell: ({task-id, branch-id, query-id}:cell) ~>
                         create-fragment do
                             left: SimpleButton do
                                 color: \grey
@@ -37,15 +37,15 @@ module.exports = React.create-class do
                             right: SimpleButton do 
                                 color: \red
                                 style: margin-left: 8px
-                                on-click: ~> $.get "/apis/ops/#{op-id}/cancel"
+                                on-click: ~> $.get "/apis/ops/#{task-id}/cancel"
                                 \Terminate
                     ...
                 rows: @state.ops 
-                    |> map ({op-id, op-info, parent-op-id, cpu, creation-time}) ~>
+                    |> map ({task-id, task-info, parent-task-id, cpu, creation-time}) ~>
 
-                        # extract more information from the op object
-                        {url}? = op-info
-                        {branch-id, data-source-cue, query-id, query-title}? = op-info.document
+                        # extract more information from the task object
+                        {url}? = task-info
+                        {branch-id, data-source-cue, query-id, query-title}? = task-info.document
 
                         seconds = Math.floor cpu / 1000
 
@@ -57,12 +57,12 @@ module.exports = React.create-class do
                               value: creation-time
                             * label: "#{seconds} second#{if seconds > 1 then 's' else ''}"
                               value: cpu
-                            * op-id: op-id
+                            * task-id: task-id
                               branch-id: branch-id
                               query-id: query-id
                             ...
 
-                        row-id: op-id
+                        row-id: task-id
 
                         # use value property as the label (if label is not specified)
                         cells: cells |> map -> 

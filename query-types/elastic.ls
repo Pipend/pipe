@@ -10,7 +10,7 @@ export parse-connection-string = (connection-string) ->
     {host, index, type}
 
 # connections :: (CancellablePromise cp) => a -> cp b
-export connections = ->
+export connections = (project, {}) --> 
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp { keywords: [String], tables: Hash {String: [String]} }
 export keywords = ([data-source]) ->
@@ -20,7 +20,7 @@ export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+# execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
 export execute = (, , {host, index, type}, query, transpilation-language, compiled-parameters) -->
     client = null
 
