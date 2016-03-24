@@ -1,11 +1,12 @@
 {DOM:{div}}:React = require \react
 ace = require \brace
-require \brace/theme/monokai
+require \brace/ext/language_tools
+require \brace/ext/searchbox
 require \brace/mode/livescript
 require \brace/mode/javascript
 require \brace/mode/sql
 require \brace/mode/text
-require \brace/ext/searchbox
+require \brace/theme/monokai
 
 module.exports = React.create-class do
 
@@ -13,42 +14,48 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
+        class-name: ""
         on-click: (->)
         editor-id: \editor
         mode: \ace/mode/livescript
         theme: \ace/theme/monokai
         value: ""
         wrap: false
-        width: 400
-        height: 300
+        style: {}
 
     # render :: a -> ReactElement
     render: ->
         div do 
             id: @props.editor-id
             ref: \editor
-            style: 
-                width: @props.width
-                height: @props.height
+            style: @props.style
+            class-name: "ace-editor #{@props.class-name}"
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
         editor = ace.edit @props.editor-id
-            ..on \change, (, editor) ~> @props?.on-change editor.get-value!
-            ..set-options {enable-basic-autocompletion: true, scroll-past-end: 1.0}
             ..set-show-print-margin false
-            ..commands.on \afterExec ({editor, command, args}) ->
-                range = editor.getSelectionRange!.clone!
-                range.setStart range.start.row, 0
-                line = editor.session.getTextRange range
-                if command.name == "insertstring" and 
-                   ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
-                    editor.execCommand \startAutocomplete 
+            ..set-options {enable-basic-autocompletion: true, scroll-past-end: 1.0}
+
+            # ..commands.on \afterExec ({editor, command, args}) ->
+            #     range = editor.get-selection-range!.clone!
+            #     range.set-start range.start.row, 0
+            #     line = editor.session.get-text-range range
+            #     if command.name == \insertstring and 
+            #        ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
+            #         editor.execCommand \startAutocomplete 
+
             ..session.on \changeMode, (e, session) ~>
-                if "ace/mode/javascript" == session.getMode!.$id
-                    if !!session.$worker
-                        session.$worker.send "setOptions", [ { "-W095": false, "-W025": false, 'esnext': true } ]
+                if session.$worker and \ace/mode/javascript == session.get-mode!.$id
+                    session.$worker.send "setOptions", [{ 
+                        \-W095 : false
+                        \-W025 : false
+                        \esnext : true 
+                    }]
+
+            ..on \change, (, editor) ~> @props?.on-change editor.get-value!
             ..on \click, @props.on-click
+
         @process-props @props
 
     # component-did-update :: Props -> Void

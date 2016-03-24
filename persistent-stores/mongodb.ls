@@ -2,6 +2,8 @@
 require! \base62
 {MongoClient, ObjectID} = require \mongodb
 {any, difference, filter, find-index, last, map, obj-to-pairs, pairs-to-obj, reject, sort, sort-by, unique} = require \prelude-ls
+require! \../exceptions/DocumentSaveException
+
 
 # TODO: move this to prelude-extension
 # reject-keys :: ([String, a] -> Bool) -> Map k, v -> Map k, v
@@ -43,7 +45,9 @@ module.exports = ({connection-string, connection-options}) ->
             {inserted-id} <- bind-p (db.collection collection-name .insert-one object)
             db.collection collection-name .find-one _id: inserted-id
         
-        # --------------- USERS ---------------
+
+        # --------------- users ---------------
+
         # insert-user :: User' -> IO(User)
         insert-user = normalize-ids . (insert-one-record-and-return-it \users)
 
@@ -54,7 +58,9 @@ module.exports = ({connection-string, connection-options}) ->
         get-user-by-oauth-id = (provider, _id) ->
             db.collection \users .find-one \githubProfile.id : _id
 
-        # --------------- PROJECTS ---------------
+
+        # --------------- projects ---------------
+
         # insert-project :: Project' -> IO(Project)
         insert-project = normalize-ids . (insert-one-record-and-return-it \projects)
 
@@ -85,11 +91,13 @@ module.exports = ({connection-string, connection-options}) ->
         delete-project = (project-id) ->
             update-project project-id, status: false
         
-        # --------------- DOCUMENTS ---------------
+
+        # --------------- documents ---------------
+
         # save-document :: Document ->  -> IO(Document)
         save-document = ({document-id, version}:document, assign-next-available-version-on-conflict = false) ->
             # insert a new document
-            if version == \local
+            if version == 0
                 normalize-ids do 
                     insert-one-record-and-return-it do 
                         \documents
@@ -111,7 +119,8 @@ module.exports = ({connection-string, connection-options}) ->
             
                 # show a conflict dialog
                 if (any (.status == true), result) and !assign-next-available-version-on-conflict
-                    new-promise (, rej) -> rej versions-ahead: result |> filter (.status == true)
+                    reject-p do 
+                        new DocumentSaveException (result |> filter (.status == true))
                     
                 # increment version
                 else

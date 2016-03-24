@@ -9,6 +9,7 @@ npm-debug.log
 rough
 migrations/
 node_modules/
+public/build/
 public/snapshots/
 tmp/
 dump.rdb

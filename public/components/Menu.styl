@@ -1,60 +1,66 @@
 @require 'Checkbox'
 
-.query-route, .import-route
-    .menu 
-        // background linear-gradient(#111, #222)
-        background #222
-        border-bottom 1px solid rgba(255,255,255,0.2)
-        box-sizing border-box
-        display flex
-        font-size 0px
+.menu     
+    background #1b1b1b
+    border-bottom 1px solid #3a3a3a
+    box-sizing border-box
+    display flex
+    width 100%
+    height 50px
+    
+    .logo
+        background-image url("/public/images/pipe-logo.svg")
+        background-position center
+        background-repeat no-repeat
+        background-size 100%
+        cursor pointer
+        font-size 28px
+        width 60px
         height 50px
+        margin 0 20px 0 20px
+
+    .buttons 
+        align-items center
+        display flex
         
-        .buttons 
-            align-items center
+        &.left
+            flex-grow 1
+
+        a
+            background #252525
+            border 1px solid #121212
+            box-sizing border-box
+            color #bcbcbc
+            cursor pointer
             display flex
-            a
-                align-items center
-                background #2f2f2f
-                border-bottom 2px solid rgba(0,0,0, 0.5)
-                box-sizing border-box
-                color white
-                cursor pointer
-                display flex
-                font-size 13px
-                font-weight lighter
-                justify-content center
-                letter-spacing 0.08em
-                margin-right 4px
-                padding 0px 15px
-                text-align center
-                text-decoration none
-                text-shadow 0px -1px 0px black
-                user-select none
-                -webkit-user-select none
-                vertical-align top
-                position relative
-                height 40px
+            align-items center
+            justify-content center
+            font-size 12px
+            margin-right 15px
+            padding 0px 8px
+            text-align center
+            text-decoration none
+            user-select none
+            height 30px
 
-                &:active 
-                  -webkit-transform translateY(1px)
-            
-                &.highlight
-                    border-top 2px solid
-
-                    &.green
-                        border-top-color green
-
-                    &.orange
-                        border-top-color  orange
-            
-                &.pressed
-                    background-image: linear-gradient(#2f2f2f, #383838);
-                    -webkit-transform: translateY(1px);
-
-            .separator
-                background #333
-                margin 0px 5px 0px 0px
-                width 1px
-                height 100%
+            &:active 
+              -webkit-transform translateY(1px)
         
+            &.highlight
+                border-top 2px solid
+
+                &.green
+                    border-top-color green
+
+                &.orange
+                    border-top-color  orange
+        
+            &.pressed
+                background-image linear-gradient(#2f2f2f, #383838)
+                -webkit-transform translateY(1px)
+    
+    .user
+        background-color #171717
+        border-right 1px solid #121212
+        width 50px
+        height 48px

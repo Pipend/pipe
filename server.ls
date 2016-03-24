@@ -6,7 +6,8 @@ require! \express
 
 # QueryStore
 err, persistent-store <- to-callback do 
-    (require "./persistent-stores/#{config.persistent-store.name}") config.persistent-store[config.persistent-store.name]
+    (require "./persistent-stores/#{config.persistent-store.name}") do 
+        config.persistent-store[config.persistent-store.name]
 
 if err 
     console.log "unable to connect to query store: #{err.to-string!}"
@@ -17,7 +18,8 @@ else
 
 # CacheStore
 err, memory-store <- to-callback do 
-    (require "./memory-stores/#{config.memory-store.name}") config.memory-store[config.memory-store.name]
+    (require "./memory-stores/#{config.memory-store.name}") do 
+        config.memory-store[config.memory-store.name]
 
 if err 
     console.log "unable to connect to cache store: #{err.to-string!}"
@@ -38,9 +40,11 @@ spy =
         record: (event-object) -> return-p [event-object]
         record-req: (req, event-object) -> return-p [event-object]
 
-{public-actions, authentication-dependant-actions, authorization-dependant-actions} = (require \./actions) do 
-    persistent-store
-    task-manager
+{
+    public-actions
+    authentication-dependant-actions
+    authorization-dependant-actions
+} = (require \./actions) persistent-store, task-manager
 
 routes = (require \./routes) do 
     config.authentication.strategies

@@ -1,0 +1,40 @@
+@require 'Menu'
+@require 'Project'
+
+.project-list-route
+    display flex
+    flex-direction column
+    align-items center
+
+    .project-list
+        display flex
+        flex-direction column
+        width 900px
+
+        .search
+            align-self flex-end
+            background none 
+            border none
+            border-bottom 1px solid #3a3a3a
+            color #959595
+            font-size 16px
+            margin 35px 0px
+            padding 7px 0px
+            outline none
+            text-indent 24px
+            width 230px
+
+        .projects 
+            display flex
+            flex-wrap wrap
+
+            .project
+                display inline-block
+                width 440px
+                margin-bottom 20px
+                
+                &:nth-child(2n + 1)
+                    margin-right 10px
+
+                &:nth-child(2n)
+                    margin-left 10px
