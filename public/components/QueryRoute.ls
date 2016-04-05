@@ -37,6 +37,7 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
+    sharepoint: require \../query-types/sharepoint/ui-protocol.ls
 {compile-parameters, compile-transformation, compile-presentation, generate-uid}:pipe-web-client = 
     (require \pipe-web-client) end-point: "http://#{window.location.host}"
 

@@ -55,4 +55,13 @@ sequence-p = ([p, ...ps]) ->
     as <- bind-p (sequence-p ps)
     [a] ++ as
 
-module.exports = {with-cancel-and-dispose, bind-p, return-p, from-error-value-callback, to-callback, new-promise, sequence-p}
+module.exports = {
+    Promise
+    bind-p
+    from-error-value-callback
+    new-promise
+    return-p
+    sequence-p
+    to-callback
+    with-cancel-and-dispose
+}

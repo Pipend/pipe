@@ -12,6 +12,7 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
+    sharepoint: require \../query-types/sharepoint/ui-protocol.ls
 
 module.exports = React.create-class do
 
@@ -49,7 +50,7 @@ module.exports = React.create-class do
                 partial-data-source-cue-component
                 complete-data-source-cue-component
             }? = ui-protocol[query-type].data-source-cue-popup-settings!
-            [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it            
+            [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it
 
         div do 
             class-name: 'data-source-cue-popup popup'
