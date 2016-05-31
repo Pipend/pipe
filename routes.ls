@@ -146,13 +146,13 @@ module.exports = (query-store, ops-manager, {record-req}) ->
     redirects = 
         *   methods: <[get]>
             patterns: <[/branches/:branchId]>
-            request-handler: (req, res) -> 
-                render-query res, get-latest-query-in-branch req.params.branch-id
+            request-handler: (req, res) ->
+                render-query res, (get-latest-query-in-branch req.params.branch-id)
 
         *   methods: <[get]>
             patterns: <[/queries/:queryId]>
             request-handler: (req, res) ->
-                render-query res, get-query-by-id req.params.query-id
+                render-query res, (get-query-by-id req.params.query-id)
         ...
     
     # send :: ExpressResponse -> p object -> ()
@@ -544,7 +544,6 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         patterns: <[/apis/save]>
         request-handler: (req, res) ->
             send res, (query-store.save-query req.body)
-
 
     tags = 
         methods: <[get]>
