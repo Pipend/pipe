@@ -112,10 +112,10 @@ module.exports = ({connection-string, connection-options}) ->
 
             # get-latest-query-in-branch :: String -> p Query
             get-latest-query-in-branch: (branch-id) ->
-                results <- bind-p aggregate-queries do
-                    * $match: {branch-id,status: true}
-                    * $sort: _id: -1
-
+                results <- bind-p do
+                    aggregate-queries do
+                        * $match: {branch-id, status: true}
+                        * $sort: _id: -1
                 if results.length > 0
                     return-p results.0
 
@@ -187,7 +187,7 @@ module.exports = ({connection-string, connection-options}) ->
 
             # save-query :: Document -> p InsertedDocument
             save-query: ({branch-id, parent-id}:document) ->
-
+                
                 # get the latest query in the branch
                 results <- bind-p aggregate-queries do
                     * $match:
@@ -209,7 +209,7 @@ module.exports = ({connection-string, connection-options}) ->
                     new-promise (, rej) -> rej {queries-in-between}
                 
                 else
-                    [record] <- bind-p insert-query do
+                    {ops: [record]} <- bind-p insert-query do
                         {} <<< document <<< {creation-time: new Date!.get-time!, status: true}
                         {w: 1}
                     return-p record

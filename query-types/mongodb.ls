@@ -189,12 +189,10 @@ execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finaliz
 # execute-mongo-database-query-function :: (CancellablePromise cp) => DataSource -> (MongoDatabase -> p result) -> cp result
 export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function) -->
 
-    # establish a connection to the server
-    server = new Server host, port
-    mongo-client = new MongoClient server, {native_parser: true}
+    mongo-client = new MongoClient!
     mongo-client <- bind-p with-cancel-and-dispose do 
-        (from-error-value-callback mongo-client.open, mongo-client)!
-        -> mongo-client.close!; return-p \killed-early
+        (from-error-value-callback mongo-client.connect, mongo-client) "mongodb://#{host}:#{port}/#{database}"
+        -> return-p \killed-early
 
     # execute the query
     db = null
