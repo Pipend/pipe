@@ -9,11 +9,12 @@ pg = require \pg
     ..types.set-type-parser 116642, integer-type-parser
 
 # execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
-execute-sql = ({user, password, host, port, database}, query) -->
+execute-sql = ({user, password, host, port, database, ssl = false}:connection, query) -->
+    console.log('connection', connection)
     client = null
 
     execute-sql-promise = new-promise (res, rej) ->
-        client := new pg.Client "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}"
+        client := new pg.Client "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}" + (if ssl then "?ssl=true" else "")
         client.connect (err) ->
             return rej err if !!err 
             err, {rows}? <- client.query query 
@@ -26,8 +27,9 @@ execute-sql = ({user, password, host, port, database}, query) -->
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
-    [, user, password, host, , port, database]:result? = connection-string.match /postgres\:\/\/([a-zA-Z0-9\_]*)\:([a-zA-Z0-9\_]*)\@([a-zA-Z0-9\_\.]*)(\:(\d*))?\/(\w*)/
-    {user, password, host, port, database}
+    [, user, password, host, , port, database, queryString]:result? = connection-string.match /postgres\:\/\/([a-zA-Z0-9\_]*)\:([a-zA-Z0-9\_]*)\@([a-zA-Z0-9\_\.\-]*)(\:(\d*))?\/(\w*)(\?.*)?/
+    ssl = !!queryString && queryString.indexOf('ssl=true') > -1
+    {user, password, host, port, database, ssl}
 
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = ->
@@ -41,7 +43,7 @@ export connections = ->
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source, transpilation-language]) ->
-    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns where table_schema = 'public'")
+    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns")
     tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
     returnP do
         keywords: <[SELECT GROUP BY ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]>

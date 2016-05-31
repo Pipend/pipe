@@ -147,12 +147,12 @@ module.exports = (query-store, ops-manager, {record-req}) ->
         *   methods: <[get]>
             patterns: <[/branches/:branchId]>
             request-handler: (req, res) -> 
-                render-query get-latest-query-in-branch req.params.branch-id
+                render-query res, get-latest-query-in-branch req.params.branch-id
 
         *   methods: <[get]>
             patterns: <[/queries/:queryId]>
             request-handler: (req, res) ->
-                render-query get-query-by-id req.params.query-id
+                render-query res, get-query-by-id req.params.query-id
         ...
     
     # send :: ExpressResponse -> p object -> ()
