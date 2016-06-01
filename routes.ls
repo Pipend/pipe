@@ -634,7 +634,6 @@ module.exports = (
         login-page
     ] ++ 
     static-directories ++ 
-    redirects ++
     [
         non-existant-snapshots
         index-html
@@ -659,4 +658,4 @@ module.exports = (
         execute-document
         ops
         cancel-task
-    ]
+    ] ++ redirects
