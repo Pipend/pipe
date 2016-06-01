@@ -1,9 +1,11 @@
-{create-class, create-factory, DOM:{a, div, input}}:React = require \react
-{find-DOM-node} = require \react-dom
-Checkbox = create-factory require \./Checkbox.ls
 {difference, each, filter, map, unique, sort} = require \prelude-ls
 {key} = require \keymaster
-{cancel-event} = require \../utils.ls
+{create-class, create-factory, DOM:{a, div, input}}:React = require \react
+{find-DOM-node} = require \react-dom
+require! \react-router
+Link = create-factory react-router.Link
+Checkbox = create-factory require \./Checkbox.ls
+{cancel-event} = require \../lib/utils.ls
 
 module.exports = React.create-class do
 
@@ -11,7 +13,19 @@ module.exports = React.create-class do
 
     # get-default-props :: a -> Props
     get-default-props: ->
-        items: [] # [{pressed :: Boolean, enabled :: Boolean, action :: (->), hotkey :: String, label :: String, highlight :: Boolean, type :: String}]
+        on-logo-click: (->)
+        /*
+        MenuItem ::
+            pressed :: Boolean
+            disabled :: Boolean
+            action :: (->)
+            hotkey :: String
+            label :: String
+            highlight :: Boolean
+            type :: String
+        */
+        items-left: [] # [MenuItem]
+        items-right: [] # [MenuItem]
 
     # render :: a -> ReactElement
     render: ->
@@ -19,66 +33,76 @@ module.exports = React.create-class do
             id: \menu
             class-name: \menu
 
-            # CHILDREN (logo)
-            @props.children
+            # LOGO
+            Link do 
+                id: \logo
+                class-name: \logo
+                to: \/
 
-            # BUTTONS
-            div do 
-                class-name: \buttons
-                @props.items |> map ({pressed, enabled, href, action, hotkey, label, highlight, type}:item) ~>
+            # MENU ITEMS
+            div class-name: 'buttons left',
+                @props.items-left |> map @render-item
 
-                    # using ref for accessing the anchor tag from action listener
-                    ref = label.replace /\s/g, \- .to-lower-case!
-                    
-                    # action-listener :: Event -> Boolean
-                    action-listener = (e) ~>
-                        set-timeout do 
-                            ~>
-                                {offset-left, offset-width}:anchor-tag = find-DOM-node @refs[ref]
-                                action offset-left, offset-width
-                            0
-                        cancel-event e
+            # MENU ITEMS
+            div class-name: 'buttons righ',
+                @props.items-right |> map @render-item
+            
+            # USER
+            div class-name: \user
 
-                    # connect the action-listener to hotkey
-                    if !!hotkey
-                        key.unbind hotkey
-                        if enabled
-                            key hotkey, action-listener 
-                    
-                    # MENU ITEM
-                    a do 
-                        {
-                            id: ref
-                            class-name: if pressed then \pressed else ''
-                            key: ref
-                            ref: ref
-                            style: 
-                                border-top: if !!highlight then "1px solid #{highlight}"  else ""
-                                opacity: if !enabled then 0.5 else 1
-                        } <<< (
+    render-item: ({pressed, disabled, href, action, hotkey, label, highlight, type}) ->
+        
+        # using ref for accessing the anchor tag from action listener
+        ref = label.replace /\s/g, \- .to-lower-case!
+        
+        # action-listener :: Event -> Boolean
+        action-listener = (e) ~>
+            set-timeout do 
+                ~>
+                    {offset-left, offset-width}:anchor-tag = find-DOM-node @refs[ref]
+                    action offset-left, offset-width
+                0
+            cancel-event e
 
-                            # (href, target: blank) has higher precedence over on-click
-                            # popup blocker does not like window.open
-                            if enabled
-                                
-                                if !!href
-                                    href: href
-                                    target: \_blank
-                                    
-                                else
-                                    on-click: action-listener
+        # connect the action-listener to hotkey
+        if hotkey
+            key.unbind hotkey
+            if !disabled
+                key hotkey, action-listener 
+        
+        # MENU ITEM
+        a do 
+            {
+                id: ref
+                class-name: if pressed then \pressed else ''
+                key: ref
+                ref: ref
+                style: 
+                    border-top: if !!highlight then "1px solid #{highlight}"  else ""
+                    opacity: if disabled then 0.5 else 1
+            } <<< (
 
-                            else
-                                {}
-                        )
+                # (href, target: blank) has higher precedence over on-click
+                # popup blocker does not like window.open
+                if disabled
+                    {}
 
-                        # CHECKBOX
-                        match type
-                            | \toggle => React.create-element Checkbox, {checked: item.toggled}
-
-                        # ITEM TEXT
-                        label
+                else
+                    if href
+                        href: href
+                        target: \_blank
                         
+                    else
+                        on-click: action-listener
+            )
+
+            # CHECKBOX
+            match type
+                | \toggle => React.create-element Checkbox, {checked: item.toggled}
+
+            # ITEM TEXT
+            label
+    
     # remove key listener for deleted menu items
     # component-will-receive-props :: Props -> Void
     component-will-receive-props: (props) !->

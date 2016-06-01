@@ -69,13 +69,12 @@ module.exports = class TaskManager extends EventEmitter
         compiled-parameters
         cache # :: Boolean
     ) ->
-        
+
         # throw error if task-id is already present in list
         if ((@task ? []) |> find (task) ->
             task-id == task.task-id and 
             task.cancellable-promise.is-pending!)
             return reject-p new Error "task with #{task-id} already exists"
-        
         
         # the cache key
         hash = md5 JSON.stringify {project-id, data-source, query, transpilation-language, compiled-parameters}

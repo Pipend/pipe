@@ -3,6 +3,7 @@
 {is-equal-to-object} = require \prelude-extension
 require! \./exceptions/UnAuthenticatedException
 require! \./exceptions/UnAuthorizedException
+{compile-and-execute} = require \transpilation
 
 /* 
 # Types
@@ -151,7 +152,7 @@ module.exports = (store, task-manager) ->
             
             # clean-data-source :: UncleanDataSource -> DataSource
             clean-data-source = reject-keys (.0 in <[connectionKind complete]>)
-            
+
             return-p clean-data-source do 
                 match data-source-cue?.connection-kind
                     | \connection-string => 
@@ -248,9 +249,9 @@ module.exports = (store, task-manager) ->
                 compiled-parameters # :: object
                 cache # :: Boolean
             ) -->
-                
+
                 # DRY
-                task-manager-execute = (data-source) ->
+                task-manager-execute = (data-source, query, transpilation-language, compiled-parameters) ->
                     task-manager.execute do
                         project-id
                         {user-id, user-role: role}
@@ -277,21 +278,31 @@ module.exports = (store, task-manager) ->
                 
                 if role in <[owner admin collaborator]>
                     data-source <- bind-p (extract-data-source data-source-cue)
-                    task-manager-execute data-source
+                    task-manager-execute data-source, query, transpilation-language, compiled-parameters
                   
                 else
+                    
                     # guests can only execute the original, unmodified document
                     original-document <- bind-p (store.get-document-version document-id, version)
-                    if !!original-document
+
+                    if original-document
+
+                        # guests cannot execute against private dataSource
                         data-source <- bind-p (extract-data-source original-document.data-source-cue)
+
                         if (project.permission in <[publicExecutable publicReadableAndExecutable]>) and 
                            (data-source.permission == \publicExecutable)
-                            task-manager-execute data-source
-                                
+                            {query, transpilation, parameters} = original-document
+                            compiled-parameters <- bind-p (compile-and-execute parameters, transpilation.query)
+                            task-manager-execute data-source, query, transpilation.query, compiled-parameters
+
                         else
+
+                            # a guest executing a modified private document 
                             reject-p new UnAuthorizedException!
                             
                     else
+                        
                         # a guest executing a non-existant document 
                         reject-p new UnAuthorizedException!
 

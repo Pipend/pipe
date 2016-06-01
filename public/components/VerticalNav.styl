@@ -1,0 +1,69 @@
+.vertical-nav  
+  position absolute
+  display flex
+  width 290px
+  height 100%
+
+  .tabs
+    display flex
+    position absolute
+
+    .tab, .placeholder
+      border-bottom 1px solid #3a3a3a
+      box-sizing border-box
+      height 40px
+
+    .tab
+      color #bcbcbc
+      cursor pointer
+      font-size 12px
+      padding 0px 20px
+      text-transform capitalize
+      display flex
+      align-items center
+      user-select none
+      white-space nowrap
+      &.active
+        background-color #252525
+        border-bottom none
+
+    .placeholder
+      flex-grow 1
+
+  .content-container
+    background-color #252525
+    box-sizing border-box
+    width 250px
+
+  &.left 
+
+    .tabs
+      flex-direction row-reverse
+      transform-origin 100% 0px
+      transform translateX(-100%) rotateZ(-90deg) 
+
+      .tab.active
+        border-left 1px solid #3a3a3a
+        
+        &:not(:first-child)
+          border-right 1px solid #3a3a3a
+
+    .content-container
+      border-right 1px solid #171717
+      margin-left 40px
+
+  &.right 
+      
+      .tabs
+        transform-origin 0 0
+        transform translateX(40px) rotateZ(90deg)
+        left 250px
+      
+        .tab.active
+          border-right 1px solid #3a3a3a
+          
+          &:not(:first-child)
+            border-left 1px solid #3a3a3a
+        
+      .content-container
+        border-left 1px solid #3a3a3a
