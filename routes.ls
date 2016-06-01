@@ -5,7 +5,8 @@ require! \express-session
 RedisSessionStore = (require \connect-redis) express-session
 require! \passport
 GitHubStrategy = require \passport-github2 .Strategy
-{camelize, each, id, map, Obj, obj-to-pairs, pairs-to-obj, partition} = require \prelude-ls
+{camelize, each, id, last, map, Obj, obj-to-pairs, pairs-to-obj, partition} = require \prelude-ls
+require! \./exceptions/DocumentSaveException
 require! \./exceptions/UnAuthenticatedException
 require! \./exceptions/UnAuthorizedException
 {compile-transformation} = require \pipe-transformation
@@ -64,34 +65,44 @@ module.exports = (
         ex, result <- to-callback p
         if ex
             if ex instanceof UnAuthorizedException
-                response.send 'You must be a Collaborator'
+                response.status 500 .send "You must be a Collaborator"
+
             else if ex instanceof UnAuthenticatedException 
-                response.redirect '/login'
+                response.redirect \/login
+
+            else if ex instanceof DocumentSaveException
+                response.status 500 .send ex.versions-ahead
+
             else
-                response.send "Unknown error: #{ex}"
+                response.status 500 .send "Unknown error: #{ex}"
 
         else
-            if 'Function' == typeof! result
+            if \Function == typeof! result
                 result response
+
             else
                 response.send result
 
     ensure-authorized = (f, req, res) -->
         handle do 
-            (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) -> f actions, req, res
+            (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) -> 
+                f actions, req, res
             res
 
     ensure-authenticated = (f, req, res) -->
         handle do 
-            (authentication-dependant-actions req.user?._id).then (actions) --> f actions, req, res
+            (authentication-dependant-actions req.user?._id).then (actions) --> 
+                f actions, req, res
             res
 
     no-security = (f, req, res) -->
         handle do
-            public-actions!.then (actions) -> f actions, req, res
+            public-actions!.then (actions) -> 
+                f actions, req, res
             res
 
-    ## ---------- MIDDLEWARE -----------
+
+    ## ---------- middleware -----------
     
     parse-query-string =
         methods: <[use]>
@@ -119,14 +130,15 @@ module.exports = (
             else
                 next!
 
-    # ----------- AUTH -----------
+
+    # ----------- auth -----------
     
     passport
         ..use new GitHubStrategy strategies.github, (, , profile, callback) ->
             to-callback do
                 do ->
                     {get-user-by-oauth-id, insert-user} <- bind-p public-actions!
-                    user <- bind-p (get-user-by-oauth-id \github, profile._json.id )
+                    user <- bind-p (get-user-by-oauth-id \github, profile._json.id)
                     if user 
                         return-p user
                     else
@@ -157,6 +169,20 @@ module.exports = (
         methods: <[use]>
         request-handler: passport.session!
 
+    fake-user = 
+        methods: <[use]>
+        request-handler: (req, res, next) ->
+            if req.query.user-id and !req.session.passport
+                req.session <<< 
+                    passport: 
+                        user: 
+                            _id: req.query.user-id
+
+            if req.session.passport
+                req.user = req.session.passport.user
+                
+            next!
+
     login-page =
         methods: <[get post]>
         patterns: <[/login]>
@@ -181,7 +207,8 @@ module.exports = (
                     failure-redirect: \/login
                     success-redirect: \/
 
-    # ----------- PROJECTS -----------
+
+    # ----------- projects -----------
     
     # create a new project for the user-id (owner)
     # requires user to be only authenticated 
@@ -224,7 +251,8 @@ module.exports = (
             console.log \DELETE
             actions.delete-project!
     
-    # ----------- DOCUMENTS -----------
+
+    # ----------- documents -----------
 
     save-document =
         methods: <[post]>
@@ -269,7 +297,8 @@ module.exports = (
         request-handler: ensure-authorized (actions, req) ->
             actions.delete-document-version req.params.document-id, (parse-int req.params.version)
 
-    # ----------- EDITOR -----------
+
+    # ----------- editor -----------
     
     # returns a list of all the databases/collections or databases/tables (Depending on queryType)
     # used in the dropdown
@@ -307,7 +336,8 @@ module.exports = (
                 extract-data-source data-source-cue .then ({query-type}:data-source) ->
                     (require "./query-types/#{query-type}").keywords [data-source] ++ rest
 
-    # ----------- EXECUTION -----------
+
+    # ----------- execution -----------
     
     execute-post =
         methods: <[post]>
@@ -331,7 +361,7 @@ module.exports = (
             {timeout}:data-source <- bind-p actions.extract-data-source data-source-cue
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
             
-            {result} <- bind-p actions.execute do
+            actions.execute do
                 task-id
                 {} <<< display <<< 
                     url: req.url
@@ -344,8 +374,6 @@ module.exports = (
                 transpilation-language
                 compiled-parameters
                 cache
-                
-            return-p result
             
     execute-document =
         methods: <[get]>
@@ -421,7 +449,8 @@ module.exports = (
                         client-external-libs
                     }
     
-    # ----------- OPS -----------
+
+    # ----------- ops -----------
                 
     ops =
         methods: <[get]>
@@ -435,7 +464,8 @@ module.exports = (
         request-handler: ensure-authorized (actions, req) ->
             actions.cancel-task req.params.task-id
 
-    # ----------- EXPORT -----------
+
+    # ----------- export -----------
 
     # export a screenshot of the result
     export-document =
@@ -543,9 +573,10 @@ module.exports = (
                     else
                         res.set \Content-disposition, "attachment; filename=#{filename}.png"
                         res.set \Content-type, \image/png
-                        create-read-stream image-file .pipe res
+                        create-read-stream image-filgulpe .pipe res
 
-    # ----------- STATIC -----------
+
+    # ----------- static -----------
 
     static-directories =
         *   methods: <[use]>
@@ -570,13 +601,9 @@ module.exports = (
         methods: <[get]>
         patterns: <[
             / 
-            /documents 
-            /documents/:documentId/versions/:version
-            /documents/:documentId/versions/:version/diff
-            /documents/:documentId/versions/:version/tree
-            /creatives
-            /import
-            /ops
+            /projects/:projectId/documents
+            /projects/:projectId/documents/new
+            /projects/:projectId/documents/:documentId/versions/:version
         ]>
         request-handler: (req, res) !->
             spy.record-req do 
@@ -585,12 +612,23 @@ module.exports = (
                 
             res.render \public/index.html
 
+    redirects = 
+        *   methods: <[get]>
+            patterns: <[/projects/:projectId/documents/:documentId]>
+            request-handler: ensure-authorized (actions, req, res) ->
+                versions <- bind-p actions.get-document-history req.params.document-id
+                {version} = last versions
+                (res) ->
+                    res.redirect "/projects/#{req.params.project-id}/documents/#{req.params.document-id}/versions/#{version}"
+        ...
+
     [
         parse-query-string
         restrict-post-body-size
         init-express-session
         init-passport
         init-passport-session
+        # fake-user
         github-oauth-redirect
         github-oauth-callback
         login-page
@@ -620,4 +658,4 @@ module.exports = (
         execute-document
         ops
         cancel-task
-    ]
+    ] ++ redirects
