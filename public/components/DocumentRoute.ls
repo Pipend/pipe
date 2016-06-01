@@ -11,6 +11,9 @@ require! \notifyjs
     map, sort, sort-by, sum, round, obj-to-pairs, pairs-to-obj, reject, take, unique, unique-by, Obj
 } = require \prelude-ls
 
+require! \base62
+generate-uid = -> base62.encode Date.now!
+
 {is-equal-to-object} = require \prelude-extension
 
 # utils
@@ -433,56 +436,57 @@ module.exports = create-class do
         #         compiled-parameters: compiled-parameters
         #         data-source-cue: data-source-cue
 
-        # # DIALOGS
-        # if !!dialog
-        #     div class-name: \dialog-container,
-        #         match dialog
-        #         | \new-query =>
-        #             NewQueryDialog do 
-        #                 initial-data-source-cue: data-source-cue
-        #                 initial-transpilation-language: transpilation-language
-        #                 on-create: (data-source-cue, transpilation-language) ~>
-        #                     (pipe-web-client.load-default-document data-source-cue, transpilation-language)
-        #                         .then (document) ~> @on-document-load document, document
-        #                         .catch (err) ~> alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language} (#{err})"
-        #                         .then ~> @set-state dialog: null
+        # DIALOGS
+        console.log \state.dialog, @state.dialog
+        if !!@state.dialog
+            div class-name: \dialog-container,
+                match @state.dialog
+                | \new-query =>
+                    NewQueryDialog do 
+                        initial-data-source-cue: @state.data-source-cue
+                        initial-transpilation-language: @state.transpilation-language
+                        on-create: (data-source-cue, transpilation-language) ~>
+                            (pipe-web-client.load-default-document data-source-cue, transpilation-language)
+                                .then (document) ~> @on-document-load document, document
+                                .catch (err) ~> alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language} (#{err})"
+                                .then ~> @set-state dialog: null
 
-        #         | \save-conflict =>
-        #             ConflictDialog do 
-        #                 versions-ahead: versions-ahead
-        #                 on-cancel: ~> @set-state dialog: null, versions-ahead: null
-        #                 on-resolution-select: (resolution) ~>
-        #                     uid = generate-uid!
-        #                     match resolution
-        #                     | \new-commit => 
-        #                         @save-document {} <<< @document-from-state! <<< {
-        #                             version: uid
-        #                             parent-id: versions-ahead.0
-        #                             document-id
-        #                             tree-id
-        #                         }
-        #                     | \fork => 
-        #                         @save-document {} <<< @document-from-state! <<< {
-        #                             version: uid
-        #                             parent-id: version
-        #                             document-id: uid
-        #                             tree-id
-        #                         }
-        #                     | \reset => @set-state (@state-from-document remote-document)
-        #                     @set-state dialog: null, versions-ahead: null
+                | \save-conflict =>
+                    ConflictDialog do 
+                        versions-ahead: versions-ahead
+                        on-cancel: ~> @set-state dialog: null, versions-ahead: null
+                        on-resolution-select: (resolution) ~>
+                            uid = generate-uid!
+                            match resolution
+                            | \new-commit => 
+                                @save-document {} <<< @document-from-state! <<< {
+                                    version: uid
+                                    parent-id: versions-ahead.0
+                                    document-id
+                                    tree-id
+                                }
+                            | \fork => 
+                                @save-document {} <<< @document-from-state! <<< {
+                                    version: uid
+                                    parent-id: version
+                                    document-id: uid
+                                    tree-id
+                                }
+                            | \reset => @set-state (@state-from-document remote-document)
+                            @set-state dialog: null, versions-ahead: null
 
-        #         | \settings =>
-        #             SettingsDialog do
-        #                 initial-urls: @state.client-external-libs
-        #                 initial-transpilation-language: transpilation-language
-        #                 on-change: ({urls, transpilation-language}) ~>
-        #                     @load-client-external-libs urls, @state.client-external-libs
-        #                     @set-state do
-        #                         client-external-libs: urls
-        #                         dialog: null
-        #                         transpilation-language: transpilation-language
-        #                     @save-to-client-storage-debounced!
-        #                 on-cancel: ~> @set-state dialog: null
+                | \settings =>
+                    SettingsDialog do
+                        initial-urls: @state.client-external-libs
+                        initial-transpilation-language: transpilation-language
+                        on-change: ({urls, transpilation-language}) ~>
+                            @load-client-external-libs urls, @state.client-external-libs
+                            @set-state do
+                                client-external-libs: urls
+                                dialog: null
+                                transpilation-language: transpilation-language
+                            @save-to-client-storage-debounced!
+                        on-cancel: ~> @set-state dialog: null
 
     # React class method
     # get-initial-state :: a -> UIState
@@ -558,7 +562,16 @@ module.exports = create-class do
     load: (props) !->
         {project-id, document-id, version}? = props.params
 
-        if document-id and typeof version == \string
+        console.log \load-props-params=, props.params
+
+        if !!document-id 
+
+            if typeof! version == \Undefined
+                # handled by express, redirects the user to the latest version
+                # eg: documents/:documentId
+                throw  "not implemented at client level, (refresh the page)"
+
+            version = parse-int version
             
             # local-document :: Document
             local-document = client-storage.get-document do
@@ -577,7 +590,7 @@ module.exports = create-class do
 
             # eg: documents/:documentId/versions/0
             if version == 0
-                
+
                 # we can use the local-document.data-source-cue to get the default document (and use it as remote document)
                 if local-document
                     {data-source-cue, transpilation-language}? = @state-from-document local-document
@@ -601,16 +614,13 @@ module.exports = create-class do
 
         else
 
-            # handled by express, redirects the user to the latest version
-            # eg: documents/:documentId
-            if document-id 
-                throw  "not implemented at client level, (refresh the page)"
-
             # this is the url used by 'New Query' button
             # it redirects user to documents/:documentId/versions/0 
             # eg: new/
-            else
-                @history.replace-state null, "/documents/local#{generate-uid!}/versions/0"
+            react-router.browser-history.replace do
+                pathname: "/projects/#{project-id}/documents/local#{generate-uid!}/versions/0"
+                query: {}
+                state: null
 
     # React component life cycle method
     # component-did-mount :: a -> Void
@@ -687,16 +697,18 @@ module.exports = create-class do
 
     # # React component life cycle method (invoked before props are set)
     # # component-will-receive-props :: Props -> Void
-    # component-will-receive-props: (props) !->
+    component-will-receive-props: (props) !->
         
-    #     # return if branch & query id did not change
-    #     return if props.params.document-id == @props.params.document-id and props.params.version == @props.params.version
+        console.log \component-will-receive-props, props
 
-    #     # return if the document with the new changes to props is already loaded
-    #     # after saving the document we update the url (this prevents reloading the saved document from the server)
-    #     return if props.params.document-id == @state.document-id and props.params.version == @state.version
+        # return if branch & query id did not change
+        return if props.params.document-id == @props.params.document-id and props.params.version == @props.params.version
 
-    #     @load props
+        # return if the document with the new changes to props is already loaded
+        # after saving the document we update the url (this prevents reloading the saved document from the server)
+        return if props.params.document-id == @state.document-id and props.params.version == @state.version
+
+        @load props
 
     # # React component life cycle method (invoked after the render function)
     # # updates the list of auto-completers if the data-source-cue has changed

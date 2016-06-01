@@ -15,6 +15,8 @@ module.exports = create-class do
             Menu do 
                 items-left: 
                     *   label: 'New Project'
+                        action: ->
+                            console.log arguments
                     ...
 
             div class-name: \project-list,
