@@ -85,7 +85,7 @@ module.exports = React.create-class do
     getJSON: (name, query-string) ->
         @[name].abort! if !!@[name]
         new Promise (res, rej) ~>
-            @[name] = $.getJSON \/apis/queryTypes/mongodb/connections, query-string
+            @[name] = $.getJSON "/apis/projects/#{@props.project-id}/queryTypes/mongodb/connections", query-string
                 ..done -> res it
                 ..fail ({response-text}) -> rej response-text
 
@@ -99,7 +99,8 @@ module.exports = React.create-class do
 
     # component-did-mount :: a -> Void
     component-did-mount: !->
-        ($.getJSON \/apis/queryTypes/mongodb/connections, '') .done ({connections or []}) ~> @set-state {connections}
+        
+        ($.getJSON "/apis/projects/#{@props.project-id}/queryTypes/mongodb/connections", '') .done ({connections or []}) ~> @set-state {connections}
 
         # load databases & collections if the connection-name is defined
         if !!@props.data-source-cue?.connection-name and (@props.data-source-cue.connection-name.index-of '- (') != 0

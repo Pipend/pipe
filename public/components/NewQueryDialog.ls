@@ -34,6 +34,7 @@ module.exports = create-class do
             # DATASOURCE POPUP
             DataSourceCuePopup do
                 data-source-cue: @state.data-source-cue
+                project-id: @props.project-id
                 left: -> 0
                 on-change: (data-source-cue) ~> @set-state data-source-cue: {} <<< data-source-cue <<< complete: true
 

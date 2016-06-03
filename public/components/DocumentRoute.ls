@@ -440,11 +440,12 @@ module.exports = create-class do
         console.log \state.dialog, @state.dialog
         if !!@state.dialog
             div class-name: \dialog-container,
-                match @state.dialog
+                match @state.dialog 
                 | \new-query =>
                     NewQueryDialog do 
                         initial-data-source-cue: @state.data-source-cue
                         initial-transpilation-language: @state.transpilation-language
+                        project-id: @props.params.project-id
                         on-create: (data-source-cue, transpilation-language) ~>
                             (pipe-web-client.load-default-document data-source-cue, transpilation-language)
                                 .then (document) ~> @on-document-load document, document

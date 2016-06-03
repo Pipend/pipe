@@ -41,5 +41,5 @@ module.exports = create-class do
         connections: []
 
     component-did-mount: ->
-        ($.getJSON "/apis/queryTypes/#{@props.data-source-cue.query-type}/connections", '') .done ({connections or []}) ~> @set-state {connections}
+        ($.getJSON "/apis/projects/#{@props.project-id}/queryTypes/#{@props.data-source-cue.query-type}/connections", '') .done ({connections or []}) ~> @set-state {connections}
 

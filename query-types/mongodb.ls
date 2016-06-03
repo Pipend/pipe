@@ -8,7 +8,7 @@ require! \./../config
 {id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map, 
 obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor, lines} = require \prelude-ls
 
-{date-from-object-id, get-all-keys-recursively, object-id-from-date} = require \../public/utils
+{date-from-object-id, get-all-keys-recursively, object-id-from-date} = require \../public/lib/utils
 {
     execute-javascript
     compile-and-execute

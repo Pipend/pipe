@@ -3,6 +3,7 @@
 Document = create-factory require \./Document.ls
 Menu = create-factory require \./Menu.ls
 require! \moment
+require! \react-router
 
 module.exports = create-class do
 
@@ -16,6 +17,11 @@ module.exports = create-class do
             Menu do
                 items-left: 
                     *   label: 'New Document'
+                        action: ->
+                            debugger
+                            react-router.browser-history.replace do 
+                                pathname: "/projects/#{@props.params.project-id}/documents/new"
+                                query: {}
                     ...
 
                 items-right:

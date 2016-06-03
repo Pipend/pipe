@@ -12,7 +12,7 @@ export keywords = ([data-source, transpilation-language]) ->
 
 # get-context :: () -> Context
 export get-context = ->
-    {object-id-from-date, date-from-object-id} = require \./../public/utils.ls
+    {object-id-from-date, date-from-object-id} = require \../public/lib/utils
     {} <<< (require \./default-query-context.ls)! <<< {object-id-from-date, date-from-object-id} <<< (require \prelude-ls)
 
 # for executing a single mongodb query POSTed from client
