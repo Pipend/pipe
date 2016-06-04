@@ -1,5 +1,6 @@
 {filter, map} = require \prelude-ls
 {create-class, create-factory, DOM:{div, input}}:React = require \react
+require! \react-router
 Menu = create-factory require \./Menu.ls
 Project = create-factory require \./Project.ls
 
@@ -16,7 +17,9 @@ module.exports = create-class do
                 items-left: 
                     *   label: 'New Project'
                         action: ->
-                            console.log arguments
+                            react-router.browser-history.push do 
+                                pathname: "/projects/new"
+                                query: {}
                     ...
 
             div class-name: \project-list,
@@ -40,7 +43,7 @@ module.exports = create-class do
                             # PROJECT
                             Project {} <<< project <<< 
                                 key: _id
-                                documents-link: "projects/#{_id}/documents"
+                                documents-link: "/projects/#{_id}/documents"
 
 
     # component-will-mount :: () -> ()

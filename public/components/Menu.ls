@@ -50,59 +50,72 @@ module.exports = React.create-class do
             # USER
             div class-name: \user
 
-    render-item: ({pressed, disabled, href, action, hotkey, label, highlight, type}) ->
+    # TODO: use a proper sum type for menu items
+    render-item: ({pressed, disabled, href, action, hotkey, label, text, highlight, type}) ->
         
         # using ref for accessing the anchor tag from action listener
         ref = label.replace /\s/g, \- .to-lower-case!
         
-        # action-listener :: Event -> Boolean
-        action-listener = (e) ~>
-            set-timeout do 
-                ~>
-                    {offset-left, offset-width}:anchor-tag = find-DOM-node @refs[ref]
-                    action offset-left, offset-width
-                0
-            cancel-event e
-
-        # connect the action-listener to hotkey
-        if hotkey
-            key.unbind hotkey
-            if !disabled
-                key hotkey, action-listener 
-        
-        # MENU ITEM
-        a do 
-            {
+        match type
+        | \textbox => do ~>
+            input { 
                 id: ref
-                class-name: if pressed then \pressed else ''
-                key: ref
                 ref: ref
-                style: 
-                    border-top: if !!highlight then "1px solid #{highlight}"  else ""
-                    opacity: if disabled then 0.5 else 1
-            } <<< (
-
-                # (href, target: blank) has higher precedence over on-click
-                # popup blocker does not like window.open
-                if disabled
-                    {}
-
-                else
-                    if href
-                        href: href
-                        target: \_blank
-                        
-                    else
-                        on-click: action-listener
-            )
-
-            # CHECKBOX
-            match type
-                | \toggle => React.create-element Checkbox, {checked: item.toggled}
-
-            # ITEM TEXT
-            label
+                key: ref
+                type: \text
+                disabled: disabled
+                value: text
+                on-change: (e) -> action e.target.value 
+            }
+        | _ => do ~>
+            # action-listener :: Event -> Boolean
+            action-listener = (e) ~>
+                set-timeout do 
+                    ~>
+                        {offset-left, offset-width}:anchor-tag = find-DOM-node @refs[ref]
+                        action offset-left, offset-width
+                    0
+                cancel-event e
     
+            # connect the action-listener to hotkey
+            if hotkey
+                key.unbind hotkey
+                if !disabled
+                    key hotkey, action-listener 
+            
+            # MENU ITEM
+            a do 
+                {
+                    id: ref
+                    class-name: if pressed then \pressed else ''
+                    key: ref
+                    ref: ref
+                    style: 
+                        border-top: if !!highlight then "1px solid #{highlight}"  else ""
+                        opacity: if disabled then 0.5 else 1
+                } <<< (
+    
+                    # (href, target: blank) has higher precedence over on-click
+                    # popup blocker does not like window.open
+                    if disabled
+                        {}
+    
+                    else
+                        if href
+                            href: href
+                            target: \_blank
+                            
+                        else
+                            on-click: action-listener
+                )
+    
+                # CHECKBOX
+                match type
+                    | \toggle => React.create-element Checkbox, {checked: item.toggled}
+    
+                # ITEM TEXT
+                label
+        
     # remove key listener for deleted menu items
     # component-will-receive-props :: Props -> Void
     component-will-receive-props: (props) !->

@@ -23,6 +23,11 @@ render do
 
             IndexRoute component: ProjectListRoute
 
+                            
+            Route do
+                path: \/projects/new
+                component: DocumentListRoute
+
             Route do 
                 path: \/projects/:projectId/documents
                 component: DocumentListRoute

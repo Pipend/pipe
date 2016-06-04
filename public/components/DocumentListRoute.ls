@@ -17,9 +17,8 @@ module.exports = create-class do
             Menu do
                 items-left: 
                     *   label: 'New Document'
-                        action: ->
-                            debugger
-                            react-router.browser-history.replace do 
+                        action: ~>
+                            react-router.browser-history.push do 
                                 pathname: "/projects/#{@props.params.project-id}/documents/new"
                                 query: {}
                     ...
@@ -45,7 +44,7 @@ module.exports = create-class do
                     |> filter ({title}?) ~> (title?.to-lower-case!?.index-of @state.search.to-lower-case!) > -1
                     |> sort-by (.creation-time * -1)
                     |> map ({document-id, version, title, creation-time}) ~>
-
+                        console.log \document, {document-id, version, title, creation-time}
                         # DOCUMENT
                         Document do
                             key: document-id

@@ -601,6 +601,7 @@ module.exports = (
         methods: <[get]>
         patterns: <[
             / 
+            /projects/new
             /projects/:projectId/documents
             /projects/:projectId/documents/new
             /projects/:projectId/documents/:documentId/versions/:version

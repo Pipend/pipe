@@ -408,6 +408,11 @@ module.exports = create-class do
                 (typeof show == \undefined) or show
 
             items-right: 
+                * label: \Title
+                  text: if @state.title and @state.title.length > 0 then @state.title else 'Untitled'
+                  type: \textbox
+                  action: (title) ~> @set-state {title}
+                
                 * label: \History
                   enabled: saved-document
                   action: (->)
