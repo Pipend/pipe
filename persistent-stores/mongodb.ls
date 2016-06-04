@@ -97,7 +97,7 @@ module.exports = ({connection-string, connection-options}) ->
         # save-document :: Document ->  -> IO(Document)
         save-document = ({document-id, version}:document, assign-next-available-version-on-conflict = false) ->
             # insert a new document
-            if version == 0
+            if (document-id.index-of \local) == 0
                 normalize-ids do 
                     insert-one-record-and-return-it do 
                         \documents

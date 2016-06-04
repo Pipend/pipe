@@ -314,7 +314,7 @@ module.exports = (
         methods: <[post]>
         patterns: <[/apis/projects/:projectId/defaultDocument]>
         request-handler: (req, res) ->
-            [data-source-cue, transpilation-language] = req.body
+            {data-source-cue, transpilation-language} = req.body
             {default-document} = require "./query-types/#{data-source-cue.query-type}"
             res.send {} <<< (default-document data-source-cue, transpilation-language) <<<
                 data-source-cue: data-source-cue

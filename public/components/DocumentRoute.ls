@@ -48,7 +48,7 @@ ui-protocol =
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
 
-pipe-web-client = (require \pipe-web-client) "http://#{window.location.host}"
+pipe-web-client = (require \pipe-web-client) window.location.origin
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
@@ -291,7 +291,15 @@ module.exports = create-class do
                         z-index: 2
                     tabs: 
                         *   title: 'Data Source'
-                            component: div null
+                            component: div do 
+                                null
+                                # DATASOURCE POPUP
+                                DataSourceCuePopup do
+                                    data-source-cue: @state.data-source-cue
+                                    project-id: @props.params.project-id
+                                    left: -> 0
+                                    on-change: (data-source-cue) ~> @set-state data-source-cue: {} <<< data-source-cue <<< complete: true
+
 
                         *   title: \Parameters
                             component: AceEditor do
@@ -416,14 +424,6 @@ module.exports = create-class do
 
     # render-dialogs :: () -> ReactElement
     render-dialogs: ->
-        # switch popup
-        # | \data-source-cue-popup =>
-        #     DataSourceCuePopup do
-        #         left: left-from-width
-        #         data-source-cue: data-source-cue
-        #         on-change: (data-source-cue) ~> 
-        #             <~ @set-state {data-source-cue}
-        #             @save-to-client-storage-debounced!
 
         # | \share-popup =>
         #     {parameters, transpilation} = @document-from-state!
@@ -447,8 +447,14 @@ module.exports = create-class do
                         initial-transpilation-language: @state.transpilation-language
                         project-id: @props.params.project-id
                         on-create: (data-source-cue, transpilation-language) ~>
-                            (pipe-web-client.load-default-document data-source-cue, transpilation-language)
-                                .then (document) ~> @on-document-load document, document
+                            (pipe-web-client @props.params.project-id .load-default-document data-source-cue, transpilation-language)
+                                .then (document) ~> 
+                                    updated-document = {} <<< document <<< 
+                                        document-id: @props.params.document-id
+                                        version: parse-int @props.params.version
+                                    # on-document-load expects local & remote document, 
+                                    # in this case both local & remote will be the same documents
+                                    @on-document-load updated-document, updated-document
                                 .catch (err) ~> alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language} (#{err})"
                                 .then ~> @set-state dialog: null
 
@@ -580,22 +586,24 @@ module.exports = create-class do
                 document-id
                 parse-int version
             
-            # :: (Promise p) => p document -> Void (State changes)
-            update-state-using-document = (document-p) !~>
-                document-p 
-                .then (document) ~> @on-document-load local-document ? document, document
+            # :: (Promise p) => p Document -> (State changes)
+            update-state-using-remote-document = (remote-document-p) !~>
+                remote-document-p
+                .then (remote-document) ~> @on-document-load local-document ? remote-document, remote-document
                 .catch (err) ~> 
                     console.log \err, err.to-string!
                     # alert err.to-string!
                     # window.location.href = \/
-
-            # eg: documents/:documentId/versions/0
-            if version == 0
-
-                # we can use the local-document.data-source-cue to get the default document (and use it as remote document)
+            
+            # we are on local branch
+            # eg: documents/local.../versions/0
+            if (document-id.index-of \local) == 0
+                
+                # we are on a local branch and local-document exists
+                # we can use the local-document.data-source-cue to get the default document to use it as remote document
                 if local-document
                     {data-source-cue, transpilation-language}? = @state-from-document local-document
-                    update-state-using-document do 
+                    update-state-using-remote-document do 
                         pipe-web-client project-id .load-default-document do 
                             data-source-cue
                             transpilation-language
@@ -608,11 +616,12 @@ module.exports = create-class do
             # load from local storage / remote
             # eg: documents/:documentId/versions/:version
             else
-                update-state-using-document do 
+                update-state-using-remote-document do 
                     pipe-web-client project-id .load-document-version do 
                         document-id
-                        parse-int version
-
+                        version
+        
+        # document-id is not present in the url, redirect the user to new local document url
         else
 
             # this is the url used by 'New Query' button
@@ -806,6 +815,7 @@ module.exports = create-class do
         compiled-parameters <~ compile-parameters parameters, transpilation.query .then _
 
         # process-query-result :: Result -> p (a -> Void)
+        # used only once
         process-query-result = (result) ~>
             transformation-function <~ compile-transformation transformation, transpilation.transformation .then _
             presentation-function <~ compile-presentation presentation, transpilation.presentation .then _
@@ -818,7 +828,7 @@ module.exports = create-class do
 
             view = find-DOM-node @refs.presentation
 
-            # if transformation returns a stream then listen to it and update the presentation
+            # if transformation returns a RxJS stream then listen to it and update the presentation
             if \Function == typeof! transformed-result.subscribe
                 subscription = transformed-result.subscribe (e) -> presentation-function view, e, compiled-parameters
                 Promise.resolve -> subscription.dispose!
@@ -840,7 +850,8 @@ module.exports = create-class do
                 callback!
 
         # update the ui to reflect that an task is going to start
-        <~ @set-state task-id: \1
+        # task-id is used to remember if  there is on going query
+        <~ @set-state task-id: "#{Date.now! * 1000 + Math.floor (Math.random! * 9999)}"
 
         err, {dispose, result-with-metadata}? <~ to-callback do ~>
 
@@ -909,6 +920,7 @@ module.exports = create-class do
     # converts the current UIState to Document & POST's it as a "save" request to the server
     # save :: (Promise p) => a -> p Document
     save: ->
+        debugger
         if @changes-made!.length == 0
             Promise.resolve @document-from-state!
         else 
@@ -917,7 +929,7 @@ module.exports = create-class do
     # save-document :: (Promise p) => Document -> p Document
     save-document: (document-to-save) ->
         {project-id} = @props.params
-
+        
         (pipe-web-client project-id .save-document document-to-save)
             .then ({project-id, document-id, version}:saved-document) ~>
 
