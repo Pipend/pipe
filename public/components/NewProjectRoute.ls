@@ -5,6 +5,7 @@ Menu = create-factory require \./Menu.ls
 NewProjectDialog = create-factory require \./NewProjectDialog.ls
 require! \moment
 require! \react-router
+pipe-web-client = (require \pipe-web-client) window.location.origin
 
 module.exports = create-class do
 
@@ -27,6 +28,13 @@ module.exports = create-class do
                     on-change: (project) ~>
                         console.log \project-changed, project
                         @set-state {project}
+                    save: (project) ~>
+                        pipe-web-client null .save-project project
+                            .then (x) ->
+                                react-router.browser-history.push pathname: "/projects/#{x._id}"
+
+                            .catch (ex) ->
+                                console.error ex
 
     # component-will-mount :: () -> ()
     component-will-mount: !->

@@ -602,6 +602,7 @@ module.exports = (
         patterns: <[
             / 
             /projects/new
+            /projects/:projectId
             /projects/:projectId/documents
             /projects/:projectId/documents/new
             /projects/:projectId/documents/:documentId/versions/:version

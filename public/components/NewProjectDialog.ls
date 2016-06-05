@@ -1,4 +1,4 @@
-{map, zip, last, concat-map, id} = require \prelude-ls
+{map, zip, last, concat-map, id, Obj, group-by} = require \prelude-ls
 {DOM:{div}, create-class, create-factory} = require \react
 require! \../../config.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
@@ -17,12 +17,9 @@ connections-to-data-sources = (connections) ->
         v
         |> fold-obj-to-list (connection-name, connection) -> 
             {
-                
                 query-type
                 connection-name
-                connection
-                
-            }
+            } <<< connection
     |> concat-map id
 
 
@@ -30,26 +27,34 @@ data-sources-to-connections = (data-sources) ->
     data-sources
     |> group-by (.queryType)
     |> Obj.map group-by (.connection-name)
-    |> Obj.map Obj.map (.0.connection)
+    |> Obj.map Obj.map (.0) >> (x) ->
+        delete x.queryType
+        delete x.connectionName
+        x
 
 
 module.exports = create-class do 
     render: ->
-        console.log \NewProjectDialog
+        
+        console.log \state, @state, @props
+
+        if !@state.project
+            return div null, JSON.stringify @props.project
+
         div do
             null
             LabelledTextField do
                 label: 'Project Name'
-                value: @props.project.title or ""
+                value: @state.project.title or ""
                 on-change: (value) ~> 
-                    @props.on-change {} <<< @props.project <<< title: value
+                    @set-state project: ({} <<< @state.project <<< title: value)
             
             LabelledDropdown do
                 label: 'Permissions'
-                value: @props.project.permission
+                value: @state.project.permission
                 options: <[private publicReadable publicExecutable publicReadableAndExecutable]> |> map -> {label: it, value: it}
                 on-change: (value) ~>
-                    @props.on-change {} <<< @props.project <<< permission: value
+                    @set-state project: ({} <<< @state.project <<< permission: value)
 
             @state.data-sources
             |> (`zip` [0 til @state.data-sources.length])
@@ -74,10 +79,9 @@ module.exports = create-class do
                             DataSourceCuePopup do
                                 supported-connection-kinds: <[complete connection-string]>
                                 data-source-cue: d
-                                project-id: @props.project-id
+                                project-id: @state.project-id
                                 left: -> 0
                                 on-change: (data-source-cue) ~> 
-                                    console.log data-source-cue.complete, data-source-cue, i
                                     @state.data-sources[i] = data-source-cue
                                     @set-state data-sources: @state.data-sources
 
@@ -90,12 +94,21 @@ module.exports = create-class do
 
             SimpleButton do
                 on-click: ~> 
-                    @props.on-change {} <<< @props.project <<< connections: data-sources-to-connections @state.data-sources
+                    project = {} <<< @props.project <<< connections: data-sources-to-connections @state.data-sources
+                    @props.save project
                 "Create Project #{@props.project.title}"
  
                     
-    component-will-receive-props: (props) ->
-        @set-state data-sources: [default-data-source] ++ connections-to-data-sources @props.project.connections
+    component-did-mount: !-> @update-state-from-props @props
+
+    component-will-receive-props: (props) !-> @update-state-from-props props
+        
+
+    update-state-from-props: (props) !->
+        @set-state {
+            data-sources: [@state.default-data-source] ++ connections-to-data-sources @props.project.connections
+            project: @props.project
+        }
 
     # get-initial-state :: a -> UIState
     get-initial-state: ->  
@@ -103,7 +116,7 @@ module.exports = create-class do
             connection-name: ''
             query-type: 'mongodb'
             connection-kind: 'complete'
-            connection: {}
+        
         data-sources: []
         # because the input json in the box is not always valid, use this to store invalid json
         connections-json: null

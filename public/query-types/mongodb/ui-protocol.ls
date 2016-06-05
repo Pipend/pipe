@@ -1,4 +1,5 @@
-CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[connection-name host port database collection]>
+{map, camelize} = require \prelude-ls
+CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) (map camelize, <[connection-name host port database collection]>)
 PartialDataSourceCue = require \./PartialDataSourceCue.ls
 {make-auto-completer-default} = require \../auto-complete-utils.ls
 editor-settings = require \../default-editor-settings.ls

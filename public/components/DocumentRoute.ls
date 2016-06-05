@@ -925,7 +925,6 @@ module.exports = create-class do
     # converts the current UIState to Document & POST's it as a "save" request to the server
     # save :: (Promise p) => a -> p Document
     save: ->
-        debugger
         if @changes-made!.length == 0
             Promise.resolve @document-from-state!
         else 

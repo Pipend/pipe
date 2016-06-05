@@ -32,6 +32,10 @@ render do
                 component: NewProjectRoute
 
             Route do 
+                path: \/projects/:projectId
+                component: DocumentListRoute
+
+            Route do 
                 path: \/projects/:projectId/documents
                 component: DocumentListRoute
 
