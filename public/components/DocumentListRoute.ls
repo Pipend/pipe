@@ -56,12 +56,17 @@ module.exports = create-class do
 
     # component-will-mount :: () -> ()
     component-will-mount: !->
-        (fetch do 
-            "/apis/projects/#{@props.params.project-id}/documents"
-            credentials: \same-origin)
-            .then (.json!) 
-            .then (documents) ~>
-                @set-state {documents}
+        if !@props.params.project-id
+            console.log 'new project'
+        else
+            # existing project
+            
+            (fetch do 
+                "/apis/projects/#{@props.params.project-id}/documents"
+                credentials: \same-origin)
+                .then (.json!) 
+                .then (documents) ~>
+                    @set-state {documents}
 
     # get-initial-state :: a -> UIState
     get-initial-state: -> 

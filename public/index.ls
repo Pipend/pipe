@@ -10,6 +10,9 @@ require! \./components/App.ls
 require! \./components/ProjectListRoute.ls
 require! \./components/DocumentListRoute.ls
 require! \./components/DocumentRoute.ls
+require! \./components/NewProjectRoute.ls
+
+console.log \react.version, React.version
 
 render do 
 
@@ -26,7 +29,7 @@ render do
                             
             Route do
                 path: \/projects/new
-                component: DocumentListRoute
+                component: NewProjectRoute
 
             Route do 
                 path: \/projects/:projectId/documents
