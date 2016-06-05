@@ -40,9 +40,10 @@ module.exports = create-class do
     # component-will-mount :: () -> ()
     component-will-mount: !->
 
-        (pipe-web-client @props.params.project-id).get-project!
-            .then (project) ~> @set-state {project}
-            .catch (ex) -> console.error ex
+        if !!@props.params.project-id
+            (pipe-web-client @props.params.project-id).get-project!
+                .then (project) ~> @set-state {project}
+                .catch (ex) -> console.error ex
         
 
     # get-initial-state :: a -> UIState
