@@ -1,4 +1,4 @@
-{filter, map, sort-by} = require \prelude-ls
+{filter, map, sort-by, camelize} = require \prelude-ls
 {create-class, create-factory, DOM:{a, div, img, input, span}}:React = require \react
 Document = create-factory require \./Document.ls
 Menu = create-factory require \./Menu.ls
@@ -13,6 +13,7 @@ module.exports = create-class do
 
     # render :: a -> ReactElement
     render: ->
+
         div class-name: \new-project-route,
 
             # MENU
@@ -26,10 +27,10 @@ module.exports = create-class do
                 NewProjectDialog do
                     project: @state.project
                     on-change: (project) ~>
-                        console.log \project-changed, project
                         @set-state {project}
                     save: (project) ~>
-                        pipe-web-client null .save-project project
+
+                        (pipe-web-client project._id)[camelize (if !!project._id then 'update-project' else 'add-project')] project
                             .then (x) ->
                                 react-router.browser-history.push pathname: "/projects/#{x._id}"
 
@@ -38,6 +39,10 @@ module.exports = create-class do
 
     # component-will-mount :: () -> ()
     component-will-mount: !->
+
+        (pipe-web-client @props.params.project-id).get-project!
+            .then (project) ~> @set-state {project}
+            .catch (ex) -> console.error ex
         
 
     # get-initial-state :: a -> UIState

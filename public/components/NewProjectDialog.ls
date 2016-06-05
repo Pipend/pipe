@@ -36,7 +36,6 @@ data-sources-to-connections = (data-sources) ->
 module.exports = create-class do 
     render: ->
         
-        console.log \state, @state, @props
 
         if !@state.project
             return div null, JSON.stringify @props.project
@@ -94,7 +93,7 @@ module.exports = create-class do
 
             SimpleButton do
                 on-click: ~> 
-                    project = {} <<< @props.project <<< connections: data-sources-to-connections @state.data-sources
+                    project = {} <<< @state.project <<< connections: data-sources-to-connections @state.data-sources
                     @props.save project
                 "Create Project #{@props.project.title}"
  
@@ -104,10 +103,13 @@ module.exports = create-class do
     component-will-receive-props: (props) !-> @update-state-from-props props
         
 
-    update-state-from-props: (props) !->
+    update-state-from-props: ({project}) !->
+        pds = connections-to-data-sources project.connections
+        data-sources = if pds.length > 0 then pds else [@state.default-data-source]
+        
         @set-state {
-            data-sources: [@state.default-data-source] ++ connections-to-data-sources @props.project.connections
-            project: @props.project
+            data-sources: data-sources
+            project: project
         }
 
     # get-initial-state :: a -> UIState

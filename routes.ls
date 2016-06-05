@@ -603,6 +603,7 @@ module.exports = (
             / 
             /projects/new
             /projects/:projectId
+            /projects/:projectId/edit
             /projects/:projectId/documents
             /projects/:projectId/documents/new
             /projects/:projectId/documents/:documentId/versions/:version

@@ -20,12 +20,16 @@ module.exports = create-class do
                         action: ~>
                             react-router.browser-history.push do 
                                 pathname: "/projects/#{@props.params.project-id}/documents/new"
-                                query: {}
+
                     ...
 
                 items-right:
                     *   label: 'Share'
                     *   label: 'Data Sources'
+                        action: ~>
+                            react-router.browser-history.push do 
+                                pathname: "/projects/#{@props.params.project-id}/edit"
+
             
             div class-name: \document-list,
 

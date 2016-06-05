@@ -82,10 +82,15 @@ module.exports = ({connection-string, connection-options}) ->
 
         # update-project :: String -> object -> IO(Project)
         update-project = (project-id, patch) ->
-            normalize-ids do 
-                db.collection \projects .find-one-and-update do 
-                    {_id: object-id project-id}
-                    {$set: patch}
+            if typeof! patch._id == 'String'
+                patch._id = object-id patch._id
+            db.collection \projects .find-one-and-update do 
+                {_id: object-id project-id}
+                {$set: patch}
+            .then (x) ->
+                normalize-ids do 
+                    db.collection \projects .find-one _id: patch._id
+
             
         # delete-project :: String -> IO(Project)
         delete-project = (project-id) ->
