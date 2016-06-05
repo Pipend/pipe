@@ -1,4 +1,4 @@
-{all, camelize, concat-map, filter, keys, obj-to-pairs, map, pairs-to-obj, reject} = require \prelude-ls
+{all, camelize, concat-map, filter, keys, obj-to-pairs, map, pairs-to-obj, reject, intersection} = require \prelude-ls
 {create-factory, DOM:{div}}:React = require \react
 LabelledDropdown = create-factory require \./LabelledDropdown.ls
 LabelledTextField = create-factory require \./LabelledTextField.ls
@@ -13,6 +13,20 @@ ui-protocol =
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
 
+# connection-kinds-from-query-type :: [String] -> String -> [String]
+connection-kinds-from-query-type = (supported-kinds, query-type) -->
+    {
+        supports-connection-string
+        partial-data-source-cue-component
+        complete-data-source-cue-component
+    }? = ui-protocol[query-type].data-source-cue-popup-settings!
+    connection-kind = (if supports-connection-string then <[connection-string]> else []) ++
+                      (if !!partial-data-source-cue-component then <[pre-configured]> else []) ++
+                      (if !!complete-data-source-cue-component then <[complete]> else [])
+                        |> filter -> !!it
+                        |> -> if !!supported-kinds then (it `intersection` supported-kinds) else it
+                        |> concat-map -> label: (it.replace \-, ' '), value: it
+
 module.exports = React.create-class do
 
     display-name: \DataSourceCuePopup
@@ -25,21 +39,10 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render: ->
-        
-        # connection-kinds-from-query-type :: String -> [String]
-        connection-kinds-from-query-type = (query-type) ->
-            {
-                supports-connection-string
-                partial-data-source-cue-component
-                complete-data-source-cue-component
-            }? = ui-protocol[query-type].data-source-cue-popup-settings!
-            connection-kind = (if supports-connection-string then <[connection-string]> else []) ++
-                              (if !!partial-data-source-cue-component then <[pre-configured]> else []) ++
-                              (if !!complete-data-source-cue-component then <[complete]> else [])
-                                |> filter -> !!it
-                                |> concat-map -> label: (it.replace \-, ' '), value: it
 
-        connection-kinds = connection-kinds-from-query-type @props.data-source-cue.query-type
+        connection-kinds-from-query-type1 = connection-kinds-from-query-type @props.supported-connection-kinds
+
+        connection-kinds = connection-kinds-from-query-type1 @props.data-source-cue.query-type
 
         # data-source-cue is complete by default if the ui-protocol does not provide any component for changing the data-source-cue
         # complete-by-default :: String -> Bool
@@ -65,7 +68,7 @@ module.exports = React.create-class do
                     |> map -> {label: it, value: it}
                 on-change: (value) ~>
                     {connection-kind} = @props.data-source-cue
-                    new-connection-kinds = connection-kinds-from-query-type value
+                    new-connection-kinds = connection-kinds-from-query-type1 value
                     @props?.on-change do 
                         query-type: value
                         connection-kind:
@@ -98,6 +101,11 @@ module.exports = React.create-class do
             # render "connection-string" component if the query-type supports it            
             else if ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings!.supports-connection-string
                 div null,
+                    LabelledTextField do
+                        label: 'Name'
+                        value: @props.data-source-cue.connection-name
+                        on-change: (value) ~>
+                            @.props.on-change {} <<< @.props.data-source-cue <<< {connection-name: value, complete: false}
                     LabelledTextField do
                         label: 'conn. string'
                         value: @props.data-source-cue.connection-string

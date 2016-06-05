@@ -1,4 +1,4 @@
-CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[host port database collection]>
+CompleteDataSourceCue = (require \../../components/CompleteDataSourceCue.ls) <[connection-name host port database collection]>
 PartialDataSourceCue = require \./PartialDataSourceCue.ls
 {make-auto-completer-default} = require \../auto-complete-utils.ls
 editor-settings = require \../default-editor-settings.ls

@@ -19,6 +19,7 @@ module.exports = (fields) ->
         # render :: a -> ReactElement
         render: ->
             div class-name: 'complete data-source-cue',
+
                 
                 # INPUT FIELDS
                 fields |> map (key) ~>
