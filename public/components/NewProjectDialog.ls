@@ -19,6 +19,7 @@ connections-to-data-sources = (connections) ->
             {
                 query-type
                 connection-name
+                permission: 'publicExecutable'
             } <<< connection
     |> concat-map id
 
@@ -35,25 +36,27 @@ data-sources-to-connections = (data-sources) ->
 
 module.exports = create-class do 
     render: ->
+
+        project = @state.project
         
 
-        if !@state.project
+        if !project
             return div null, JSON.stringify @props.project
 
         div do
             null
             LabelledTextField do
                 label: 'Project Name'
-                value: @state.project.title or ""
+                value: project.title or ""
                 on-change: (value) ~> 
-                    @set-state project: ({} <<< @state.project <<< title: value)
+                    @set-state project: ({} <<< project <<< title: value)
             
             LabelledDropdown do
                 label: 'Permissions'
-                value: @state.project.permission
+                value: project.permission
                 options: <[private publicReadable publicExecutable publicReadableAndExecutable]> |> map -> {label: it, value: it}
                 on-change: (value) ~>
-                    @set-state project: ({} <<< @state.project <<< permission: value)
+                    @set-state project: ({} <<< project <<< permission: value)
 
             @state.data-sources
             |> (`zip` [0 til @state.data-sources.length])
@@ -75,13 +78,29 @@ module.exports = create-class do
                                     @state.data-sources.splice i, 1
                                     @set-state data-sources: @state.data-sources
                                 \-
+
+                            LabelledTextField do
+                                label: 'Name'
+                                value: d.connection-name
+                                on-change: (value) ~> 
+                                    @state.data-sources[i] = {} <<< @state.data-sources[i] <<< connection-name: value
+                                    @set-state data-sources: @state.data-sources
+
+                            LabelledDropdown do
+                                label: 'Permissions'
+                                value: d.permission ? 'publicExecutable'
+                                options: <[private publicExecutable]> |> map -> {label: it, value: it}
+                                on-change: (value) ~>
+                                    @state.data-sources[i] = {} <<< @state.data-sources[i] <<< permission: value
+                                    @set-state data-sources: @state.data-sources
+
                             DataSourceCuePopup do
                                 supported-connection-kinds: <[complete connection-string]>
                                 data-source-cue: d
-                                project-id: @state.project-id
+                                project-id: project.project-id
                                 left: -> 0
                                 on-change: (data-source-cue) ~> 
-                                    @state.data-sources[i] = data-source-cue
+                                    @state.data-sources[i] = {} <<< @state.data-sources[i] <<< data-source-cue
                                     @set-state data-sources: @state.data-sources
 
             SimpleButton do
@@ -93,8 +112,8 @@ module.exports = create-class do
 
             SimpleButton do
                 on-click: ~> 
-                    project = {} <<< @state.project <<< connections: data-sources-to-connections @state.data-sources
-                    @props.save project
+                    p = {} <<< project <<< connections: data-sources-to-connections @state.data-sources
+                    @props.save p
                 "Create Project #{@props.project.title}"
  
                     

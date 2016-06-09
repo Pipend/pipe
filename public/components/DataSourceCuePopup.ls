@@ -102,11 +102,6 @@ module.exports = React.create-class do
             else if ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings!.supports-connection-string
                 div null,
                     LabelledTextField do
-                        label: 'Name'
-                        value: @props.data-source-cue.connection-name
-                        on-change: (value) ~>
-                            @.props.on-change {} <<< @.props.data-source-cue <<< {connection-name: value, complete: false}
-                    LabelledTextField do
                         label: 'conn. string'
                         value: @props.data-source-cue.connection-string
                         on-change: (value) ~>
