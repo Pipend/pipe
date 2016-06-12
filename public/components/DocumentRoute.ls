@@ -50,6 +50,9 @@ ui-protocol =
 
 pipe-web-client = (require \pipe-web-client) window.location.origin
 
+UnAuthenticatedDialog = require \./auth/UnAuthenticatedDialog.ls
+UnAuthorizedDialog = require \./auth/UnAuthorizedDialog.ls
+
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
 # TODO: move it to utils
@@ -500,6 +503,12 @@ module.exports = create-class do
                             @save-to-client-storage-debounced!
                         on-cancel: ~> @set-state dialog: null
 
+                | \error-unauthorized =>
+                    UnAuthorizedDialog {}
+
+                | \error-unauthenticated =>
+                    UnAuthenticatedDialog {}
+
     # React class method
     # get-initial-state :: a -> UIState
     get-initial-state: ->
@@ -525,7 +534,7 @@ module.exports = create-class do
 
         # UI DIMENSIONS
         left-nav-active-tab-title: undefined
-
+        
     # on-document-load :: Document -> Document -> Void
     on-document-load: (local-document, remote-document) ->
 
@@ -576,6 +585,8 @@ module.exports = create-class do
 
         console.log \load-props-params=, props.params
 
+        pwclient = pipe-web-client project-id
+
         if !!document-id 
 
             if typeof! version == \Undefined
@@ -595,8 +606,13 @@ module.exports = create-class do
             update-state-using-remote-document = (remote-document-p) !~>
                 remote-document-p
                 .then (remote-document) ~> @on-document-load local-document ? remote-document, remote-document
-                .catch (err) ~> 
-                    console.log \err, err.to-string!
+                .catch (error) ~> 
+                    if error instanceof pwclient.Exceptions.UnAuthorizedException
+                        @set-state {dialog: 'error-unauthorized'}
+                    else if error instanceof pwclient.Exceptions.UnAuthenticatedException
+                        @set-state {dialog: 'error-unauthenticated'}
+                    else
+                        console.error \update-state-using-remote-document, error
                     # alert err.to-string!
                     # window.location.href = \/
             
@@ -609,7 +625,7 @@ module.exports = create-class do
                 if local-document
                     {data-source-cue, transpilation-language}? = @state-from-document local-document
                     update-state-using-remote-document do 
-                        pipe-web-client project-id .load-default-document do 
+                        pwclient.load-default-document do 
                             data-source-cue
                             transpilation-language
 
@@ -622,7 +638,7 @@ module.exports = create-class do
             # eg: documents/:documentId/versions/:version
             else
                 update-state-using-remote-document do 
-                    pipe-web-client project-id .load-document-version do 
+                    pwclient.load-document-version do 
                         document-id
                         version
         

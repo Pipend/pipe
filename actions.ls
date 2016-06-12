@@ -123,12 +123,14 @@ module.exports = (store, task-manager) ->
         # Utility
         # public-readable :: (-> p a) -> p a
         public-readable = (f) ->
-            permitted = switch
-            | role in <[owner admin collaborator]> => true
-            | project.permission in ['publicReadable', 'publicReadableAndExecutable'] => true
-            | _ => false
+            [permitted, exception] = switch
+            | role in <[owner admin collaborator]> => [true, null]
+            | project.permission in ['publicReadable', 'publicReadableAndExecutable'] => [true, null]
+            | !user-id and !(project.permission in ['publicReadable', 'publicReadableAndExecutable']) => [false, UnAuthenticatedException]
+            | _ => [false, UnAuthorizedException]
             
-            if permitted then f! else reject-p new UnAuthorizedException!
+
+            if permitted then f! else reject-p new exception!
             
         # :: String -> Int -> p Document
         get-document-version = (document-id, version) -->
