@@ -108,6 +108,7 @@ module.exports = (store, task-manager) ->
     # :: String, String -> p {}:API
     # each field in the API is a function that takes 0 or some arguments and return a promise
     authorization-dependant-actions: (user-id, project-id) ->
+
         project <- bind-p store.get-project project-id
         role = get-role project, user-id
         
@@ -172,6 +173,8 @@ module.exports = (store, task-manager) ->
                 | role == 'owner' => return-p project
                 | role == 'admin' => return-p (admin-view-of-project project)
                 | role == 'collaborator' => return-p (collaborator-view-of-project project)
+                | role == 'guest' and project.permission == 'publicExecutable' =>
+                    reject-p new UnAuthenticatedException!
                 | project.permission in <[publicReadable publicReadableAndExecutable]> => 
                     return-p (guest-view-of-project project)
                 | _ => reject-p new UnAuthorizedException!

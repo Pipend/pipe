@@ -61,20 +61,30 @@ module.exports = (
     spy
 ) ->
     
-    handle = (p, response) -->
+    handle = (is-api, p, response) -->
+
+        # error and redirect utility functions
+        error = (status, msg) ->
+            response.status status
+            if is-api then response.send {error: msg} else response.send msg
+
+        redirect = (status, msg, url) ->
+            response.status status
+            if is-api then response.send {error: msg} else response.redirect url
+
         ex, result <- to-callback p
         if ex
             if ex instanceof UnAuthorizedException
-                response.status 500 .send "You must be a Collaborator"
+                error 403, "You must be a Collaborator"
 
             else if ex instanceof UnAuthenticatedException 
-                response.redirect \/login
+                redirect 401, 'You must log in', '/login'
 
             else if ex instanceof DocumentSaveException
-                response.status 500 .send ex.versions-ahead
+                error 500, ex.versions-ahead
 
             else
-                response.status 500 .send "Unknown error: #{ex}"
+                error 500, "Unknown error: #{ex}"
 
         else
             if \Function == typeof! result
@@ -85,18 +95,21 @@ module.exports = (
 
     ensure-authorized = (f, req, res) -->
         handle do 
+            'application/json' == req.headers['content-type']
             (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) -> 
                 f actions, req, res
             res
 
     ensure-authenticated = (f, req, res) -->
         handle do 
+            'application/json' == req.headers['content-type']
             (authentication-dependant-actions req.user?._id).then (actions) --> 
                 f actions, req, res
             res
 
     no-security = (f, req, res) -->
         handle do
+            'application/json' == req.headers['content-type']
             public-actions!.then (actions) -> 
                 f actions, req, res
             res
