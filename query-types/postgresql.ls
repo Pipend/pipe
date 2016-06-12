@@ -9,11 +9,12 @@ pg = require \pg
     ..types.set-type-parser 116642, integer-type-parser
 
 # execute-sql :: (CancellablePromise cp) => DataSource -> String -> cp result
-execute-sql = ({user, password, host, port, database}, query) -->
+execute-sql = ({user, password, host, port, database, connection-string, ssl = false}:connection, query) -->
     client = null
 
     execute-sql-promise = new-promise (res, rej) ->
-        client := new pg.Client "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}"
+        client := new pg.Client do 
+            if !!connection-string then connection-string else "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}" + (if ssl then "?ssl=true" else "")
         client.connect (err) ->
             return rej err if !!err 
             err, {rows}? <- client.query query 
@@ -26,8 +27,9 @@ execute-sql = ({user, password, host, port, database}, query) -->
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
-    [, user, password, host, , port, database]:result? = connection-string.match /postgres\:\/\/([a-zA-Z0-9\_]*)\:([a-zA-Z0-9\_]*)\@([a-zA-Z0-9\_\.]*)(\:(\d*))?\/(\w*)/
-    {user, password, host, port, database}
+    [, user, password, host, , port, database, queryString]:result? = connection-string.match /postgres\:\/\/([a-zA-Z0-9\_]*)\:([a-zA-Z0-9\_]*)\@([a-zA-Z0-9\_\.\-]*)(\:(\d*))?\/(\w*)(\?.*)?/
+    ssl = !!queryString && queryString.indexOf('ssl=true') > -1
+    {user, password, host, port, database, ssl}
 
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = (project, {connection-name, database}) --> 
@@ -41,7 +43,7 @@ export connections = (project, {connection-name, database}) -->
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source, transpilation-language]) ->
-    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns where table_schema = 'public'")
+    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns")
     tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
     returnP do
         keywords: <[SELECT GROUP BY ORDER WITH DISTINCT INNER OUTER JOIN RANK PARTITION OVER ST_MAKEPOINT ST_MAKEPOLYGON ROW_NUMBER]>
@@ -54,6 +56,7 @@ export get-context = ->
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> CompiledQueryParameters -> cp result
 export execute = (, , data-source, query, transpilation, parameters) -->
+
     (Obj.keys parameters) |> each (key) ->
         query := query.replace "$#{key}$", parameters[key]
     execute-sql data-source, query
