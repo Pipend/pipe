@@ -2,15 +2,30 @@
     "folders":
     [
         {
-            "follow_symlinks": true,
-            "path": ".",
-            "file_exclude_patterns": ["*.js", "*.css"],
-            "folder_exclude_patterns": ["node_modules", "public/build", "tmp", "public/snapshots"]
-        },
-        {
             "path": "public/lib",
             "name": "public/lib",
             "file_exclude_patterns": []
         },
+        {
+            "path": "public/components",
+            "name": "public/components",
+            "file_exclude_patterns": ["*.js", "*.css"]
+        },
+        {
+            "path": "public/query-types",
+            "name": "public/query-types",
+            "file_exclude_patterns": ["*.js", "*.css"]
+        },
+        {
+            "path": "query-types",
+            "name": "query-types",
+            "file_exclude_patterns": ["*.js", "*.css"]
+        },
+        {
+            "follow_symlinks": true,
+            "path": ".",
+            "file_exclude_patterns": ["*.js", "*.css"],
+            "folder_exclude_patterns": ["node_modules", "public/build", "tmp", "public/snapshots"]
+        }
     ]    
 }
