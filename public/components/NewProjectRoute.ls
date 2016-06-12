@@ -6,6 +6,7 @@ NewProjectDialog = create-factory require \./NewProjectDialog.ls
 require! \moment
 require! \react-router
 pipe-web-client = (require \pipe-web-client) window.location.origin
+UnAuthenticatedDialog = require \./auth/UnAuthenticatedDialog.ls
 
 module.exports = create-class do
 
@@ -22,32 +23,45 @@ module.exports = create-class do
 
                 items-right: []
             
-            div null,
+            if !!@state.error then
+                if @state.error instanceof @state.pwclient.Exceptions.UnAuthenticatedException then
 
-                NewProjectDialog do
-                    project: @state.project
-                    on-change: (project) ~>
-                        @set-state {project}
-                    save: (project) ~>
+                    UnAuthenticatedDialog {}
+                else
+                    div null, "Unknown error #{@state.error.to-string!}"
+            else
+                div null,
 
-                        (pipe-web-client project._id)[camelize (if !!project._id then 'update-project' else 'add-project')] project
-                            .then (x) ->
-                                react-router.browser-history.push pathname: "/projects/#{x._id}"
+                    NewProjectDialog do
+                        project: @state.project
+                        on-change: (project) ~>
+                            @set-state {project}
+                        save: (project) ~>
 
-                            .catch (ex) ->
-                                console.error ex
+                            (pipe-web-client project._id)[camelize (if !!project._id then 'update-project' else 'add-project')] project
+                                .then (x) ->
+                                    react-router.browser-history.push pathname: "/projects/#{x._id}"
+
+                                .catch (ex) ->
+                                    console.error ex
 
     # component-will-mount :: () -> ()
     component-will-mount: !->
 
         if !!@props.params.project-id
-            (pipe-web-client @props.params.project-id).get-project!
-                .then (project) ~> @set-state {project}
-                .catch (ex) -> console.error ex
+            pwclient = pipe-web-client @props.params.project-id
+            @set-state {pwclient}
+            pwclient.get-project!
+                .then (project) ~> @set-state {project, error: null}
+                .catch (ex) ~> 
+                    console.log \error, ex
+                    @set-state { error: ex}
         
 
     # get-initial-state :: a -> UIState
     get-initial-state: ->  
+        error: null
+        pwclient: null
         project:
             title: ''
             permission: 'publicReadable'

@@ -37,7 +37,7 @@ module.exports = create-class do
                 div class-name: \projects,
                     @state.projects 
                         |> filter (project) ~>
-                            (project.title.to-lower-case!.index-of @state.search.to-lower-case!) != -1
+                            (project.title?.to-lower-case!.index-of @state.search.to-lower-case!) != -1
                         |> map ({_id}:project) ~> 
 
                             # PROJECT

@@ -55,7 +55,7 @@ module.exports = React.create-class do
             [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it            
 
         div do 
-            class-name: 'data-source-cue-popup popup'
+            class-name: 'data-source-cue-popup'
             style: 
                 left: @props?.left 360
 
