@@ -1,8 +1,12 @@
 .vertical-nav  
   position absolute
   display flex
-  width 290px
   height 100%
+  
+  &.open
+    width 290px
+  &.closed
+    width 40px
 
   .tabs
     display flex
@@ -58,6 +62,10 @@
         transform-origin 0 0
         transform translateX(40px) rotateZ(90deg)
         left 250px
+        
+        .tab 
+          border-right 1px solid transparent
+          border-left 1px solid transparent
       
         .tab.active
           border-right 1px solid #3a3a3a
@@ -67,3 +75,9 @@
         
       .content-container
         border-left 1px solid #3a3a3a
+
+  &.closed
+    &.right
+      .tabs
+        left: 0px
+      

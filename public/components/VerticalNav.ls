@@ -24,7 +24,7 @@ module.exports = create-class do
             | _ => @state.active-tab-title
 
         div do 
-            class-name: "vertical-nav #{@props.direction}"
+            class-name: "vertical-nav #{@props.direction} #{if !!active-tab-title then 'open' else 'closed'}"
             style: @props.style
 
             # TABS
