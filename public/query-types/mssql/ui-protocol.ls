@@ -54,7 +54,7 @@ module.exports =
 
     # query-editor-settings :: String -> AceEditorSettings
     query-editor-settings: (_) -> 
-        {} <<< editor-settings! <<< 
+        {} <<< editor-settings! <<< ace-editor-props:
             mode: \ace/mode/sql
             theme: \ace/theme/monokai
 
