@@ -13,3 +13,4 @@ public/build/
 public/snapshots/
 tmp/
 dump.rdb
+!public/bootstrap.css
