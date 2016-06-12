@@ -9,7 +9,7 @@ delete-document = (project-id, document-id, version) !->
 # get-document :: String -> String -> Int -> object
 get-document = (project-id, document-id, version) ->
     json-string = local-storage.get-item (get-key project-id, document-id, version)
-    
+
     if json-string 
         JSON.parse json-string 
     

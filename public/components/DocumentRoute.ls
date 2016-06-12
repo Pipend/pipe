@@ -362,22 +362,22 @@ module.exports = create-class do
                     <~ @set-state (@state-from-document remote-document)
                     @save-to-client-storage!
             
-            # *   label: \Clone
-            #     action: ~> 
-            #         {version, parent-id, tree-id, title}:document? = @document-from-state!
+            *   label: \Clone
+                action: ~> 
+                    {version, parent-id, tree-id, title}:document? = @document-from-state!
 
-            #         # create a new copy of the document, update as required then save it to local storage
-            #         {version, document-id}:forked-document = {} <<< document <<< {
-            #             version: generate-uid!
-            #             parent-id: null
-            #             document-id: \local
-            #             tree-id: null
-            #             title: "Clone of #{title}"
-            #         }
-            #         client-storage.save-document version, forked-document
+                    # create a new copy of the document, update as required then save it to local storage
+                    {version, document-id}:forked-document = {} <<< document <<< {
+                        version: 0 #generate-uid!
+                        parent-id: null
+                        document-id: \local
+                        tree-id: null
+                        title: "Clone of #{title}"
+                    }
+                    client-storage.save-document document.project-id, document-id, version, forked-document
 
-            #         # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
-            #         open-window "/branches/#{document-id}/queries/#{version}", \_blank
+                    # by redirecting the user to a localFork branch we cause the document to be loaded from local-storage
+                    open-window "/projects/#{@props.params.project-id}/documents/#{document-id}/versions/#{version}", \_blank
 
             * label: \Run
               enabled: data-source-cue.complete
