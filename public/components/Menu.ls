@@ -51,7 +51,7 @@ module.exports = React.create-class do
             div class-name: \user
 
     # TODO: use a proper sum type for menu items
-    render-item: ({pressed, disabled, href, action, hotkey, label, text, highlight, type}) ->
+    render-item: ({pressed, disabled, href, action, hotkey, label, text, highlight, type, toggled}) ->
         
         # using ref for accessing the anchor tag from action listener
         ref = label.replace /\s/g, \- .to-lower-case!
@@ -111,7 +111,7 @@ module.exports = React.create-class do
     
                 # CHECKBOX
                 match type
-                    | \toggle => React.create-element Checkbox, {checked: item.toggled}
+                    | \toggle => React.create-element Checkbox, {checked: toggled}
     
                 # ITEM TEXT
                 label

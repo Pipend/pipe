@@ -387,11 +387,11 @@ module.exports = create-class do
               hotkey: "command + enter, control + enter"
               action: ~> @execute!
 
-            # * label: \Cache
-            #   highlight: if from-cache then 'rgba(0,255,0,1)' else null
-            #   toggled: cache
-            #   type: \toggle
-            #   action: ~> @set-state {cache: !cache}
+            * label: \Cache
+              highlight: if @state.from-cache then 'rgba(0,255,0,1)' else null
+              toggled: @state.cache
+              type: \toggle
+              action: ~> @set-state {cache: !@state.cache}
 
             # * label: \Cancel
             #   show: !!task-id
