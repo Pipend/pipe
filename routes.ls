@@ -10,6 +10,8 @@ require! \./exceptions/DocumentSaveException
 require! \./exceptions/UnAuthenticatedException
 require! \./exceptions/UnAuthorizedException
 {compile-transformation} = require \pipe-transformation
+require! \phantom
+require! \querystring
 
 # Res -> Error -> Void
 die = (res, err) !->
@@ -59,20 +61,25 @@ module.exports = (
         authorization-dependant-actions,
     }
     spy
+    http-port
 ) ->
     
     handle = (is-api, p, response) -->
 
         # error and redirect utility functions
         error = (status, msg) ->
+            console.log \error, status, msg, is-api
+            response.set \Content-disposition, ""
+            response.set \Content-type, "text"
             response.status status
-            if is-api then response.send {error: msg} else response.send msg
+            if is-api then response.send {error: msg} else response.end msg
 
         redirect = (status, msg, url) ->
             response.status status
             if is-api then response.send {error: msg} else response.redirect url
 
         ex, result <- to-callback p
+
         if ex
             if ex instanceof UnAuthorizedException
                 error 403, "You must be a Collaborator"
@@ -87,9 +94,16 @@ module.exports = (
                 error 500, "Unknown error: #{ex}"
 
         else
-            if \Function == typeof! result
-                result response
 
+            # result is either a value or a function that takes response
+            # result :: value
+            # result :: response -> ()
+
+            if \Function == typeof! result
+                try 
+                    result response
+                catch ex
+                    error 500, ex.to-string!
             else
                 response.send result
 
@@ -489,7 +503,8 @@ module.exports = (
         ]>
         optional-params: <[cache format width height timeout]>
         request-handler: ensure-authorized (actions, req, res) ->
-            {cache, format or 'png', width or 720, height or 480, timeout}? = req.params
+
+            {document-id, version, cache, format or 'png', width or 720, height or 480, timeout}? = req.params
             cache := if !!cache then query-parser cache else false
             {snapshot} = req.query
 
@@ -502,59 +517,69 @@ module.exports = (
 
             # use query-id if present, otherwise get the latest document for the given branch-id
             {data-source-cue}:document <- bind-p do ->
-                if req.params.document-id
-                    get-query-by-id req.params.document-id
+                if !!document-id and !!version
+                    actions.get-document-version document-id, (parse-int version)
 
                 else
-                    get-latest-query-in-branch req.params.branch-id
+                    actions.get-latest-document document-id
 
             # extract & separate data-source-cue from query-string
-            [data-source-cue-params, parsed-query-string] = partition-data-source-cue-params req.parsed-query
+            [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query
 
             # extract data-source from data-source-cue (composed with data-source-cue-params extract from querystring above)
             data-source <- bind-p actions.extract-data-source {} <<< data-source-cue <<< data-source-cue-params
 
-            {branch-id, query-id, query-title, query, transformation, transpilation} = document
+            {project-id, version, title, query, transformation, transpilation} = document
 
             # client side name for the snapshot image or text/json/csv file, part of the response header
-            filename = query-title.replace /\s/g, '_'
+            filename = title.replace /\s/g, '_'
 
             if format in text-formats
+                task-id = base62.encode Date.now!
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                {result} <- bind-p (task-manager.execute do 
-                    persistent-store
-                    data-source
-                    query
-                    parsed-query-string
-                    cache
-                    query-id
-                    {document, url: req.url}
-                )
-                transformed-result <- bind-p (transform result, transformation, parsed-query-string)
+                {result} <- bind-p do 
+                    actions.execute do 
+                        task-id
+                        url: req.url
+                        method: req.method
+                        user-agent: req.headers[\user-agent]
+                        document-title: document.title
+                        document-id
+                        version
+                        data-source-cue
+                        query
+                        transpilation.query
+                        compiled-parameters
+                        cache
+
+                transformation-function <- bind-p (compile-transformation transformation, transpilation.transformation)
+
+                transformed-result = transformation-function result, transformation, compiled-parameters
 
                 return-p (res) ->
                     download = (extension, content-type, content) ->
                         res.set \Content-disposition, "attachment; filename=#{filename}.#{extension}"
                         res.set \Content-type, content-type
                         res.end content
-    
                     match format
-                    | \json => download \json, \application/json, transformed-result
-                    | \text => download \txt, \text/plain, transformed-result
+                    | \json => download \json, \application/json, JSON.stringify(transformed-result)
+                    | \text => download \txt, \text/plain, JSON.stringify(transformed-result)
 
-            else
+            else # format is not in text-formats
                 
                 # server side name of the image file (composed of query-id or branch-id & current time)
                 image-file = (
                     if snapshot 
-                        "public/snapshots/#{branch-id}.png" 
+                        "public/snapshots/#{branch-id}.png"  # TODO?
                     else 
-                        "tmp/#{branch-id}_#{query-id}_#{Date.now!}.png"
+                        "tmp/#{project-id}_#{document-id}_#{Date.now!}.png"
                 )
 
-                # create and setup phantom instance
+                # screate and setup phantom instance
                 phantom-instance <- bind-p phantom.create!
                 phantom-page <- bind-p phantom-instance.create-page!
+
+                <- bind-p phantom-page.property \customHeaders, {'X-Internal': '1', 'Cookie': req.headers.cookie}
                 <- bind-p phantom-page.property \viewportSize, {width, height}
                 <- bind-p phantom-page.property \clipRect, {width, height}
 
@@ -567,11 +592,13 @@ module.exports = (
 
                 # load the page in phantom
                 <- bind-p phantom-page.open do 
-                    "http://127.0.0.1:#{http-port}/apis/projects/#{query-id}/execute/#{cache}/presentation" +
+                    "http://127.0.0.1:#{http-port}/apis/projects/#{project-id}/documents/#{document-id}/versions/#{version}/execute/#{cache}/presentation?" +
                     querystring.stringify query-params
 
                 # give the page time to settle in before taking a screenshot
-                <- set-timeout _, timeout ? (config?.snapshot-timeout ? 1000)
+                <- bind-p new Promise (resolve) ->
+                    set-timeout resolve, timeout ? (config?.snapshot-timeout ? 1000)
+
                 <- bind-p phantom-page.render image-file
                 
                 set-timeout do
@@ -579,6 +606,8 @@ module.exports = (
                     250
 
                 return-p (res) ->
+                    fs = require \fs
+
                     if snapshot
                         res.end "snapshot saved to #{image-file}"
     
@@ -586,7 +615,7 @@ module.exports = (
                     else
                         res.set \Content-disposition, "attachment; filename=#{filename}.png"
                         res.set \Content-type, \image/png
-                        create-read-stream image-filgulpe .pipe res
+                        fs.create-read-stream image-file .pipe res
 
 
     # ----------- static -----------

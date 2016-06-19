@@ -50,6 +50,7 @@ routes = (require \./routes) do
     config.authentication.strategies
     {public-actions, authentication-dependant-actions, authorization-dependant-actions}
     spy
+    config.http-port
 
 app = express!
     ..set \views, __dirname + \/
