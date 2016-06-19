@@ -453,7 +453,7 @@ module.exports = (
 
             | _ => 
                 return-p (res) !-> 
-                    res.render \public/presentation/presentation.html, {
+                    res.render \public/presentation.html, {
                         query-result: result
                         transpilation
                         transformation
@@ -672,6 +672,7 @@ module.exports = (
         default-document
         execute-post
         execute-document
+        export-document
         ops
         cancel-task
     ] ++ redirects
