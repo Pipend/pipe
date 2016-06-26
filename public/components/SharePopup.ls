@@ -1,4 +1,4 @@
-{create-factory, DOM:{a, div, input, label, option, select, textarea}}:React = require \react
+{create-factory, DOM:{a, div, input, label, option, select, textarea}, PropTypes}:React = require \react
 LabelledDropdown = create-factory require \./LabelledDropdown.ls
 LabelledTextField = create-factory require \./LabelledTextField.ls
 {map, obj-to-pairs, pairs-to-obj, split, Str} = require \prelude-ls
@@ -8,19 +8,24 @@ module.exports = React.create-class do
 
     display-name: \SharePopup
 
+    propTypes:
+        data-source-cue: PropTypes.object.isRequired
+        compiled-parameters: PropTypes.object.isRequired
+        host: PropTypes.string.isRequired
+        document-id: PropTypes.string.isRequired
+        project-id: PropTypes.string.isRequired
+
     # get-default-props :: a -> Props
     get-default-props: ->
-        branch-id: ""
         data-source-cue: {}
         host: ""
         # left :: Number -> Number
         compiled-parameters: {}
-        query-id: ""
 
     # render :: a -> ReactElement
     render: ->
 
-        latest-query-segment = if @state.use-latest-query then "" else "/queries/#{@props.query-id}"        
+        version-segment = if @state.use-latest-query then "" else "/versions/#{@props.version}"
 
         cache-segment = if @state.cache == \sliding then @state.cache-expiry else @state.cache
 
@@ -39,13 +44,14 @@ module.exports = React.create-class do
         query-string = querystring.stringify {} <<< @props.compiled-parameters <<< data-source-cue-params
 
         href = decode-URI-component match @state.export 
-            | true => "http://#{@props.host}/apis/branches/#{@props.branch-id}#{latest-query-segment}/export/#{cache-segment}/#{@state.format}/#{image-size}?#{query-string}"
-            | _ => "http://#{@props.host}/apis/branches/#{@props.branch-id}#{latest-query-segment}/execute/#{cache-segment}/#{@state.display}?#{query-string}"
+            | true => 
+                "http://#{@props.host}/apis/projects/#{@props.project-id}/documents/#{@props.document-id}#{version-segment}/export/#{cache-segment}/#{@state.format}/#{image-size}?#{query-string}"
+            | _ => 
+                "http://#{@props.host}/apis/projects/#{@props.project-id}/documents/#{@props.document-id}#{version-segment}/execute/#{cache-segment}/#{@state.display}?#{query-string}"
         
         # SHARE POPUP
         div do 
             class-name: 'share-popup popup'
-            style: left: @props?.left 360
 
             # EXPORT CHECKBOX
             div null,
@@ -129,5 +135,3 @@ module.exports = React.create-class do
         format: \png
         include-data-source: false
         use-latest-query: true
-        width: 1280
-        height: 720

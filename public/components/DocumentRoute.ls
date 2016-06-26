@@ -55,6 +55,23 @@ UnAuthorizedDialog = require \./auth/UnAuthorizedDialog.ls
 
 alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 
+Dialog = ({component, on-close}) ->
+
+    header = div null, if !!on-close
+        then 
+            button do
+                on-click: on-close
+                "Close"
+        else
+            ""
+
+    div do 
+        class-name: 'dialog'
+        div do
+            class-name: 'dialog-wrapper'
+            header
+            component
+
 # TODO: move it to utils
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
@@ -422,7 +439,7 @@ module.exports = create-class do
                 
                 * label: \Share
                   enabled: saved-document
-                  action: (->)
+                  action: ~> @set-state {dialog: \share-popup}
 
                 * label: \Capture
                   enabled:saved-document
@@ -433,23 +450,25 @@ module.exports = create-class do
     # render-dialogs :: () -> ReactElement
     render-dialogs: ->
 
-        # | \share-popup =>
-        #     {parameters, transpilation} = @document-from-state!
-        #     [err, compiled-parameters] = pipe-web-client.compile-parameters-sync parameters, transpilation.query
-        #     SharePopup do 
-        #         host: window.location.host
-        #         left: left-from-width
-        #         version: version
-        #         document-id: document-id
-        #         compiled-parameters: compiled-parameters
-        #         data-source-cue: data-source-cue
-
         # DIALOGS
         console.log \state.dialog, @state.dialog
         if !!@state.dialog
             div class-name: \dialog-container,
                 match @state.dialog 
-                | \new-query =>
+
+                | \share-popup =>
+                    {parameters, transpilation} = @document-from-state!
+                    [err, compiled-parameters] = pipe-web-client @props.params.project-id .compile-parameters-sync parameters, transpilation.query
+                    Dialog do
+                        on-close: ~> @set-state {dialog: null}
+                        component: SharePopup do 
+                            host: window.location.host
+                            document-id: @state.document-id
+                            project-id: @props.params.project-id
+                            version: @state.version
+                            compiled-parameters: compiled-parameters
+                            data-source-cue: @state.data-source-cue
+                | \new-query => 
                     NewQueryDialog do 
                         initial-data-source-cue: @state.data-source-cue
                         initial-transpilation-language: @state.transpilation-language

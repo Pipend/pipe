@@ -2,11 +2,12 @@
 {create-class, create-factory, DOM:{a, div, img, input, span, h3}}:React = require \react
 require! \react-router
 Link = create-factory react-router.Link
-{Modal, Button}:react-bootstrap = require \react-bootstrap
 
-[Button, MBody, MTitle, MHeader, MModal] = map do 
-  create-factory 
-  [Button, Modal.Body, Modal.Title, Modal.Header, Modal]
+[MBody, MTitle, MHeader, MModal] = do ->
+  {Modal}:react-bootstrap = require \react-bootstrap
+  map do 
+    create-factory 
+    [Modal.Body, Modal.Title, Modal.Header, Modal]
 
 
 
