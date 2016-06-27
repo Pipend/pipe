@@ -2,6 +2,7 @@ Pipe
 =================================
 
 [![Build Status](https://travis-ci.org/Pipend/pipe.svg?branch=master)](https://travis-ci.org/Pipend/pipe)
+[![Discord](https://img.shields.io/badge/Discord-join%20chat%20%E2%86%92-738bd7.svg?style=flat-square)](https://discord.gg/2hnSCKq)
 
 Pipe is a Web app for querying any data source, and analyzing and visualizing the result.
 
