@@ -209,7 +209,7 @@ module.exports = ({connection-string, connection-options}) ->
                     new-promise (, rej) -> rej {queries-in-between}
                 
                 else
-                    {ops: [record]} <- bind-p insert-query do
+                    [record]? <- bind-p insert-query do
                         {} <<< document <<< {creation-time: new Date!.get-time!, status: true}
                         {w: 1}
                     return-p record
