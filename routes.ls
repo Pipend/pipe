@@ -68,11 +68,14 @@ module.exports = (
 
         # error and redirect utility functions
         error = (status, msg) ->
-            console.log \error, status, msg, is-api
-            response.set \Content-disposition, ""
-            response.set \Content-type, "text"
+            console.log \error, status, is-api, msg
             response.status status
-            if is-api then response.send {error: msg} else response.end msg
+            if is-api 
+                then response.send {error: msg} 
+                else 
+                    response.set \Content-disposition, ""
+                    response.set \Content-type, "text"
+                    response.end msg
 
         redirect = (status, msg, url) ->
             response.status status
@@ -91,7 +94,7 @@ module.exports = (
                 error 500, ex.versions-ahead
 
             else
-                error 500, "Unknown error: #{ex}"
+                error 500, "#{ex}"
 
         else
 
@@ -401,6 +404,7 @@ module.exports = (
                 transpilation-language
                 compiled-parameters
                 cache
+
             
     execute-document =
         methods: <[get]>
