@@ -4,6 +4,7 @@ Clipboard = require \clipboard
 SimpleSelect = create-factory (require \react-selectize).SimpleSelect
 SimpleButton = create-factory require \./SimpleButton.ls
 {debounce} = require \underscore
+Dialog = require \./utils/Dialog.ls
 
 LibrarySelect = create-factory create-class do 
 
@@ -119,69 +120,63 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render:  ->
-        div class-name: 'settings-dialog dialog',
-            
-            # TITLE
-            div class-name: \header, "Settings"
+        Dialog do
+            class-name: 'settings-dialog'
+            title: 'Settings'
+            save-label: 'Save'
+            cancel-label: 'Cancel'
+            on-save: ~>
+                urls: @state.urls
+                transpilation-language: @state.transpilation-language
+            on-cancel: ~> @props.on-cancel!
 
-            # COMPILATION
-            div class-name: "section language",
-                label null, "Language : "
-                SimpleSelect do
-                    value: 
-                        label: @state.transpilation-language
-                        value: @state.transpilation-language
-                    on-value-change: ({value}, callback) ~>  @set-state {transpilation-language: value}, callback
-                    options: <[livescript javascript babel]> |> map (language) ~> label: language, value: language
+            component: do ~>
+                div null,
 
-            # EXTERNAL LIBRARIES
-            div class-name: "section libraries",
-                label null, "Client side javascript libraries"
-                div class-name: \libraries,
+                    # COMPILATION
+                    div class-name: "section language",
+                        label null, "Language : "
+                        SimpleSelect do
+                            value: 
+                                label: @state.transpilation-language
+                                value: @state.transpilation-language
+                            on-value-change: ({value}, callback) ~>  @set-state {transpilation-language: value}, callback
+                            options: <[livescript javascript babel]> |> map (language) ~> label: language, value: language
 
-                    # LIST OF URLS
-                    [0 til @state.urls.length] |> map (index) ~>
-                        div key: index,
+                    # EXTERNAL LIBRARIES
+                    div class-name: "section libraries",
+                        label null, "Client side javascript libraries"
+                        div class-name: \libraries,
+
+                            # LIST OF URLS
+                            [0 til @state.urls.length] |> map (index) ~>
+                                div key: index,
+                                    
+                                    # AUTOCOMPLETE
+                                    LibrarySelect do 
+                                        key: index
+                                        id: "select-#{index}"
+                                        ref: "select-#{index}"
+                                        url: @state.urls[index]
+                                        ignore-urls: @state.urls
+                                        on-change: (url) ~> @set-state urls: do ~> @state.urls[index] = url; @state.urls
+                                     
+                                    # DELETE URL
+                                    SimpleButton do
+                                        id: "remove-library"
+                                        color: \red
+                                        on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
+                                        \Remove
                             
-                            # AUTOCOMPLETE
-                            LibrarySelect do 
-                                key: index
-                                id: "select-#{index}"
-                                ref: "select-#{index}"
-                                url: @state.urls[index]
-                                ignore-urls: @state.urls
-                                on-change: (url) ~> @set-state urls: do ~> @state.urls[index] = url; @state.urls
-                             
-                            # DELETE URL
-                            SimpleButton do
-                                id: "remove-library"
-                                color: \red
-                                on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
-                                \Remove
-                    
-                    # ADD URL BUTTON                    
-                    SimpleButton do 
-                        id: "add-library"
-                        color: \green
-                        on-click: ~> 
-                            <~ @set-state urls: @state.urls ++ [""]
-                            @refs["select-#{@state.urls.length - 1}"].focus!
-                        \Add
-                    
-            # OK / CANCEL
-            div class-name: \footer,
-                SimpleButton do
-                    id: "save-settings"
-                    color: \grey
-                    on-click: ~> @props.on-change do
-                        urls: @state.urls
-                        transpilation-language: @state.transpilation-language
-                    \Done
-                SimpleButton do
-                    id: "cancel-settings"
-                    color: \grey
-                    on-click: ~> @props.on-cancel!
-                    \Cancel
+                            # ADD URL BUTTON                    
+                            SimpleButton do 
+                                id: "add-library"
+                                color: \green
+                                on-click: ~> 
+                                    <~ @set-state urls: @state.urls ++ [""]
+                                    @refs["select-#{@state.urls.length - 1}"].focus!
+                                \Add
+
 
     # get-initial-state :: a -> UIState
     get-initial-state: ->

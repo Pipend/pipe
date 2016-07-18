@@ -432,6 +432,9 @@ module.exports = create-class do
                   text: if @state.title and @state.title.length > 0 then @state.title else 'Untitled'
                   type: \textbox
                   action: (title) ~> @set-state {title}
+
+                * label: \Settings
+                  action: ~> @set-state {dialog: \settings} 
                 
                 * label: \History
                   enabled: saved-document
@@ -512,7 +515,7 @@ module.exports = create-class do
                 | \settings =>
                     SettingsDialog do
                         initial-urls: @state.client-external-libs
-                        initial-transpilation-language: transpilation-language
+                        initial-transpilation-language: @state.transpilation-language
                         on-change: ({urls, transpilation-language}) ~>
                             @load-client-external-libs urls, @state.client-external-libs
                             @set-state do
