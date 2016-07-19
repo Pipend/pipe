@@ -72,6 +72,8 @@ Dialog = ({component, on-close}) ->
             header
             component
 
+DialogBox = require \./utils/Dialog.ls
+
 # TODO: move it to utils
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
@@ -462,8 +464,11 @@ module.exports = create-class do
                 | \share-popup =>
                     {parameters, transpilation} = @document-from-state!
                     [err, compiled-parameters] = pipe-web-client @props.params.project-id .compile-parameters-sync parameters, transpilation.query
-                    Dialog do
-                        on-close: ~> @set-state {dialog: null}
+                    DialogBox do
+                        class-name: 'settings-dialog'
+                        title: 'Settings'
+                        cancel-label: 'Close'
+                        on-cancel: ~> @set-state {dialog: null}
                         component: SharePopup do 
                             host: window.location.host
                             document-id: @state.document-id
@@ -471,6 +476,8 @@ module.exports = create-class do
                             version: @state.version
                             compiled-parameters: compiled-parameters
                             data-source-cue: @state.data-source-cue
+
+
                 | \new-query => 
                     NewQueryDialog do 
                         initial-data-source-cue: @state.data-source-cue
@@ -512,18 +519,36 @@ module.exports = create-class do
                             | \reset => @set-state (@state-from-document remote-document)
                             @set-state dialog: null, versions-ahead: null
 
-                | \settings =>
-                    SettingsDialog do
-                        initial-urls: @state.client-external-libs
-                        initial-transpilation-language: @state.transpilation-language
-                        on-change: ({urls, transpilation-language}) ~>
+                | \settings => do ~>
+                    callback = null
+
+                    DialogBox do
+                        class-name: 'settings-dialog'
+                        title: 'Settings'
+                        save-label: 'Save'
+                        cancel-label: 'Cancel'
+                        on-save: ~> callback ({urls, transpilation-language}) ~>
                             @load-client-external-libs urls, @state.client-external-libs
                             @set-state do
                                 client-external-libs: urls
                                 dialog: null
                                 transpilation-language: transpilation-language
-                            @save-to-client-storage-debounced!
+
                         on-cancel: ~> @set-state dialog: null
+
+                        component: do ~>
+                            SettingsDialog do
+                                initial-urls: @state.client-external-libs
+                                initial-transpilation-language: @state.transpilation-language
+                                get-state: (f) -> callback := f
+                                on-change: ({urls, transpilation-language}) ~>
+                                    @load-client-external-libs urls, @state.client-external-libs
+                                    @set-state do
+                                        client-external-libs: urls
+                                        dialog: null
+                                        transpilation-language: transpilation-language
+                                    @save-to-client-storage-debounced!
+                                on-cancel: ~> @set-state dialog: null
 
                 | \error-unauthorized =>
                     UnAuthorizedDialog {}

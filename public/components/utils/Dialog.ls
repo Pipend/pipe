@@ -12,11 +12,12 @@ module.exports = ({component, class-name, title, save-label, cancel-label, on-sa
 
         # OK / CANCEL
         div class-name: \footer,
-            SimpleButton do
-                class-name: "save"
-                color: \grey
-                on-click: ~> on-save!
-                save-label
+            if !!save-label
+                SimpleButton do
+                    class-name: "save"
+                    color: \grey
+                    on-click: ~> on-save!
+                    save-label
             SimpleButton do
                 class-name: "cancel"
                 color: \grey

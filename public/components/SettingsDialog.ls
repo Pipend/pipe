@@ -4,7 +4,6 @@ Clipboard = require \clipboard
 SimpleSelect = create-factory (require \react-selectize).SimpleSelect
 SimpleButton = create-factory require \./SimpleButton.ls
 {debounce} = require \underscore
-Dialog = require \./utils/Dialog.ls
 
 LibrarySelect = create-factory create-class do 
 
@@ -115,68 +114,63 @@ module.exports = React.create-class do
     get-default-props: ->
         # initial-urls :: [String]
         # initial-transpilation-language :: String
-        # on-change :: ({urls: [String], transpilation-language: String}) -> Void
-        # on-cancel :: a -> Void
+        # getState :: Callback (state -> void)
 
     # render :: a -> ReactElement
     render:  ->
-        Dialog do
-            class-name: 'settings-dialog'
-            title: 'Settings'
-            save-label: 'Save'
-            cancel-label: 'Cancel'
-            on-save: ~> @props.on-change do
+
+        div null,
+
+            # COMPILATION
+            div class-name: "section language",
+                label null, "Language : "
+                SimpleSelect do
+                    value: 
+                        label: @state.transpilation-language
+                        value: @state.transpilation-language
+                    on-value-change: ({value}, callback) ~>  @set-state {transpilation-language: value}, callback
+                    options: <[livescript javascript babel]> |> map (language) ~> label: language, value: language
+
+            # EXTERNAL LIBRARIES
+            div class-name: "section libraries",
+                label null, "Client side javascript libraries"
+                div class-name: \libraries,
+
+                    # LIST OF URLS
+                    [0 til @state.urls.length] |> map (index) ~>
+                        div key: index,
+                            
+                            # AUTOCOMPLETE
+                            LibrarySelect do 
+                                key: index
+                                id: "select-#{index}"
+                                ref: "select-#{index}"
+                                url: @state.urls[index]
+                                ignore-urls: @state.urls
+                                on-change: (url) ~> @set-state urls: do ~> @state.urls[index] = url; @state.urls
+                             
+                            # DELETE URL
+                            SimpleButton do
+                                id: "remove-library"
+                                color: \red
+                                on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
+                                \Remove
+                    
+                    # ADD URL BUTTON                    
+                    SimpleButton do 
+                        id: "add-library"
+                        color: \green
+                        on-click: ~> 
+                            <~ @set-state urls: @state.urls ++ [""]
+                            @refs["select-#{@state.urls.length - 1}"].focus!
+                        \Add
+
+
+    component-did-mount: ->
+        @props.getState (callback) ~>
+            callback do
                 urls: @state.urls
                 transpilation-language: @state.transpilation-language
-            on-cancel: ~> @props.on-cancel!
-
-            component: do ~>
-                div null,
-
-                    # COMPILATION
-                    div class-name: "section language",
-                        label null, "Language : "
-                        SimpleSelect do
-                            value: 
-                                label: @state.transpilation-language
-                                value: @state.transpilation-language
-                            on-value-change: ({value}, callback) ~>  @set-state {transpilation-language: value}, callback
-                            options: <[livescript javascript babel]> |> map (language) ~> label: language, value: language
-
-                    # EXTERNAL LIBRARIES
-                    div class-name: "section libraries",
-                        label null, "Client side javascript libraries"
-                        div class-name: \libraries,
-
-                            # LIST OF URLS
-                            [0 til @state.urls.length] |> map (index) ~>
-                                div key: index,
-                                    
-                                    # AUTOCOMPLETE
-                                    LibrarySelect do 
-                                        key: index
-                                        id: "select-#{index}"
-                                        ref: "select-#{index}"
-                                        url: @state.urls[index]
-                                        ignore-urls: @state.urls
-                                        on-change: (url) ~> @set-state urls: do ~> @state.urls[index] = url; @state.urls
-                                     
-                                    # DELETE URL
-                                    SimpleButton do
-                                        id: "remove-library"
-                                        color: \red
-                                        on-click: ~> @set-state urls: do ~> @state.urls.splice index, 1; @state.urls
-                                        \Remove
-                            
-                            # ADD URL BUTTON                    
-                            SimpleButton do 
-                                id: "add-library"
-                                color: \green
-                                on-click: ~> 
-                                    <~ @set-state urls: @state.urls ++ [""]
-                                    @refs["select-#{@state.urls.length - 1}"].focus!
-                                \Add
-
 
     # get-initial-state :: a -> UIState
     get-initial-state: ->
