@@ -125,7 +125,7 @@ module.exports = React.create-class do
             title: 'Settings'
             save-label: 'Save'
             cancel-label: 'Cancel'
-            on-save: ~>
+            on-save: ~> @props.on-change do
                 urls: @state.urls
                 transpilation-language: @state.transpilation-language
             on-cancel: ~> @props.on-cancel!
