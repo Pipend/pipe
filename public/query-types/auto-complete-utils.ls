@@ -69,7 +69,6 @@ export make-auto-completer = (project-id, filter-function, [data-source-cue, tra
 
 # make-auto-completer-default :: (AceEditor -> Boolean) -> [DataSourceCue, String] -> p {on-query-changed :: String -> p AST, get-completions :: AceEditorMethod}
 export make-auto-completer-default = (project-id, filter-function, source-and-language) ->
-    debugger
     make-auto-completer do
         project-id
         filter-function

@@ -613,11 +613,11 @@ module.exports = create-class do
         @update-presentation-size!
 
         # redistribute the heights among the editors based on there visibility
-        # @set-state editor-heights.apply do
-        #     @
-        #     <[query transformation presentation]> |> map ~>
-        #         {show-content} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
-        #         if !!show-content then @state[camelize "#{it}-editor-height"] else 0
+        @set-state editor-heights.apply do
+            @
+            <[query transformation presentation]> |> map ~>
+                {show-content} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                if !!show-content then @state[camelize "#{it}-editor-height"] else 0
 
         {cache, execute}? = @props.location.query
 
@@ -1089,10 +1089,10 @@ module.exports = create-class do
             client-external-libs: client-external-libs ? []
             # editor-width: ui?.editor?.width or @state.editor-width
         }
-        # <<< editor-heights do
-        #     ui?.query-editor?.height or @state.query-editor-height
-        #     ui?.transformation-editor?.height or @state.transformation-editor-height
-        #     ui?.presentation-editor?.height or @state.presentation-editor-height
+        <<< editor-heights do
+            ui?.query-editor?.height or @state.query-editor-height
+            ui?.transformation-editor?.height or @state.transformation-editor-height
+            ui?.presentation-editor?.height or @state.presentation-editor-height
 
     # document-from-state :: a -> Document
     document-from-state: ->
