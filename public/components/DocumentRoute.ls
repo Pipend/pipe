@@ -26,6 +26,7 @@ _ = require \underscore
 require! \react-router
 Link = create-factory react-router.Link
 AceEditor = create-factory require \./AceEditor.ls
+ace-language-tools = require \brace/ext/language_tools
 ConflictDialog = create-factory require \./ConflictDialog.ls
 DataSourceCuePopup = create-factory require \./DataSourceCuePopup.ls
 DocumentSearch = create-factory require \./DocumentSearch.ls
@@ -58,14 +59,14 @@ alphabet = [String.from-char-code i for i in [65 to 65+25] ++ [97 to 97+25]]
 Dialog = ({component, on-close}) ->
 
     header = div null, if !!on-close
-        then 
+        then
             button do
                 on-click: on-close
                 "Close"
         else
             ""
 
-    div do 
+    div do
         class-name: 'dialog'
         div do
             class-name: 'dialog-wrapper'
@@ -78,8 +79,8 @@ DialogBox = require \./utils/Dialog.ls
 # takes a collection of keyscores & maps them to {name, value, score, meta}
 # [{keywords: [String], score: Int}] -> String -> String -> [{name, value, score, meta}]
 convert-to-ace-keywords = (keyscores, meta, prefix) ->
-    keyscores |> concat-map ({keywords, score}) -> 
-        keywords 
+    keyscores |> concat-map ({keywords, score}) ->
+        keywords
         |> filter (-> if !prefix then true else  (it.index-of prefix) == 0)
         |> map (text) ->
             name: text
@@ -90,8 +91,20 @@ convert-to-ace-keywords = (keyscores, meta, prefix) ->
 # returns dasherized collection of keywords for auto-completion
 keywords-from-object = (object) ->
     object
-        |> keys 
+        |> keys
         |> map dasherize
+
+# editor-heights :: Integer?, Integer?, Integer? -> {query-editor-height, transformation-editor-height, presentation-editor-height}
+editor-heights = (query-editor-height = 300, transformation-editor-height = 324, presentation-editor-height = 240) ->
+    # 50 = height of .menu defined in Meny.styl; 30 = height of .editor-title;
+    viewport-height = window.inner-height - 50 - 3 * 30
+    editor-heights = [query-editor-height, transformation-editor-height, presentation-editor-height] |> (ds) ->
+        s = sum ds
+        ds |> map round . (viewport-height *) . (/s)
+    query-editor-height: editor-heights.0
+    transformation-editor-height: editor-heights.1
+    presentation-editor-height: editor-heights.2
+
 
 # gracefully degrades if blocked by a popup blocker
 # open-window :: URL -> Void
@@ -124,7 +137,7 @@ module.exports = create-class do
             title
             data-source-cue
             transpilation-language
-            query 
+            query
             transformation
             presentation
             parameters
@@ -171,11 +184,11 @@ module.exports = create-class do
         # :: [Editor]
         editors =
             *   name: \query
-                
+
                 render-title: ->
                     span null, \Query
 
-                ace-editor-props: 
+                ace-editor-props:
                     on-click: ({dom-event:{meta-key}, editor}) ~>
                         if meta-key
                             {row, column} = editor.get-cursor-position!
@@ -187,11 +200,11 @@ module.exports = create-class do
                                 open-window "/projects/#{@props.params.project-id}/documents/#{document-id}"
 
             *   name: \transformation
-                render-title: -> 
+                render-title: ->
                     span null, \Transformation
 
             *   name: \presentation
-                render-title: -> 
+                render-title: ->
                     div null,
                         div null, \Presentation
                         div class-name: \settings
@@ -210,14 +223,14 @@ module.exports = create-class do
             # DIALOGS
             @render-dialogs!
 
-            div do 
-                style: 
+            div do
+                style:
                     position: \relative
 
                 # LEFT VERTICAL NAV
-                VerticalNav do 
+                VerticalNav do
                     height: window.inner-height - menu-height
-                    tabs: 
+                    tabs:
                         *   title: \Documents
                             component: DocumentSearch project-id: @props.params.project-id
                         ...
@@ -226,11 +239,11 @@ module.exports = create-class do
                     # on-active-tab-title-change :: String? -> ()
                     on-active-tab-title-change: (tab-title) !~>
                         @set-state left-nav-active-tab-title: tab-title
-                
+
                 # EDITORS & PRESENTATION
-                VerticalSplitPane do 
+                VerticalSplitPane do
                     style: do ~>
-                        left = switch 
+                        left = switch
                             | typeof @state.left-nav-active-tab-title == \undefined => nav-width
                             | _ => nav-width + 250
                         left: left
@@ -239,7 +252,7 @@ module.exports = create-class do
 
                     # width of the ResizeableEditorGroup below
                     width-of-first-child: @state.editor-width
-                    
+
                     # on-width-of-first-child-change :: Int -> ()
                     on-width-of-first-child-change: (new-width) !~>
                         @set-state editor-width: new-width
@@ -251,7 +264,7 @@ module.exports = create-class do
                             @save-to-client-storage-debounced!
 
                         on-height-change: @set-state.bind @
-                        editors: editors 
+                        editors: editors
                             |> filter ({name}) -> (get-editor-settings name).show-content
                             |> map ({name}:editor?) ~>
 
@@ -261,27 +274,27 @@ module.exports = create-class do
                                     show-content
                                     ace-editor-props
                                 } = get-editor-settings name
-                                
+
                                 {} <<< editor <<<
                                     content: @state[name]
                                     height: @state[camelize "#{name}EditorHeight"]
                                     show-title: show-title
                                     show-content: show-content
                                     ace-editor-props: {} <<< ace-editor-props <<< editor.ace-editor-props
-                        
+
                     # PRESENTATION CONTAINER
                     div do
                         ref: camelize \presentation-container
                         class-name: "presentation-container #{if !!task-id then 'executing' else ''}"
 
                         # PRESENTATION: operations on this div are not controlled by react
-                        div do 
+                        div do
                             ref: \presentation
                             class-name: \presentation
                             id: \presentation
 
                         # STATUS BAR
-                        StatusBar do 
+                        StatusBar do
                             statuses:
                                 *   title: 'Displayed on'
                                     value: time-formatter new Date displayed-on
@@ -293,27 +306,27 @@ module.exports = create-class do
 
                                 *   title: 'Cached on'
                                     value: time-formatter new Date execution-end-time
-                                    show: displayed-on and from-cache and !execution-error 
+                                    show: displayed-on and from-cache and !execution-error
 
                                 *   title: 'Execution time'
                                     value: "#{execution-duration / 1000} seconds"
                                     show: displayed-on and !execution-error
-                            buttons: 
+                            buttons:
                                 *   title: 'Task Manager'
                                     href: \/tasks
                                 ...
-    
+
                 # RIGHT VERTICAL NAV
-                VerticalNav do 
+                VerticalNav do
                     direction: \right
                     height: window.inner-height - menu-height - status-bar-height
                     style:
                         top: 0
                         right: 0
                         z-index: 2
-                    tabs: 
+                    tabs:
                         *   title: 'Data Source'
-                            component: div do 
+                            component: div do
                                 null
                                 # DATASOURCE POPUP
                                 DataSourceCuePopup do
@@ -327,7 +340,7 @@ module.exports = create-class do
                             component: AceEditor do
                                 editor-id: \parameters-editor
                                 value: @state.parameters
-                                on-change: (value) ~> 
+                                on-change: (value) ~>
                                     <~ @set-state parameters: value
                                     @save-to-client-storage-debounced!
 
@@ -351,13 +364,13 @@ module.exports = create-class do
 
         # get the document-id & version from url via props.params
         document-id = @props.params.document-id
-        version = 
+        version =
             | typeof @props.params?.version == \string => parse-int version
             | _ => undefined
 
         saved-document = document-id and version > 0
 
-        /* 
+        /*
         MenuItem :: {
             type :: String
             label :: String
@@ -366,10 +379,10 @@ module.exports = create-class do
             enabled :: Boolean
             highlight :: Boolean
             pressed :: Boolean
-        } 
+        }
         */
         # :: [MenuItem]
-        items-left = 
+        items-left =
 
             *   label: \New
                 href: "/projects/#{@props.params.project-id}/documents/new"
@@ -380,12 +393,12 @@ module.exports = create-class do
 
             *   label: \Reset
                 enabled: saved-document
-                action: ~> 
+                action: ~>
                     <~ @set-state (@state-from-document remote-document)
                     @save-to-client-storage!
-            
+
             *   label: \Clone
-                action: ~> 
+                action: ~>
                     {version, parent-id, tree-id, title}:document? = @document-from-state!
 
                     # create a new copy of the document, update as required then save it to local storage
@@ -418,30 +431,30 @@ module.exports = create-class do
 
             # * label: \Dispose
             #   show: !!@state.dispose
-            #   action: ~> 
+            #   action: ~>
             #     @state.dispose!
             #     @set-state dispose: undefined
 
             ...
 
-        Menu do 
+        Menu do
             ref: \menu
-            items-left: items-left |> filter ({show}) -> 
+            items-left: items-left |> filter ({show}) ->
                 (typeof show == \undefined) or show
 
-            items-right: 
+            items-right:
                 * label: \Title
                   text: if @state.title and @state.title.length > 0 then @state.title else 'Untitled'
                   type: \textbox
                   action: (title) ~> @set-state {title}
 
                 * label: \Settings
-                  action: ~> @set-state {dialog: \settings} 
-                
+                  action: ~> @set-state {dialog: \settings}
+
                 * label: \History
                   enabled: saved-document
                   action: (->)
-                
+
                 * label: \Share
                   enabled: saved-document
                   action: ~> @set-state {dialog: \share-popup}
@@ -456,10 +469,9 @@ module.exports = create-class do
     render-dialogs: ->
 
         # DIALOGS
-        console.log \state.dialog, @state.dialog
         if !!@state.dialog
             div class-name: \dialog-container,
-                match @state.dialog 
+                match @state.dialog
 
                 | \share-popup =>
                     {parameters, transpilation} = @document-from-state!
@@ -469,7 +481,7 @@ module.exports = create-class do
                         title: 'Settings'
                         cancel-label: 'Close'
                         on-cancel: ~> @set-state {dialog: null}
-                        component: SharePopup do 
+                        component: SharePopup do
                             host: window.location.host
                             document-id: @state.document-id
                             project-id: @props.params.project-id
@@ -478,38 +490,38 @@ module.exports = create-class do
                             data-source-cue: @state.data-source-cue
 
 
-                | \new-query => 
-                    NewQueryDialog do 
+                | \new-query =>
+                    NewQueryDialog do
                         initial-data-source-cue: @state.data-source-cue
                         initial-transpilation-language: @state.transpilation-language
                         project-id: @props.params.project-id
                         on-create: (data-source-cue, transpilation-language) ~>
                             (pipe-web-client @props.params.project-id .load-default-document data-source-cue, transpilation-language)
-                                .then (document) ~> 
-                                    updated-document = {} <<< document <<< 
+                                .then (document) ~>
+                                    updated-document = {} <<< document <<<
                                         document-id: @props.params.document-id
                                         version: parse-int @props.params.version
-                                    # on-document-load expects local & remote document, 
+                                    # on-document-load expects local & remote document,
                                     # in this case both local & remote will be the same documents
                                     @on-document-load updated-document, updated-document
                                 .catch (err) ~> alert "Unable to get default document for: #{data-source-cue?.query-type}/#{transpilation-language} (#{err})"
                                 .then ~> @set-state dialog: null
 
                 | \save-conflict =>
-                    ConflictDialog do 
+                    ConflictDialog do
                         versions-ahead: versions-ahead
                         on-cancel: ~> @set-state dialog: null, versions-ahead: null
                         on-resolution-select: (resolution) ~>
                             uid = generate-uid!
                             match resolution
-                            | \new-commit => 
+                            | \new-commit =>
                                 @save-document {} <<< @document-from-state! <<< {
                                     version: uid
                                     parent-id: versions-ahead.0
                                     document-id
                                     tree-id
                                 }
-                            | \fork => 
+                            | \fork =>
                                 @save-document {} <<< @document-from-state! <<< {
                                     version: uid
                                     parent-id: version
@@ -575,17 +587,17 @@ module.exports = create-class do
         presentation: ""
         parameters: ""
         client-external-libs: []
-        editor-width: 550 
+        editor-width: 550
         tags: []
         keywords-from-query-result: []
 
         # UI DIMENSIONS
         left-nav-active-tab-title: undefined
-        
+
     # on-document-load :: Document -> Document -> Void
     on-document-load: (local-document, remote-document) ->
 
-        # existing-tags must also include tags saved on client storage 
+        # existing-tags must also include tags saved on client storage
         # existing-tags = (@state.existing-tags ? []) ++ ((local-document.tags ? []) |> map -> label: it, value: it)
         #     |> unique-by (.label)
         #     |> sort-by (.label)
@@ -595,10 +607,10 @@ module.exports = create-class do
         @save-to-client-storage!
 
         # create the auto-completer for ACE for the current data-source-cue
-        # @setup-query-auto-completion!
+        @setup-query-auto-completion!
 
         # now that we know the editor width, we should update the presentation size
-        # @update-presentation-size!
+        @update-presentation-size!
 
         # redistribute the heights among the editors based on there visibility
         # @set-state editor-heights.apply do
@@ -610,12 +622,12 @@ module.exports = create-class do
         {cache, execute}? = @props.location.query
 
         # update cache checkbox from query-string
-        <~ do ~> (callback) ~> 
+        <~ do ~> (callback) ~>
             if typeof cache == \string
-                @set-state do 
+                @set-state do
                     cache: cache == \true
                     callback
-            else 
+            else
                 callback!
 
         <~ to-callback (@load-client-external-libs @state.client-external-libs, [])
@@ -634,7 +646,7 @@ module.exports = create-class do
 
         pwclient = pipe-web-client project-id
 
-        if !!document-id 
+        if !!document-id
 
             if typeof! version == \Undefined
                 # handled by express, redirects the user to the latest version
@@ -642,18 +654,18 @@ module.exports = create-class do
                 throw  "not implemented at client level, (refresh the page)"
 
             version = parse-int version
-            
+
             # local-document :: Document
             local-document = client-storage.get-document do
                 project-id
                 document-id
                 parse-int version
-            
+
             # :: (Promise p) => p Document -> (State changes)
             update-state-using-remote-document = (remote-document-p) !~>
                 remote-document-p
                 .then (remote-document) ~> @on-document-load local-document ? remote-document, remote-document
-                .catch (error) ~> 
+                .catch (error) ~>
                     if error instanceof pwclient.Exceptions.UnAuthorizedException
                         @set-state {dialog: 'error-unauthorized'}
                     else if error instanceof pwclient.Exceptions.UnAuthenticatedException
@@ -662,38 +674,38 @@ module.exports = create-class do
                         console.error \update-state-using-remote-document, error
                     # alert err.to-string!
                     # window.location.href = \/
-            
+
             # we are on local branch
             # eg: documents/local.../versions/0
             if (document-id.index-of \local) == 0
-                
+
                 # we are on a local branch and local-document exists
                 # we can use the local-document.data-source-cue to get the default document to use it as remote document
                 if local-document
                     {data-source-cue, transpilation-language}? = @state-from-document local-document
-                    update-state-using-remote-document do 
-                        pwclient.load-default-document do 
+                    update-state-using-remote-document do
+                        pwclient.load-default-document do
                             data-source-cue
                             transpilation-language
 
                 # we are on a local branch and the local-document does not exist
                 # this means its a new query, so we display the new query dialog
-                else 
+                else
                     @set-state dialog: \new-query
 
             # load from local storage / remote
             # eg: documents/:documentId/versions/:version
             else
-                update-state-using-remote-document do 
-                    pwclient.load-document-version do 
+                update-state-using-remote-document do
+                    pwclient.load-document-version do
                         document-id
                         version
-        
+
         # document-id is not present in the url, redirect the user to new local document url
         else
 
             # this is the url used by 'New Query' button
-            # it redirects user to documents/:documentId/versions/0 
+            # it redirects user to documents/:documentId/versions/0
             # eg: new/
             react-router.browser-history.replace do
                 pathname: "/projects/#{project-id}/documents/local#{generate-uid!}/versions/0"
@@ -705,26 +717,27 @@ module.exports = create-class do
     component-did-mount: !->
 
         # auto-completion for editors
-        # transformation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        # presentation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
-        # d3-keywords = keywords-from-object d3
-        # @default-completers =
-        #     * get-completions: (editor, , , prefix, callback) ~>
-        #         keywords-from-query-result = @state[camelize \keywords-from-query-result]
-        #         range = editor.getSelectionRange!.clone!
-        #             ..set-start range.start.row, 0
-        #         text = editor.session.get-text-range range
-        #         [keywords, meta] = match editor.container.id
-        #             | \transformation-editor => [(unique <| transformation-keywords ++ keywords-from-query-result), \transformation]
-        #             | \presentation-editor => [(unique <| if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
-        #             | _ => [alphabet, editor.container.id]
-        #         callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
-        #     ...
-        # ace-language-tools.set-completers @default-completers
+        transformation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        presentation-keywords = ([{}, require \prelude-ls] |> concat-map keywords-from-object) ++ alphabet
+        d3-keywords = keywords-from-object d3
+        @default-completers =
+            * get-completions: (editor, , , prefix, callback) ~>
+                keywords-from-query-result = @state[camelize \keywords-from-query-result]
+                range = editor.getSelectionRange!.clone!
+                    ..set-start range.start.row, 0
+                text = editor.session.get-text-range range
+                [keywords, meta] = match editor.container.id
+                    | \transformationEditor => [(unique <| transformation-keywords ++ keywords-from-query-result), \transformation]
+                    | \presentationEditor => [(unique <| if /.*d3\.($|[\w-]+)$/i.test text then d3-keywords else presentation-keywords), \presentation]
+                    | _ => [alphabet, editor.container.id]
+
+                callback null, (convert-to-ace-keywords [keywords: keywords, score: 1], meta, prefix)
+            ...
+        ace-language-tools.set-completers @default-completers
 
         # auto completion for tags
         # pipe-web-client.get-all-tags!.then (existing-tags) ~>
-        #     @set-state do 
+        #     @set-state do
         #         existing-tags: ((@state.existing-tags ? []) ++ (existing-tags |> map -> label: it, value: it))
         #             |> unique-by (.label)
         #             |> sort-by (.label)
@@ -733,10 +746,10 @@ module.exports = create-class do
         @save-to-client-storage-debounced = _.debounce @save-to-client-storage, 350
 
         # crash recovery
-        @unload-listener = (e) ~> 
+        @unload-listener = (e) ~>
             @save-to-client-storage!
 
-            unsaved-changes = 
+            unsaved-changes =
                 | @changes-made!.length > 0 =>
                     @save-to-client-storage!
                     true
@@ -746,19 +759,19 @@ module.exports = create-class do
                 message = "You have NOT saved your query. Stop and save if your want to keep your query."
                 (e || window.event)?.return-value = message
                 message
-        
+
         window.add-event-listener \beforeunload, @unload-listener
 
         # update the size of the presentation on resize (based on size of editors)
-        # $ window .on \resize, ~> @update-presentation-size!
-        # @update-presentation-size!
-        
+        $ window .on \resize, ~> @update-presentation-size!
+        @update-presentation-size!
+
         # request permission for push notifications
         if notifyjs.needs-permission
             notifyjs.request-permission!
 
         # selects presentation content only
-        key 'command + a', (e) ~> 
+        key 'command + a', (e) ~>
             if e.target == document.body
                 range = document.create-range!
                     ..select-node-contents find-DOM-node @refs.presentation
@@ -776,7 +789,7 @@ module.exports = create-class do
     # # React component life cycle method (invoked before props are set)
     # # component-will-receive-props :: Props -> Void
     component-will-receive-props: (props) !->
-        
+
         console.log \component-will-receive-props, props
 
         # return if branch & query id did not change
@@ -788,32 +801,32 @@ module.exports = create-class do
 
         @load props
 
-    # # React component life cycle method (invoked after the render function)
-    # # updates the list of auto-completers if the data-source-cue has changed
-    # # component-did-update :: Props -> State -> Void
-    # component-did-update: (prev-props, prev-state) !->
+    # React component life cycle method (invoked after the render function)
+    # updates the list of auto-completers if the data-source-cue has changed
+    # component-did-update :: Props -> State -> Void
+    component-did-update: (prev-props, prev-state) !->
 
-    #     # call on-query-changed method, returned when setting up the auto-completer
-    #     # this method uses the query to build the AST which is used internally to 
-    #     # create the get-completions method for AceEditor
-    #     do ~>
-    #         if !!@on-query-changed-p and @state.query != prev-state.query
-    #             @on-query-changed-p.then ~> it @state.query
-        
-    #     # auto-complete
-    #     do ~>
-    #         {data-source-cue, transpilation-language} = @state
+        # call on-query-changed method, returned when setting up the auto-completer
+        # this method uses the query to build the AST which is used internally to
+        # create the get-completions method for AceEditor
+        do ~>
+            if !!@on-query-changed-p and @state.query != prev-state.query
+                @on-query-changed-p.then ~> it @state.query
 
-    #         # return if the data-source-cue is not complete or there is no change in the data-source-cue
-    #         if (data-source-cue.complete and !(data-source-cue `is-equal-to-object` prev-state.data-source-cue)) or transpilation-language != prev-state.transpilation-language
-    #             @setup-query-auto-completion!
+        # auto-complete
+        do ~>
+            {data-source-cue, transpilation-language} = @state
 
-    #             # redistribute the heights among the editors based on there visibility
-    #             @set-state editor-heights.apply do 
-    #                 @
-    #                 <[query transformation presentation]> |> map ~>
-    #                     {show-content} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
-    #                     if !!show-content then @state[camelize "#{it}-editor-height"] else 0
+            # return if the data-source-cue is not complete or there is no change in the data-source-cue
+            if (data-source-cue.complete and !(data-source-cue `is-equal-to-object` prev-state.data-source-cue)) or transpilation-language != prev-state.transpilation-language
+                @setup-query-auto-completion!
+
+                # redistribute the heights among the editors based on there visibility
+                @set-state editor-heights.apply do
+                    @
+                    <[query transformation presentation]> |> map ~>
+                        {show-content} = ui-protocol[@state.data-source-cue.query-type]?[camelize "#{it}-editor-settings"] @state.transpilation-language
+                        if !!show-content then @state[camelize "#{it}-editor-height"] else 0
 
     # React component life cycle method
     # component-will-unmount :: a -> Void
@@ -836,26 +849,39 @@ module.exports = create-class do
         if urls-to-add.length > 0
             (pipe-web-client @props.params.project-id) .require-deps next
 
-        else 
+        else
             new Promise (res) ~> res \done
 
-    # # SIDEEFFECT
-    # # uses @state.data-source-cue, @state.transpilation-language
-    # # adds @on-query-changed-p :: p (String -> p AST)
-    # # setup-query-auto-completion :: a -> Void
-    # setup-query-auto-completion: !->
-    #     {data-source-cue, query, transpilation-language} = @state
-    #     {query-type} = data-source-cue
-    #     {make-auto-completer} = ui-protocol[query-type]
+    # SIDEEFFECT
+    # uses @state.data-source-cue, @state.transpilation-language
+    # adds @on-query-changed-p :: p (String -> p AST)
+    # setup-query-auto-completion :: a -> Void
+    setup-query-auto-completion: !->
+        {data-source-cue, query, transpilation-language} = @state
+        {query-type} = data-source-cue
+        {make-auto-completer} = ui-protocol[query-type]
+        {project-id} = @props.params
 
-    #     # set the default completers (removing the currently set query completer if any)
-    #     ace-language-tools.set-completers @default-completers
+        # set the default completers (removing the currently set query completer if any)
+        ace-language-tools.set-completers @default-completers
 
-    #     # @on-query-changed-p :: p (String -> p AST)
-    #     @on-query-changed-p = make-auto-completer (.container.id == \query-editor), [data-source-cue, transpilation-language] .then ({get-completions, on-query-changed}) ~>
-    #         ace-language-tools.set-completers [{get-completions}] ++ @default-completers
-    #         on-query-changed query
-    #         on-query-changed    
+        # @on-query-changed-p :: p (String -> p AST)
+        @on-query-changed-p = (make-auto-completer project-id, (.container.id == \queryEditor), [data-source-cue, transpilation-language])
+        .then ({get-completions, on-query-changed}) ~>
+            ace-language-tools.set-completers [{get-completions}] ++ @default-completers
+            on-query-changed query
+            on-query-changed
+        .catch (err) ->
+            console.error err
+
+
+    # update-presentation-size :: a -> Void
+    update-presentation-size: !->
+        left = @state.editor-width + 5
+        (find-DOM-node @refs.presentation-container).style <<<
+            left: left
+            width: window.inner-width - left
+            height: window.inner-height - (find-DOM-node @refs.menu).offset-height
 
     # execute :: a -> Void
     execute: !->
@@ -872,7 +898,7 @@ module.exports = create-class do
             parameters
             transpilation
         }:document-from-state = @document-from-state!
-        
+
         {
             compile-parameters
             compile-transformation
@@ -887,7 +913,7 @@ module.exports = create-class do
         process-query-result = (result) ~>
             transformation-function <~ compile-transformation transformation, transpilation.transformation .then _
             presentation-function <~ compile-presentation presentation, transpilation.presentation .then _
-            
+
             # execute the transformation code
             try
                 transformed-result = transformation-function result, compiled-parameters
@@ -908,7 +934,7 @@ module.exports = create-class do
                 catch ex
                     return new Promise (, rej) -> rej "ERROR IN THE PRESENTATION EXECUTAION: #{ex.to-string!}"
                 Promise.resolve null
-        
+
         # dispose the result of any previous execution
         <~ do ~> (callback) ~>
             if @state.dispose
@@ -943,7 +969,7 @@ module.exports = create-class do
             Promise.resolve {dispose, result-with-metadata}
 
         # update the ui to reflect that the task is complete
-        <~ @set-state displayed-on: Date.now!, task-id: "" 
+        <~ @set-state displayed-on: Date.now!, task-id: ""
 
         if err
             pre = $ "<pre/>"
@@ -956,17 +982,17 @@ module.exports = create-class do
             {result, from-cache, execution-end-time, execution-duration} = result-with-metadata
 
             # extract keywords from query result (for autocompletion in transformation)
-            # keywords-from-query-result = switch
-            #     | is-type 'Array', result => result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
-            #     | is-type 'Object', result => get-all-keys-recursively (-> true), result
-            #     | _ => []
+            keywords-from-query-result = switch
+                | is-type 'Array', result => result ? [] |> take 10 |> get-all-keys-recursively (-> true) |> unique
+                | is-type 'Object', result => get-all-keys-recursively (-> true), result
+                | _ => []
 
-            # update the status bar below the presentation            
+            # update the status bar below the presentation
             <~ @set-state {from-cache, execution-end-time, execution-duration, dispose}
 
             # notify the user
             if document.webkit-hidden
-                notification = new notifyjs do 
+                notification = new notifyjs do
                     'Pipe: query execution complete'
                     body: "Completed execution of (#{@state.title}) in #{@state.execution-duration / 1000} seconds"
                     notify-click: -> window.focus!
@@ -981,7 +1007,7 @@ module.exports = create-class do
             <[title dataSourceCue query transformation presentation parameters transpilation]>
                 |> filter ~> !(unsaved-document?[it] `is-equal-to-object` @state.remote-document?[it])
 
-        # there are no changes made if the query does not exist on the server 
+        # there are no changes made if the query does not exist on the server
         else
             []
 
@@ -990,18 +1016,18 @@ module.exports = create-class do
     save: ->
         if @changes-made!.length == 0
             Promise.resolve @document-from-state!
-        else 
+        else
             @save-document @document-from-state!
 
     # save-document :: (Promise p) => Document -> p Document
     save-document: (document-to-save) ->
         {project-id} = @props.params
-        
+
         (pipe-web-client project-id .save-document document-to-save)
             .then ({project-id, document-id, version}:saved-document) ~>
 
                 # update the local storage with the saved document
-                client-storage.delete-document do 
+                client-storage.delete-document do
                     @props.params.project-id
                     @props.params.document-id
                     @props.params.version
@@ -1010,7 +1036,7 @@ module.exports = create-class do
                 @set-state {} <<< (@state-from-document saved-document) <<< remote-document: saved-document
 
                 # update the url to point to the latest query id
-                react-router.browser-history.replace do 
+                react-router.browser-history.replace do
                     pathname: "/projects/#{project-id}/documents/#{document-id}/versions/#{version}"
                     query: {}
                     state: saved-document
@@ -1020,22 +1046,22 @@ module.exports = create-class do
             .catch (err) ~>
                 if (err?.length ? 0) > 0
                     @set-state dialog: \save-conflict, versions-ahead: err
-                
+
                 else
                     throw err
 
     # save to client storage only if the document has loaded
     # save-to-client-storage :: a -> Void
-    save-to-client-storage: !-> 
+    save-to-client-storage: !->
         if @state.remote-document
             {project-id, document-id, version} = @props.params
-            client-storage.save-document do 
+            client-storage.save-document do
                 project-id
                 document-id
                 parse-int version
                 @document-from-state!
-    
-    # converting the document to a flat object makes it easy to work with 
+
+    # converting the document to a flat object makes it easy to work with
     # state-from-document :: Document -> UIState
     state-from-document: ({
         document-id
@@ -1062,8 +1088,8 @@ module.exports = create-class do
             transpilation-language: transpilation?.query ? \livescript
             client-external-libs: client-external-libs ? []
             # editor-width: ui?.editor?.width or @state.editor-width
-        } 
-        # <<< editor-heights do 
+        }
+        # <<< editor-heights do
         #     ui?.query-editor?.height or @state.query-editor-height
         #     ui?.transformation-editor?.height or @state.transformation-editor-height
         #     ui?.presentation-editor?.height or @state.presentation-editor-height

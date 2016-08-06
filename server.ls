@@ -5,11 +5,11 @@ require! \express
 {each, fold, map, reject, Str} = require \prelude-ls
 
 # QueryStore
-err, persistent-store <- to-callback do 
-    (require "./persistent-stores/#{config.persistent-store.name}") do 
+err, persistent-store <- to-callback do
+    (require "./persistent-stores/#{config.persistent-store.name}") do
         config.persistent-store[config.persistent-store.name]
 
-if err 
+if err
     console.log "unable to connect to query store: #{err.to-string!}"
     return
 
@@ -17,11 +17,11 @@ else
     console.log "successfully connected to query store"
 
 # CacheStore
-err, memory-store <- to-callback do 
-    (require "./memory-stores/#{config.memory-store.name}") do 
+err, memory-store <- to-callback do
+    (require "./memory-stores/#{config.memory-store.name}") do
         config.memory-store[config.memory-store.name]
 
-if err 
+if err
     console.log "unable to connect to cache store: #{err.to-string!}"
     return
 
@@ -36,7 +36,7 @@ task-manager = new TaskManager memory-store
 pipend-spy = (require \pipend-spy) config?.spy?.storage-details
 spy =
     | config?.spy?.enabled => pipend-spy
-    | _ => 
+    | _ =>
         record: (event-object) -> return-p [event-object]
         record-req: (req, event-object) -> return-p [event-object]
 
@@ -46,7 +46,7 @@ spy =
     authorization-dependant-actions
 } = (require \./actions) persistent-store, task-manager
 
-routes = (require \./routes) do 
+routes = (require \./routes) do
     config.authentication.strategies
     {public-actions, authentication-dependant-actions, authorization-dependant-actions}
     spy
@@ -59,11 +59,11 @@ app = express!
 
 # with-optional-params :: [String] -> [String] -> [String]
 with-optional-params = (routes, params) -->
-    routes |> fold do 
+    routes |> fold do
         (acc, value) ->
             new-routes = [0 to params.length]
                 |> map (i) ->
-                    [0 til i] 
+                    [0 til i]
                         |> map -> ":#{params[it]}"
                         |> Str.join \/
                 |> map -> "#{value}/#{it}"
@@ -72,21 +72,21 @@ with-optional-params = (routes, params) -->
 
 # add-to-express-app :: String -> [a] -> ()
 add-to-express-app = (method, args) !->
-    app[method].apply do 
+    app[method].apply do
         app
         args |> reject -> typeof it == \undefined
 
 routes |> each ({
-    methods, 
-    patterns, 
-    middlewares or [], 
-    optional-params or [], 
+    methods,
+    patterns,
+    middlewares or [],
+    optional-params or [],
     request-handler
 }?) !->
     methods |> each (method) !->
         if patterns
-            (patterns `with-optional-params` optional-params) |> each (pattern) -> 
-                add-to-express-app do 
+            (patterns `with-optional-params` optional-params) |> each (pattern) ->
+                add-to-express-app do
                     method
                     [pattern] ++ middlewares ++ [request-handler]
 

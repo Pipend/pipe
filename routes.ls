@@ -21,10 +21,10 @@ die = (res, err) !->
 # partition-data-source-cue-params :: ParsedQueryString -> Tuple DataSourceCueParams ParsedQueryString
 partition-data-source-cue-params = (query) ->
     query
-    |> obj-to-pairs 
-    |> partition (0 ==) . (.0.index-of 'dsc-') 
-    |> ([ds, qs]) -> 
-        [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs] 
+    |> obj-to-pairs
+    |> partition (0 ==) . (.0.index-of 'dsc-')
+    |> ([ds, qs]) ->
+        [(ds |> map ([k,v]) -> [(camelize k.replace /^dsc-/, ''),v]), qs]
             |> map pairs-to-obj
 
 # query-parser :: String -> a
@@ -56,23 +56,23 @@ send = (response, promise) !->
 module.exports = (
     strategies
     {
-        public-actions, 
-        authentication-dependant-actions, 
+        public-actions,
+        authentication-dependant-actions,
         authorization-dependant-actions,
     }
     spy
     http-port
 ) ->
-    
+
     handle = (is-api, p, response) -->
 
         # error and redirect utility functions
         error = (status, msg) ->
-            console.log \error, status, is-api, msg
+            console.error 'routes.ls handle error', status, is-api, msg
             response.status status
-            if is-api 
-                then response.send {error: msg} 
-                else 
+            if is-api
+                then response.send {error: msg}
+                else
                     response.set \Content-disposition, ""
                     response.set \Content-type, "text"
                     response.end msg
@@ -87,7 +87,7 @@ module.exports = (
             if ex instanceof UnAuthorizedException
                 error 403, "You must be a Collaborator"
 
-            else if ex instanceof UnAuthenticatedException 
+            else if ex instanceof UnAuthenticatedException
                 redirect 401, 'You must log in', '/login'
 
             else if ex instanceof DocumentSaveException
@@ -103,7 +103,7 @@ module.exports = (
             # result :: response -> ()
 
             if \Function == typeof! result
-                try 
+                try
                     result response
                 catch ex
                     error 500, ex.to-string!
@@ -111,34 +111,34 @@ module.exports = (
                 response.send result
 
     ensure-authorized = (f, req, res) -->
-        handle do 
+        handle do
             'application/json' == req.headers['content-type']
-            (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) -> 
+            (authorization-dependant-actions req.user?._id, req.params.project-id).then (actions) ->
                 f actions, req, res
             res
 
     ensure-authenticated = (f, req, res) -->
-        handle do 
+        handle do
             'application/json' == req.headers['content-type']
-            (authentication-dependant-actions req.user?._id).then (actions) --> 
+            (authentication-dependant-actions req.user?._id).then (actions) -->
                 f actions, req, res
             res
 
     no-security = (f, req, res) -->
         handle do
             'application/json' == req.headers['content-type']
-            public-actions!.then (actions) -> 
+            public-actions!.then (actions) ->
                 f actions, req, res
             res
 
 
     ## ---------- middleware -----------
-    
+
     parse-query-string =
         methods: <[use]>
         request-handler: (req, res, next) ->
             if req.query
-                req.parsed-query = query-parser req.query 
+                req.parsed-query = query-parser req.query
             next!
 
     restrict-post-body-size =
@@ -147,12 +147,12 @@ module.exports = (
             if req.method in <[POST PUT]>
                 body = ""
                 size = 0
-                req.on \data, -> 
+                req.on \data, ->
                     size += it.length
                     if size > 4e6
                         res.write-head 413, \Connection : \close
                         res.end "File size exceeded"
-                    body += it 
+                    body += it
                 req.on \end, ->
                     req <<< body: JSON.parse body
                     next!
@@ -162,19 +162,19 @@ module.exports = (
 
 
     # ----------- auth -----------
-    
+
     passport
         ..use new GitHubStrategy strategies.github, (, , profile, callback) ->
             to-callback do
                 do ->
                     {get-user-by-oauth-id, insert-user} <- bind-p public-actions!
                     user <- bind-p (get-user-by-oauth-id \github, profile._json.id)
-                    if user 
+                    if user
                         return-p user
                     else
                         insert-user github-profile: profile._json
                 callback
-        
+
         ..serialize-user ({_id}?, callback) ->
             callback null, _id
 
@@ -183,11 +183,11 @@ module.exports = (
 
     init-express-session =
         methods: <[use]>
-        request-handler: express-session do 
+        request-handler: express-session do
             resave: false
             save-uninitialized: false
             secret: 'test'
-            store: new RedisSessionStore do 
+            store: new RedisSessionStore do
                 host: \127.0.0.1
                 port: 6379
 
@@ -199,18 +199,18 @@ module.exports = (
         methods: <[use]>
         request-handler: passport.session!
 
-    fake-user = 
+    fake-user =
         methods: <[use]>
         request-handler: (req, res, next) ->
             if req.query.user-id and !req.session.passport
-                req.session <<< 
-                    passport: 
-                        user: 
+                req.session <<<
+                    passport:
+                        user:
                             _id: req.query.user-id
 
             if req.session.passport
                 req.user = req.session.passport.user
-                
+
             next!
 
     login-page =
@@ -222,8 +222,8 @@ module.exports = (
     github-oauth-redirect =
         methods: <[get]>
         patterns: <[/auth/github]>
-        middlewares: 
-            *   passport.authenticate do 
+        middlewares:
+            *   passport.authenticate do
                     \github
                     scope: <[user:email]>
             ...
@@ -232,55 +232,55 @@ module.exports = (
         methods: <[get]>
         patterns: <[/auth/github/callback]>
         middlewares:
-            *   passport.authenticate do 
+            *   passport.authenticate do
                     \github
                     failure-redirect: \/login
                     success-redirect: \/
 
 
     # ----------- projects -----------
-    
+
     # create a new project for the user-id (owner)
-    # requires user to be only authenticated 
-    insert-project = 
+    # requires user to be only authenticated
+    insert-project =
         methods: <[post]>
         patterns: <[/apis/projects]>
         request-handler: ensure-authenticated (actions, req) ->
             actions.insert-project req.body
-    
+
     # get my projects
-    get-projects = 
+    get-projects =
         methods: <[get]>
         patterns: <[/apis/projects]>
         request-handler: ensure-authenticated (actions, req) ->
             actions.get-projects req.user?._id
 
-    get-projects-by-user-id = 
+    get-projects-by-user-id =
         methods: <[get]>
         patterns: <[/apis/users/:userId/projects]>
         request-handler: ensure-authenticated (actions, req) ->
             actions.get-projects req.params.user-id
-            
-    get-project = 
+
+    get-project =
         methods: <[get]>
         patterns: <[/apis/projects/:projectId]>
         request-handler: ensure-authorized (actions, req) ->
             actions.get-project req.params.project-id
-                
-    update-project = 
+
+    update-project =
         methods: <[put]>
         patterns: <[/apis/projects/:projectId]>
         request-handler: ensure-authorized (actions, req) ->
             actions.update-project req.body
-                
-    # can be invoked by owner only     
-    delete-project = 
+
+    # can be invoked by owner only
+    delete-project =
         methods: <[delete]>
         patterns: <[/apis/projects/:projectId]>
         request-handler: ensure-authorized (actions, req) ->
             console.log \DELETE
             actions.delete-project!
-    
+
 
     # ----------- documents -----------
 
@@ -294,10 +294,10 @@ module.exports = (
     get-document-version =
         methods: <[get]>
         patterns: <[/apis/projects/:projectId/documents/:documentId/versions/:version]>
-        request-handler: 
-            ensure-authorized (actions, req) -> 
+        request-handler:
+            ensure-authorized (actions, req) ->
                 actions.get-document-version req.params.document-id, (parse-int req.params.version)
-    
+
     get-document-history =
         methods: <[get]>
         patterns: <[/apis/projects/:projectId/documents/:documentId/versions]>
@@ -308,7 +308,7 @@ module.exports = (
     get-documents-in-a-project =
         methods: <[get]>
         patterns: <[/apis/projects/:projectId/documents]>
-        request-handler: ensure-authorized (actions) -> 
+        request-handler: ensure-authorized (actions) ->
             actions.get-documents-in-a-project!
 
     # can be invoked by owner, admin or collaborator
@@ -316,9 +316,9 @@ module.exports = (
     delete-document-and-hisotry =
         methods: <[delete]>
         patterns: <[/apis/projects/:projectId/documents/:documentId]>
-        request-handler: ensure-authorized (actions, req) -> 
+        request-handler: ensure-authorized (actions, req) ->
             actions.delete-document-and-history req.params.document-id
-    
+
     # can be invoked by owner, admin or collaborator
     # sets the status property of the given version of the document to false
     delete-document-version =
@@ -329,7 +329,7 @@ module.exports = (
 
 
     # ----------- editor -----------
-    
+
     # returns a list of all the databases/collections or databases/tables (Depending on queryType)
     # used in the dropdown
     connections =
@@ -359,23 +359,24 @@ module.exports = (
     keywords =
         methods: <[post]>
         patterns: <[/apis/projects/:projectId/keywords]>
-        request-handler: (req, res) ->
+        request-handler: ensure-authorized (actions, req, res) ->
             [data-source-cue, ...rest] = req.body
-            send do 
-                res 
-                extract-data-source data-source-cue .then ({query-type}:data-source) ->
-                    (require "./query-types/#{query-type}").keywords [data-source] ++ rest
+            {query-type}:data-source <- bind-p actions.extract-data-source data-source-cue
+            results <- bind-p (require "./query-types/#{query-type}").keywords [data-source] ++ rest
+            return-p results
+
+
 
 
     # ----------- execution -----------
-    
+
     execute-post =
         methods: <[post]>
         patterns: <[/apis/projects/:projectId/documents/:documentId/versions/:version/execute]>
         request-handler: ensure-authorized (actions, req, res) ->
             document-id = req.params.document-id
             version = (parse-int req.params.version)
-            
+
             # pattern match the required fields
             {
                 task-id
@@ -386,14 +387,14 @@ module.exports = (
                 compiled-parameters
                 cache
             }? = req.body
-            
+
             # set the req / res timeout from data-source
             {timeout}:data-source <- bind-p actions.extract-data-source data-source-cue
             [req, res] |> each (.connection.set-timeout timeout ? 90000)
-            
+
             actions.execute do
                 task-id
-                {} <<< display <<< 
+                {} <<< display <<<
                     url: req.url
                     method: req.method
                     user-agent: req.headers[\user-agent]
@@ -405,7 +406,7 @@ module.exports = (
                 compiled-parameters
                 cache
 
-            
+
     execute-document =
         methods: <[get]>
         patterns: <[
@@ -437,7 +438,7 @@ module.exports = (
             } = document
 
             # user can override PartialDataSource properties by providing ds- parameters in the query string
-            [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query 
+            [data-source-cue-params, compiled-parameters] = partition-data-source-cue-params req.parsed-query
 
             # req/res timeout
             {timeout}:data-source <- bind-p actions.extract-data-source {} <<< data-source-cue <<< data-source-cue-params
@@ -445,8 +446,8 @@ module.exports = (
 
             # execute the query
             task-info = document
-            {result} <- bind-p do 
-                actions.execute do 
+            {result} <- bind-p do
+                actions.execute do
                     task-id
                     url: req.url
                     method: req.method
@@ -459,18 +460,18 @@ module.exports = (
                     transpilation.query
                     compiled-parameters
                     cache
-            
+
             # returns :: p (res) -> IO ()
             switch display
-            | \query => 
+            | \query =>
                 return-p (res) !-> res.send result
 
-            | \transformation => 
+            | \transformation =>
                 transformation-function <- bind-p (compile-transformation transformation, transpilation.transformation)
                 return-p (res) !-> res.send (transformation-function result, compiled-parameters)
 
-            | _ => 
-                return-p (res) !-> 
+            | _ =>
+                return-p (res) !->
                     res.render \public/presentation.html, {
                         query-result: result
                         transpilation
@@ -479,10 +480,10 @@ module.exports = (
                         compiled-parameters
                         client-external-libs
                     }
-    
+
 
     # ----------- ops -----------
-                
+
     ops =
         methods: <[get]>
         patterns: <[/apis/projects/:projectId/tasks]>
@@ -541,8 +542,8 @@ module.exports = (
             if format in text-formats
                 task-id = base62.encode Date.now!
                 [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
-                {result} <- bind-p do 
-                    actions.execute do 
+                {result} <- bind-p do
+                    actions.execute do
                         task-id
                         url: req.url
                         method: req.method
@@ -570,12 +571,12 @@ module.exports = (
                     | \text => download \txt, \text/plain, JSON.stringify(transformed-result)
 
             else # format is not in text-formats
-                
+
                 # server side name of the image file (composed of query-id or branch-id & current time)
                 image-file = (
-                    if snapshot 
+                    if snapshot
                         "public/snapshots/#{branch-id}.png"  # TODO?
-                    else 
+                    else
                         "tmp/#{project-id}_#{document-id}_#{Date.now!}.png"
                 )
 
@@ -591,11 +592,11 @@ module.exports = (
                 query-params <- bind-p do ->
                     if snapshot
                         compile-parameters document.parameters, transpilation.query, {}
-                    else 
+                    else
                         return-p req.query
 
                 # load the page in phantom
-                <- bind-p phantom-page.open do 
+                <- bind-p phantom-page.open do
                     "http://127.0.0.1:#{http-port}/apis/projects/#{project-id}/documents/#{document-id}/versions/#{version}/execute/#{cache}/presentation?" +
                     querystring.stringify query-params
 
@@ -604,7 +605,7 @@ module.exports = (
                     set-timeout resolve, timeout ? (config?.snapshot-timeout ? 1000)
 
                 <- bind-p phantom-page.render image-file
-                
+
                 set-timeout do
                     -> phantom-instance.exit!
                     250
@@ -614,7 +615,7 @@ module.exports = (
 
                     if snapshot
                         res.end "snapshot saved to #{image-file}"
-    
+
                     # tell the browser to download the file
                     else
                         res.set \Content-disposition, "attachment; filename=#{filename}.png"
@@ -633,7 +634,7 @@ module.exports = (
             patterns: <[/node_modules]>
             request-handler: express.static "#__dirname/node_modules/"
         ...
-            
+
     # solves 404 errors
     non-existant-snapshots =
         methods: <[get]>
@@ -641,12 +642,12 @@ module.exports = (
         request-handler: (, res) ->
             res.status \content-type, \image/png
             res.end!
-            
+
     # render index.html
     index-html =
         methods: <[get]>
         patterns: <[
-            / 
+            /
             /projects/new
             /projects/:projectId
             /projects/:projectId/edit
@@ -655,13 +656,13 @@ module.exports = (
             /projects/:projectId/documents/:documentId/versions/:version
         ]>
         request-handler: (req, res) !->
-            spy.record-req do 
+            spy.record-req do
                 req
                 event-type: \visit
-                
+
             res.render \public/index.html
 
-    redirects = 
+    redirects =
         *   methods: <[get]>
             patterns: <[/projects/:projectId/documents/:documentId]>
             request-handler: ensure-authorized (actions, req, res) ->
@@ -681,27 +682,28 @@ module.exports = (
         github-oauth-redirect
         github-oauth-callback
         login-page
-    ] ++ 
-    static-directories ++ 
+    ] ++
+    static-directories ++
     [
         non-existant-snapshots
         index-html
-        
+
         insert-project
         get-project
         get-projects
         get-projects-by-user-id
         update-project
         delete-project
-        
+
         save-document
         get-document-version
         get-document-history
         get-documents-in-a-project
         delete-document-version
         delete-document-and-hisotry
-        
+
         connections
+        keywords
         default-document
         execute-post
         execute-document

@@ -23,7 +23,7 @@ tables-from-query = (query) ->
                     {expect: 'Any', tables}
             | 'Table' == expect =>
                 {expect: {what: 'As', table: token}, tables}
-            | expect.what == 'As' => 
+            | expect.what == 'As' =>
                 switch
                 | ctoken == 'as' =>
                     {expect: {what: 'Alias', table: expect.table}, tables}
@@ -40,9 +40,9 @@ tables-from-query = (query) ->
                 | _ =>
                     {expect: 'Any', tables: tables ++ [{table: expect.table, alias: null}]}
             | _ => throw "Unexpected 'expect' #{JSON.stringify expect}"
-            
+
         {expect: 'Any', tables: []}
-    .tables |> map ({table, alias}) -> {name: table, alias}    
+    .tables |> map ({table, alias}) -> {name: table, alias}
 
 module.exports =
 
@@ -53,7 +53,7 @@ module.exports =
         complete-data-source-cue-component: CompleteDataSourceCue
 
     # query-editor-settings :: String -> AceEditorSettings
-    query-editor-settings: (_) -> 
+    query-editor-settings: (_) ->
         {} <<< editor-settings! <<< ace-editor-props:
             mode: \ace/mode/sql
             theme: \ace/theme/monokai
@@ -65,30 +65,31 @@ module.exports =
     presentation-editor-settings: editor-settings
 
     # make-auto-completer :: (AceEditor -> Boolean) -> [DataSourceCue, String] -> p (String -> p AST)
-    make-auto-completer: (filter-function, source-and-language) ->
-        
+    make-auto-completer: (project-id, filter-function, source-and-language) ->
+
         make-auto-completer do
+            project-id
             filter-function
             source-and-language
 
             # on-api-keywords-feteched :: api-keywords -> Promise schema
             ({keywords}:data) -> new Promise (resolve, reject) ->
-                
+
                 tables = data.tables |> Obj.keys |> concat-map (-> [it, it.split \. .1])
                 schemas = data.tables |> Obj.keys |> map (.split \. .1) |> unique
                 # {'table': ['columns']}
-                tables-hash = data.tables 
-                    |> obj-to-pairs 
-                    |> concat-map ([k, v]) -> 
+                tables-hash = data.tables
+                    |> obj-to-pairs
+                    |> concat-map ([k, v]) ->
                         k = k.to-lower-case!
                         [[k, v], [(k.split \. .1), v]]
                     |> pairs-to-obj
                 all-tables = tables |> map (-> name: it.to-lower-case!)
                 resolve {all-tables, tables, tables-hash, schemas}
-            
-            # on-query-changed    
+
+            # on-query-changed
             (query, {keywords, schema:{all-tables, tables, tables-hash, schemas}}) -> new Promise (resolve, reject) ->
-                
+
                 query := query
                     .replace  /\s+top\s+\d+\s+/gi, ' '
                     .replace /\s+with\s?\(\s?nolock\s?\)\s+/gi, ' '
@@ -97,7 +98,7 @@ module.exports =
 
             # get-completions
             (text, {schema:{all-tables, tables, tables-hash, schemas}, keywords, ast:ast-tables}) ->
-                
+
                 auto-complete = []
                 token = ((text.split /[\s+\(]/)?[*-(if text.ends-with \. then 1 else 2)] ? "").to-lower-case!.replace /[\)\[\]\-\$\^\.\*\\\%\_\+\=\'\"\`\~\?\<\>\{\}\#\@\|]/ig, ''
 
@@ -115,11 +116,11 @@ module.exports =
                     matching-tables = ast-tables ? [] |> filter ({name, alias}) -> reg-clean-token.test name or reg-clean-token.test alias
 
                     # + all other tables (with lower score)
-                    auto-complete = auto-complete ++ do -> 
+                    auto-complete = auto-complete ++ do ->
                         if matching-tables.length == 0
                             ast-tables ? [] |> concat-map (t) -> {keywords: (unique <| t |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 80}
                         else
                             [keywords: (unique <| matching-tables |> concat-map (-> tables-hash[it.name.to-lower-case!])), score: 100]
-                
+
 
                 Promise.resolve auto-complete

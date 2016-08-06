@@ -1,11 +1,11 @@
-{Promise, bind-p, from-error-value-callback, from-non-cancellable, new-promise, 
+{Promise, bind-p, from-error-value-callback, from-non-cancellable, new-promise,
 return-p, reject-p, sequence-p, to-callback, with-cancel-and-dispose} = require \../async-ls
 require! \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
 
 # prelude
-{id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map, 
+{id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map,
 obj-to-pairs, pairs-to-obj, Str, unique, any, all, sort-by, floor, lines} = require \prelude-ls
 
 {date-from-object-id, get-all-keys-recursively, object-id-from-date} = require \../public/lib/utils
@@ -26,12 +26,12 @@ export parse-connection-string = (connection-string) ->
     {host, port, database, collection}
 
 # connections :: (CancellablePromise cp) => a -> cp b
-export connections = (project, {connection-name, database}) --> 
-    
+export connections = (project, {connection-name, database}) -->
+
     # get-connections :: (CancellablePromise cp) => a -> cp Connections
     get-connections = ->
         res <- new-promise
-        connections = (project.connections?.mongodb or {}) 
+        connections = (project.connections?.mongodb or {})
             |> obj-to-pairs
             |> map ([name, value]) -> {label: (value.label or name), value: name}
         res connections: connections
@@ -40,21 +40,21 @@ export connections = (project, {connection-name, database}) -->
     get-databases = (connection-name) ->
         {host, port}:connection? = project.connections?.mongodb?[connection-name]
         return reject-p new Error "connection name: #{connection-name} not found in project" if !connection
-        
+
         # return the database in the project, if the connection is a "database-connection"
         return return-p {connection-name, databases: [connection.database]} if !!connection?.database
 
         # return the list of all databases, if the connection is a "server-connection"
-        databases <- bind-p execute-mongo-database-query-function do 
+        databases <- bind-p execute-mongo-database-query-function do
             {host, port, database: \admin}
             (db) ->
                 admin = db.admin!
                 {databases} <- bind-p admin.list-databases!
-                databases 
+                databases
                     |> map (.name)
                     |> return-p
 
-        return-p do 
+        return-p do
             connection-name: connection-name
             databases: databases
 
@@ -68,7 +68,7 @@ export connections = (project, {connection-name, database}) -->
             (db) ->
                 resolve, reject <- new-promise
                 err, collections <- db.list-collections! .to-array
-                if err 
+                if err
                     reject err
                 else
                     collections
@@ -79,12 +79,12 @@ export connections = (project, {connection-name, database}) -->
                                 name .split \. .1
                         |> resolve
             Math.floor Math.random! * 1000000
-        
-        return-p do 
+
+        return-p do
             connection-name: connection-name
             database: database
             collections: collections
-    
+
     switch
         | !connection-name => get-connections!
         | !database => get-databases connection-name
@@ -92,7 +92,7 @@ export connections = (project, {connection-name, database}) -->
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source]) ->
-    pipeline = 
+    pipeline =
         * $sort: _id: -1
         * $limit: 10
     results <- bind-p execute-mongo-database-query-function do
@@ -102,12 +102,12 @@ export keywords = ([data-source]) ->
     collection-keywords = results
         |> concat-map (-> get-all-keys-recursively ((k, v)-> typeof v != \function), it)
         |> unique
-    return-p do 
+    return-p do
         keywords: collection-keywords ++ (collection-keywords |> map -> "$#{it}") ++
         ((get-all-keys-recursively (-> true), get-context!) |> map dasherize) ++
-        <[$add $add-to-set $all-elements-true $and $any-element-true $avg $cmp $concat $cond $day-of-month $day-of-week $day-of-year $divide 
-          $eq $first $geo-near $group $gt $gte $hour $if-null $last $let $limit $literal $lt $lte $map $match $max $meta $millisecond $min $minute $mod $month 
-          $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort 
+        <[$add $add-to-set $all-elements-true $and $any-element-true $avg $cmp $concat $cond $day-of-month $day-of-week $day-of-year $divide
+          $eq $first $geo-near $group $gt $gte $hour $if-null $last $let $limit $literal $lt $lte $map $match $max $meta $millisecond $min $minute $mod $month
+          $multiply $ne $not $or $out $project $push $redact $second $set-difference $set-equals $set-intersection $set-is-subset $set-union $size $skip $sort
           $strcasecmp $substr $subtract $sum $to-lower $to-upper $unwind $week $year do]>
 
 # convert-livescript-query-to-pipe-mongo-syntax :: String -> String
@@ -131,7 +131,7 @@ convert-babel-query-to-pipe-mongo-syntax = (query) ->
                     pending += a + \\n
                 {pending, tokens}
             {pending: null, tokens: []}
-        
+
     tokens.push pending
     tokens |> foldr1 (++)
 
@@ -141,7 +141,7 @@ convert-query-to-pipe-mongo-syntax-and-execute = (query, query-context, converte
         aggregate: (...args) -> args
     } <<<
         # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
-        ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"] 
+        ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"]
         |> map -> ["#it", (hash) -> "#it": hash]
         |> pairs-to-obj
 
@@ -161,26 +161,26 @@ export get-context = ->
     bucketize = (bucket-size, field) --> $divide: [$subtract: [field, $mod: [field, bucket-size]], bucket-size]
     # {date-from-object-id, object-id-from-date} = require \./../public/scripts/utils.ls
     {} <<< (require \./default-query-context.ls)! <<< {
-        
+
         # dependent on mongo operations
         day-to-timestamp: (field) -> $multiply: [field, 86400000]
         timestamp-to-day: bucketize 86400000
         bucketize: bucketize
         object-id: ObjectID
-        object-id-from-date: ObjectID . object-id-from-date 
-        
+        object-id-from-date: ObjectID . object-id-from-date
+
         # independent of any mongo operations
         date-from-object-id
         setImmediate
     }
 
 # execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
-execute-aggregation-pipeline = (allow-disk-use, collection, query) --> 
+execute-aggregation-pipeline = (allow-disk-use, collection, query) -->
     ((from-error-value-callback collection.aggregate, collection) query, {allow-disk-use})
-    
+
 # execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finalize}:query) -->
-    (from-error-value-callback collection.map-reduce, collection) do 
+    (from-error-value-callback collection.map-reduce, collection) do
         $map
         $reduce
         {} <<< $options <<< {finalize: $finalize}
@@ -190,11 +190,11 @@ execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finaliz
 # can also be used to perform db.****** functions
 # execute-mongo-database-query-function :: (CancellablePromise cp) => DataSource -> (MongoDatabase -> p result) -> cp result
 export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function) -->
-    
+
     # establish a connection to the server
     mongo-client = new MongoClient!
-    
-    mongo-client <- bind-p with-cancel-and-dispose do 
+
+    mongo-client <- bind-p with-cancel-and-dispose do
         (from-error-value-callback mongo-client.connect, mongo-client) "mongodb://#{host}:#{port}/#{database}"
         -> return-p \killed-early
 
@@ -211,20 +211,20 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     cancel = ->
         if \connected == db.server-config?._server-state
             {inprog} <- bind-p (db.collection \$cmd.sys.inprog .find-one {})
-            
+
             milliseconds-running = Date.now! - start-time
-            
-            op = inprog 
+
+            op = inprog
                 |> sort-by ({microsecs_running}) -> milliseconds-running - (microsecs_running / 1000)
                 |> (.0)
-                
+
             if op
                 # same as (db.kill-op opid)
                 db.collection \$cmd.sys.killop .find-one op: op.opid .then -> \killed
-                
+
             else
                 reject-p new Error "query could not be found\nStarted at: #{start-time}"
-        
+
         else
             reject-p new Error "_server-state is not connected"
 
@@ -237,7 +237,7 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
     with-cancel-and-dispose execute-query-function, cancel, dispose
 
 # for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => 
+# execute :: (CancellablePromise cp) =>
 #  TaskManager -> QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
 export execute = (, , {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->
     # aggregation-type :: String
@@ -246,17 +246,17 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
         res, rej <- new-promise
         query-context = {} <<< get-context! <<< (require \prelude-ls) <<< parameters
         {aggregation-type, computation} = switch
-            
+
             # COMPUTATION: detect computation query-type by a directive
             | (query.index-of '#! computation') == 0 =>
                 aggregation-type: \computation
                 computation: ->
 
                     # remove the directive line
-                    query-without-directive = query.substring (query.index-of '\n') + 1 
+                    query-without-directive = query.substring (query.index-of '\n') + 1
 
                     # database-query-function :: MongoDatabase -> cp result
-                    database-query-function <- bind-p compile-and-execute do 
+                    database-query-function <- bind-p compile-and-execute do
 
                         # code
                         match transpilation-language
@@ -278,17 +278,17 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                             sequence-p
                         }
                     execute-mongo-database-query-function data-source, database-query-function
-            
+
             # MAP REDUCE: detect by presence of $map, $reduce & options
             | (
-                <[$map $reduce options]> 
+                <[$map $reduce options]>
                     |> all (stage) -> (query.index-of stage) > -1
             ) =>
                 aggregation-type: \map-reduce
                 computation: ->
-                    
+
                     # map-reduce-query :: {$map :: a, $reduce :: a, $finalize :: a}
-                    map-reduce-query <- bind-p compile-and-execute do 
+                    map-reduce-query <- bind-p compile-and-execute do
                         match transpilation-language
                             | 'javascript' => "json = #{query}"
                             | 'babel' => "{\n#{query}\n}"
@@ -296,41 +296,41 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                         transpilation-language
                         query-context
 
-                    result <- bind-p execute-mongo-database-query-function data-source, (db) -> 
+                    result <- bind-p execute-mongo-database-query-function data-source, (db) ->
                         execute-aggregation-map-reduce (db.collection collection), map-reduce-query
 
-                    return-p do 
-                        if !result.collection-name 
-                            result 
-                        else 
-                            result: 
+                    return-p do
+                        if !result.collection-name
+                            result
+                        else
+                            result:
                                 collection-name: result.collection-name
                                 tag: result.db.tag
-            
+
             # AGGREGATION PIPELINE
             | _ =>
                 aggregation-type: 'pipeline'
                 computation: ->
-                    aggregation-query <- bind-p do 
+                    aggregation-query <- bind-p do
                         match transpilation-language
                         # using 'json = ...' converts query to an expression from JSON
-                        | \javascript => 
+                        | \javascript =>
                             trimmed-query = trim-babel-code query
                             if trimmed-query.0 == '['
-                                execute-javascript ("json = #{query}"), query-context 
+                                execute-javascript ("json = #{query}"), query-context
                             else
-                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                                convert-query-to-pipe-mongo-syntax-and-execute do
                                     query
                                     query-context
                                     convert-babel-query-to-pipe-mongo-syntax
                                     execute-javascript
 
-                        | \babel => 
+                        | \babel =>
                             trimmed-query = trim-babel-code query
                             if trimmed-query.0 == '['
                                 compile-and-execute-babel "{\n#{query}\n}", query-context
-                            else 
-                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                            else
+                                convert-query-to-pipe-mongo-syntax-and-execute do
                                     query
                                     query-context
                                     convert-babel-query-to-pipe-mongo-syntax
@@ -341,38 +341,38 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                             if trimmed-query.0 == '['
                                 compile-and-execute-livescript "\n#{query}\n", query-context
                             else if trimmed-query.0 == '*'
-                                compile-and-execute-livescript do 
+                                compile-and-execute-livescript do
                                     convert-query-to-livescript-array query
                                     query-context
                             else
-                                convert-query-to-pipe-mongo-syntax-and-execute do 
+                                convert-query-to-pipe-mongo-syntax-and-execute do
                                     query
                                     query-context
                                     convert-livescript-query-to-pipe-mongo-syntax
                                     from-non-cancellable compile-and-execute-livescript
 
-                    execute-mongo-database-query-function do 
+                    execute-mongo-database-query-function do
                         data-source
-                        (db) -> 
+                        (db) ->
                             execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
 
         res [aggregation-type, computation]
-    
+
     computation!
-    
+
 
 # default-document :: DataSourceCue -> String -> Document
-export default-document = (data-source-cue, transpilation-language) ->     
+export default-document = (data-source-cue, transpilation-language) ->
     query: switch transpilation-language
     | \livescript => """
-        $sort _id: -1 
+        $sort _id: -1
         $limit 20
     """
     | _ => """
         [
             {
                 $sort: {_id: -1}
-            }, 
+            },
             {
                 $limit: 20
             }
@@ -408,7 +408,7 @@ import-json = (file, data-source) ->
                             # stream.end!
                         else
                             stream.resume!
-                 
+
                 ..on \error, (err) ->
                     console.log "JSON Stream Error", err
                     reject err
@@ -449,8 +449,8 @@ export import-stream = (file, parser, data-source, response) ->
 
             # parse = csv-parse {comment: '#', relax: true, skip_empty_lines: true, trim: true, auto_parse: true, columns: true}
 
-            file.pipe highland.pipeline (s) -> 
-                rs = s.pipe parse 
+            file.pipe highland.pipeline (s) ->
+                rs = s.pipe parse
                 rs.on "error", (err) ->
                     console.log "file > parse error", err
                     <- set-timeout _, 500
@@ -478,7 +478,7 @@ export import-stream = (file, parser, data-source, response) ->
                         done := true
                         reject err
                     .reduce1 (+)
-                    .each (chunk) -> 
+                    .each (chunk) ->
                         return if done
                         process.stdout.write "#{chunk}\n"
                         resolve {inserted: chunk}
