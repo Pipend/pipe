@@ -12,6 +12,7 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
+    es6promise: require \../query-types/es6promise/ui-protocol.ls
 
 # connection-kinds-from-query-type :: [String] -> String -> [String]
 connection-kinds-from-query-type = (supported-kinds, query-type) -->
@@ -52,11 +53,11 @@ module.exports = React.create-class do
                 partial-data-source-cue-component
                 complete-data-source-cue-component
             }? = ui-protocol[query-type].data-source-cue-popup-settings!
-            [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it            
+            [supports-connection-string, partial-data-source-cue-component, complete-data-source-cue-component] |> all -> !it
 
-        div do 
+        div do
             class-name: 'data-source-cue-popup'
-            style: 
+            style:
                 left: @props?.left 360
 
             # lists all the available query types (like mongodb, mssql, multi, curl, ...)
@@ -69,20 +70,20 @@ module.exports = React.create-class do
                 on-change: (value) ~>
                     {connection-kind} = @props.data-source-cue
                     new-connection-kinds = connection-kinds-from-query-type1 value
-                    @props?.on-change do 
+                    @props?.on-change do
                         query-type: value
                         connection-kind:
                             | connection-kind in new-connection-kinds => connection-kind
                             | _ => new-connection-kinds?.0?.value ? null
                         complete: complete-by-default value
 
-            # lists all the connection kinds            
+            # lists all the connection kinds
             if connection-kinds.length > 0
                 LabelledDropdown do
                     label: 'conn. kind'
                     value: @props.data-source-cue.connection-kind
                     options: connection-kinds
-                    on-change: (value) ~> 
+                    on-change: (value) ~>
                         {query-type} = @props.data-source-cue
                         @.props?.on-change do
                             query-type: query-type
@@ -91,14 +92,14 @@ module.exports = React.create-class do
 
             # renders a new data-source component based on the value of the "connection-kind" dropdown
             if @props.data-source-cue.connection-kind != \connection-string
-                data-source-cue-component-name = 
-                    | @props.data-source-cue.connection-kind == \pre-configured => \partial-data-source-cue-component 
+                data-source-cue-component-name =
+                    | @props.data-source-cue.connection-kind == \pre-configured => \partial-data-source-cue-component
                     | _ => \complete-data-source-cue-component
                 component = ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings![camelize data-source-cue-component-name]
                 if !!component
                     React.create-element component, @props
 
-            # render "connection-string" component if the query-type supports it            
+            # render "connection-string" component if the query-type supports it
             else if ui-protocol[@props.data-source-cue.query-type].data-source-cue-popup-settings!.supports-connection-string
                 div null,
                     LabelledTextField do

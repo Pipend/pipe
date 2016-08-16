@@ -25,7 +25,7 @@ module.exports = React.create-class do
 
     # render :: a -> ReactElement
     render: ->
-        div do 
+        div do
             id: @props.editor-id
             ref: \editor
             style: @props.style
@@ -35,22 +35,22 @@ module.exports = React.create-class do
     component-did-mount: !->
         editor = ace.edit @props.editor-id
             ..set-show-print-margin false
-            ..set-options {enable-basic-autocompletion: true, scroll-past-end: 1.0}
+            ..set-options {enable-basic-autocompletion: true, scroll-past-end: 1.0, tabSize: 2, useSoftTabs: true}
 
-            # ..commands.on \afterExec ({editor, command, args}) ->
-            #     range = editor.get-selection-range!.clone!
-            #     range.set-start range.start.row, 0
-            #     line = editor.session.get-text-range range
-            #     if command.name == \insertstring and 
-            #        ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
-            #         editor.execCommand \startAutocomplete 
+            ..commands.on \afterExec ({editor, command, args}) ->
+                range = editor.get-selection-range!.clone!
+                range.set-start range.start.row, 0
+                line = editor.session.get-text-range range
+                if command.name == \insertstring and
+                   ((line.length == 1) or (/^\$[a-zA-Z]*$/.test args or /.*(\.|\s+[a-zA-Z\$\"\'\(\[\{])$/.test line))
+                    editor.execCommand \startAutocomplete
 
             ..session.on \changeMode, (e, session) ~>
                 if session.$worker and \ace/mode/javascript == session.get-mode!.$id
-                    session.$worker.send "setOptions", [{ 
+                    session.$worker.send "setOptions", [{
                         \-W095 : false
                         \-W025 : false
-                        \esnext : true 
+                        \esnext : true
                     }]
 
             ..on \change, (, editor) ~> @props?.on-change editor.get-value!

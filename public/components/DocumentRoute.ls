@@ -48,6 +48,7 @@ ui-protocol =
     mysql: require \../query-types/mysql/ui-protocol.ls
     redis: require \../query-types/redis/ui-protocol.ls
     elastic: require \../query-types/elastic/ui-protocol.ls
+    es6promise: require \../query-types/es6promise/ui-protocol.ls
 
 pipe-web-client = (require \pipe-web-client) window.location.origin
 

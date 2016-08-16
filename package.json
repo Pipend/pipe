@@ -52,6 +52,7 @@
     "pipend-spy": "^0.1.0",
     "prelude-extension": "0.0.13",
     "prelude-ls": "^1.1.2",
+    "ramda": "^0.22.1",
     "react": "^0.14.4",
     "react-ace": "^1.1.5",
     "react-addons-css-transition-group": "^0.14.6",
