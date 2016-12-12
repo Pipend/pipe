@@ -40,7 +40,7 @@ module.exports =
                 default-database: ''
 
     # default-data-source-cue :: DataSourceCue
-    default-data-source:
+    default-data-source-cue:
         connection-kind: \pre-configured
         query-type: \mongodb
         connection-name: \local
