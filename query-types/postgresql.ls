@@ -53,13 +53,18 @@ export keywords = ([data-source, transpilation-language]) ->
 export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
+export compile-query = (query, transpilation, parameters) -->
+
+    (Obj.keys parameters) |> each (key) ->
+        query := query.replace "$#{key}$", parameters[key]
+
+    query
+
 # for executing a single mongodb query POSTed from client
 # execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> CompiledQueryParameters -> cp result
 export execute = (, , data-source, query, transpilation, parameters) -->
 
-    (Obj.keys parameters) |> each (key) ->
-        query := query.replace "$#{key}$", parameters[key]
-    execute-sql data-source, query
+    execute-sql data-source, (compile-query query, transpilation, parameters)
 
 # default-document :: DataSourceCue -> String -> Document
 export default-document = -> 

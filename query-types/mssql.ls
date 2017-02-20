@@ -42,9 +42,7 @@ export keywords = ([data-source]) ->
 export get-context = ->
     {} <<< (require \./default-query-context.ls)!
 
-# for executing a single mongodb query POSTed from client
-# execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
-export execute = (, , data-source, query, transpilation-language, compiled-parameters) -->
+export compile-query = (query, transpilation-language, compiled-parameters) -->
     (Obj.keys compiled-parameters) |> each (key) ->
         query .= replace "$#{key}$", compiled-parameters[key]
 
@@ -54,6 +52,12 @@ export execute = (, , data-source, query, transpilation-language, compiled-param
             transpilation-language
             {} <<< compiled-parameters <<< (require \prelude-ls)
         if !!err then throw "QUERY COMPILATION ERROR: failed to evaluate macro (#{macro}) : #{err}" else result
+    query
+
+# for executing a single mongodb query POSTed from client
+# execute :: (CancellablePromise cp) => TaskManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
+export execute = (, , data-source, query, transpilation-language, compiled-parameters) -->
+    query = compile-query query, transformation, compiled-parameters
 
     execute-sql data-source, query
 

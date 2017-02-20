@@ -2,7 +2,7 @@
 {query-database-connection-string, mongo-connection-opitons}:config = require \./../config
 {MongoClient} = require \mongodb
 {camelize, id, map} = require \prelude-ls
-{extract-data-source}:utils = require \./../utils
+{extract-data-source}:utils = require \./../utils.ls
 {compile-and-execute-sync} = require \transpilation
 {compile-transformation} = require \pipe-transformation
 
@@ -35,7 +35,7 @@ export execute = (execute, {get-document-version, get-latest-document}, data-sou
             execute do 
                 document-id: document-id
                 version: version
-                document-title: query-title
+                document-title: 'query-title'
                 query-type: data-source.query-type
                 data-source
                 query
