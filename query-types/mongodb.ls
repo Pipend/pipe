@@ -3,6 +3,7 @@ return-p, reject-p, sequence-p, to-callback, with-cancel-and-dispose} = require 
 require! \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
+mongodbUri = require \mongodb-uri
 
 # prelude
 {id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map,
@@ -22,8 +23,10 @@ require! \JSONStream
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
-    [, host, , port, database, collection]:result? = connection-string.match /mongodb\:\/\/([a-zA-Z0-9\.]+)(\:(\d+))?\/(.*)?\/(.*)?/
-    {host, port, database, collection}
+    result = mongodb-uri.parse connection-string
+    return {_parsed: true} <<< result
+    # [, host, , port, database, collection]:result? = connection-string.match /mongodb\:\/\/([a-zA-Z0-9\.]+)(\:(\d+))?\/(.*)?\/(.*)?/
+    # {host, port, database, collection}
 
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = (project, {connection-name, database}) -->
@@ -92,12 +95,13 @@ export connections = (project, {connection-name, database}) -->
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source]) ->
+    # TODO: hardcoded collection name in data-source
     pipeline =
         * $sort: _id: -1
         * $limit: 10
     results <- bind-p execute-mongo-database-query-function do
         data-source
-        (db) -> execute-aggregation-pipeline false, (db.collection data-source.collection), pipeline
+        (db) -> execute-aggregation-pipeline false, (db.collection data-source.collection || "analytics"), pipeline
         #pipeline
     collection-keywords = results
         |> concat-map (-> get-all-keys-recursively ((k, v)-> typeof v != \function), it)
@@ -141,7 +145,7 @@ convert-query-to-pipe-mongo-syntax-and-execute = (query, query-context, converte
         aggregate: (...args) -> args
     } <<<
         # mongodb aggregation pipeline operators from http://docs.mongodb.org/manual/reference/operator/aggregation/
-        ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out"]
+        ["$project", "$match", "$redact", "$limit", "$skip", "$unwind", "$group", "$sort", "$geoNear", "$out", "$lookup"]
         |> map -> ["#it", (hash) -> "#it": hash]
         |> pairs-to-obj
 
@@ -176,6 +180,7 @@ export get-context = ->
 
 # execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-pipeline = (allow-disk-use, collection, query) -->
+    console.log(JSON.stringify(query, null, 2))
     ((from-error-value-callback collection.aggregate, collection) query, {allow-disk-use})
 
 # execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
@@ -189,13 +194,16 @@ execute-aggregation-map-reduce = (collection, {$map, $reduce, $options, $finaliz
 # mongo-database-query-function :: (db, callback) --> void;
 # can also be used to perform db.****** functions
 # execute-mongo-database-query-function :: (CancellablePromise cp) => DataSource -> (MongoDatabase -> p result) -> cp result
-export execute-mongo-database-query-function = ({host, port, database}, mongo-database-query-function) -->
+export execute-mongo-database-query-function = ({host, port, database}:parsed-connection-string, mongo-database-query-function) -->
+
+    #TODO: get collection name
+    connection-string = if !!parsed-connection-string._parsed then mongodb-uri.format(parsed-connection-string) else "mongodb://#{host}:#{port}/#{database}"
 
     # establish a connection to the server
     mongo-client = new MongoClient!
 
     mongo-client <- bind-p with-cancel-and-dispose do
-        (from-error-value-callback mongo-client.connect, mongo-client) "mongodb://#{host}:#{port}/#{database}"
+        (from-error-value-callback mongo-client.connect, mongo-client) connection-string
         -> return-p \killed-early
 
     # execute the query
@@ -240,6 +248,7 @@ export execute-mongo-database-query-function = ({host, port, database}, mongo-da
 # execute :: (CancellablePromise cp) =>
 #  TaskManager -> QueryStore -> DataSource -> String -> String -> CompiledQueryParameters -> cp result
 export execute = (, , {collection, allow-disk-use}:data-source, query, transpilation-language, parameters) -->
+
     # aggregation-type :: String
     # computation :: (CancellablePromise cp) => () -> cp result
     [aggregation-type, computation] <- bind-p do ->
@@ -354,7 +363,9 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                     execute-mongo-database-query-function do
                         data-source
                         (db) ->
-                            execute-aggregation-pipeline allow-disk-use, (db.collection collection), aggregation-query
+                            #TODO: hardcoded for sam analytics
+                            #TODO: we need to get the collection name in addition to query-string
+                            execute-aggregation-pipeline allow-disk-use, (db.collection collection || \analytics), aggregation-query
 
         res [aggregation-type, computation]
 
