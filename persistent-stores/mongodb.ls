@@ -3,6 +3,7 @@ require! \base62
 {MongoClient, ObjectID} = require \mongodb
 {any, difference, filter, find-index, last, map, obj-to-pairs, pairs-to-obj, reject, sort, sort-by, unique} = require \prelude-ls
 require! \../exceptions/DocumentSaveException
+{from-non-cancellable} = require '../async-ls'
 
 
 # TODO: move this to prelude-extension
@@ -162,7 +163,7 @@ module.exports = ({connection-string, connection-options}) ->
         # get-document-version :: String -> Int -> p Document
         get-document-version = (document-id, version) -->
             normalize-ids do
-                db.collection \documents .find-one do
+                (from-non-cancellable (db.collection \documents .find-one), (db.collection \documents)) do
                     document-id: document-id
                     version: version
                     status: true
@@ -170,7 +171,7 @@ module.exports = ({connection-string, connection-options}) ->
         # get-latest-document :: String -> p Document
         get-latest-document = (document-id) ->
             normalize-ids do
-                db.collection \documents .find-one do
+                (from-non-cancellable (db.collection \documents .find-one), (db.collection \documents)) do
                     {document-id, status: true}
                     {sort: version: -1}
 
