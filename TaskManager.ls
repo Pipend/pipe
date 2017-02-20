@@ -76,8 +76,15 @@ module.exports = class TaskManager extends EventEmitter
             task.cancellable-promise.is-pending!)
             return reject-p new Error "task with #{task-id} already exists"
         
-        # the cache key
-        hash = md5 JSON.stringify {project-id, data-source, query, transpilation-language, compiled-parameters}
+
+
+        compile-query = (require "./query-types/#{query-type}").compile-query
+
+        # the cache key, client-side parameters do not affect compiled query
+        # TODO: now we compile-query twice, once here once in execute function. fix it.
+        hash = md5 JSON.stringify (if !!compile-query 
+            then {project-id, data-source, query: compile-query(query, transpilation-language, compiled-parameters), transpilation-language} 
+            else {project-id, data-source, query, transpilation-language, compiled-parameters})
 
         # connect to the cache store (we need the save function for storing the result in cache later)
         cached-result <~ bind-p do ~> 
