@@ -51,6 +51,9 @@ module.exports = React.create-class do
                         \-W095 : false
                         \-W025 : false
                         \esnext : true
+                        \asi : true
+                        \laxcomma : true
+                        \esversion : 6
                     }]
 
             ..on \change, (, editor) ~> @props?.on-change editor.get-value!
