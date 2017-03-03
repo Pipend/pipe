@@ -3,6 +3,10 @@
 module.exports =
     
     authentication:
+        mock:
+            id: 1
+            _id: 1
+            username: 'test'
         strategies:
             github:
                 clientID: ''

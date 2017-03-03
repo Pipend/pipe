@@ -52,10 +52,18 @@ routes = (require \./routes) do
     spy
     config.http-port
 
+
+middleware = (req,res,next) ->
+  req.user = config.authentication.mock
+  return next!
+
+
 app = express!
     ..set \views, __dirname + \/
     ..engine \.html, (require \ejs).__express
     ..set 'view engine', \ejs
+    ..use middleware if !!config.authentication.mock
+
 
 # with-optional-params :: [String] -> [String] -> [String]
 with-optional-params = (routes, params) -->
