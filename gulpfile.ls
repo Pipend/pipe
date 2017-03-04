@@ -108,7 +108,7 @@ gulp.task \dev:server, ->
         script: \./server.ls
 
 # ENTRY POINT
-gulp.task \build, <[build:styles build:index:scripts build:presentation:styles build:presentation:scripts]>
+gulp.task \build, <[build:styles build:index:scripts build:presentation:scripts]>
 gulp.task \default, -> run-sequence do 
     <[build:styles]>
     <[

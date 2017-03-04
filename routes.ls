@@ -10,7 +10,6 @@ require! \./exceptions/DocumentSaveException
 require! \./exceptions/UnAuthenticatedException
 require! \./exceptions/UnAuthorizedException
 {compile-transformation} = require \pipe-transformation
-require! \phantom
 require! \querystring
 
 # Res -> Error -> Void

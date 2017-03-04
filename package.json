@@ -47,7 +47,6 @@
     "passport": "^0.3.2",
     "passport-github2": "^0.1.9",
     "pg": "^4.4.0",
-    "phantom": "^2.0.0-alpha.4",
     "pipe-transformation": "^3.0.0",
     "pipe-web-client": "4.0.0",
     "pipend-spy": "^0.1.0",
