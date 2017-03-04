@@ -49,7 +49,7 @@
     "pg": "^4.4.0",
     "phantom": "^2.0.0-alpha.4",
     "pipe-transformation": "^3.0.0",
-    "pipe-web-client": "^4.0.0",
+    "pipe-web-client": "4.0.0",
     "pipend-spy": "^0.1.0",
     "prelude-extension": "0.0.13",
     "prelude-ls": "^1.1.2",
