@@ -4,6 +4,7 @@ require! \./../config
 {compile} = require \livescript
 {MongoClient, ObjectID, Server} = require \mongodb
 mongodbUri = require \mongodb-uri
+EJSON = require \mongodb-extended-json
 
 # prelude
 {id, concat-map, dasherize, difference, each, filter, find, find-index, fold, foldr1, Obj, keys, map,
@@ -170,8 +171,8 @@ export get-context = ->
         day-to-timestamp: (field) -> $multiply: [field, 86400000]
         timestamp-to-day: bucketize 86400000
         bucketize: bucketize
-        object-id: ObjectID
-        object-id-from-date: ObjectID . object-id-from-date
+        object-id: (x) -> "$oid": (ObjectID x)
+        object-id-from-date1: (x) -> (object-id-from-date x)
 
         # independent of any mongo operations
         date-from-object-id
@@ -180,7 +181,8 @@ export get-context = ->
 
 # execute-aggregation-pipeline :: (Promise p) => Boolean -> MongoDBCollection -> AggregateQuery -> p result
 execute-aggregation-pipeline = (allow-disk-use, collection, query) -->
-    console.log(JSON.stringify(query, null, 2))
+    console.log(EJSON.stringify(query, null, 2))
+    # query = EJSON.parse("""[{"$match":{"_id":{"$gt":{"$oid":"58c09b000000000000000000"}}}},{"$limit":100}]""")
     ((from-error-value-callback collection.aggregate, collection) query, {allow-disk-use})
 
 # execute-aggregation-map-reduce :: (Promise p) => MongoDBCollection -> AggregateQuery -> p result
@@ -203,7 +205,7 @@ export execute-mongo-database-query-function = ({host, port, database}:parsed-co
     mongo-client = new MongoClient!
 
     mongo-client <- bind-p with-cancel-and-dispose do
-        (from-error-value-callback mongo-client.connect, mongo-client) connection-string
+        (from-error-value-callback mongo-client.connect, mongo-client) connection-string, { connectTimeoutMS: 1000 * 60 * 3, socketTimeoutMS: 1000 * 60 * 3 }
         -> return-p \killed-early
 
     # execute the query
@@ -360,12 +362,16 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                                     convert-livescript-query-to-pipe-mongo-syntax
                                     from-non-cancellable compile-and-execute-livescript
 
+                    console.log(JSON.stringify(aggregation-query))
+                    console.log("---")
+                    ejson-aggregation-query = EJSON.parse(JSON.stringify(aggregation-query))
+
                     execute-mongo-database-query-function do
                         data-source
                         (db) ->
                             #TODO: hardcoded for sam analytics
                             #TODO: we need to get the collection name in addition to query-string
-                            execute-aggregation-pipeline allow-disk-use, (db.collection collection || \analytics), aggregation-query
+                            execute-aggregation-pipeline allow-disk-use, (db.collection <| collection or \analytics), ejson-aggregation-query
 
         res [aggregation-type, computation]
 
