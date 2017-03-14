@@ -5,7 +5,9 @@
   "main": "",
   "scripts": {
     "test": "mocha test/index.ls --compilers ls:livescript",
-    "configure": "cp config.ls.template config.ls"
+    "configure": "cp config.ls.template config.ls",
+    "build": "gulp build",
+    "start": "lsc server.ls"
   },
   "author": "",
   "license": "ISC",
