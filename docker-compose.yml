@@ -1,0 +1,22 @@
+version: '2'
+services:
+  server:
+    build: ./
+    ports:
+      - "4081:4081"
+    links:
+      - "redis"
+      - "mongodb"
+    volumes:
+      - "./config-docker.ls:/app/config.ls"
+
+  redis:
+    image: redis:3
+    command: redis-server --appendonly yes
+    volumes:
+      - "/data"
+
+  mongodb:
+    image: mongo:3
+    volumes:
+      - "/data/db"
