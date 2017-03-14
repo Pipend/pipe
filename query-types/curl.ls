@@ -16,32 +16,32 @@ export get-context = ->
 # execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> String -> Parameters -> cp result
 export execute = (, , data-source, query, transpilation-language, parameters) -->
     {shell-command, parse} = require \./shell-command-parser
-    result = parse shell-command, query
-    
+    result = parse shell-command, (query.replace /\s/g, '')
+
     # parsing error
     if !!result.0.1
         return (new-promise (, rej) -> rej new Error "Parsing Error #{result.0.1}")
 
-    result := result.0.0.args 
+    result := result.0.0.args
         |> concat-map id
 
-    url = result 
-        |> find (-> !!it.opt) 
+    url = result
+        |> find (-> !!it.opt)
         |> (.opt)
 
-    options = result 
-        |> filter (-> !!it.name) 
-        |> map ({name, value}) -> 
+    options = result
+        |> filter (-> !!it.name)
+        |> map ({name, value}) ->
             (if name.length > 1 then "--" else "-") + name + if !!value then " #value" else ""
         |> Str.join " "
 
-    [err, url] = compile-and-execute-sync do 
+    [err, url] = compile-and-execute-sync do
         url
         transpilation-language
         parameters |> Obj.map -> it ? ""
-    
+
     if !!err
-        return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err") 
+        return (new-promise (, rej) -> rej new Error "Url foramtting failed\n#err")
 
     # escape characters
     url .= replace \{, '\\{'
@@ -55,14 +55,14 @@ export execute = (, , data-source, query, transpilation-language, parameters) --
             return rej Error "Error in curl #code #output", null if code != 0
             res output
 
-    with-cancel-and-dispose do 
+    with-cancel-and-dispose do
         execute-curl
-        -> 
+        ->
             curl-process.kill! if !!curl-process
             returnP \killed
 
 # default-document :: DataSourceCue -> String -> Document
-export default-document = (data-source-cue, transpilation-language) -> 
+export default-document = (data-source-cue, transpilation-language) ->
     query: """curl "https://api.github.com/emojis" """
     transformation: "JSON.parse"
     presentation: "json"
