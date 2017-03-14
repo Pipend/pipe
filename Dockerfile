@@ -13,7 +13,6 @@ RUN npm install -q
 
 # copy source code
 ADD . .
-ADD config-docker.ls config.ls
 
 # build 
 RUN npm run build

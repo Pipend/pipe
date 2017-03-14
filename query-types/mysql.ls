@@ -12,15 +12,15 @@ execute-sql = (data-source, query) -->
             ..connect!
             ..query query, (err, rows) -> if !!err then rej err else res rows
 
-    with-cancel-and-dispose do 
+    with-cancel-and-dispose do
         execute-sql-promise
         -> returnP \killed
         -> if !!connection then connection.end!
 
 # connections :: (CancellablePromise cp) => a -> cp b
 export connections = ->
-    returnP do 
-        connections: (config?.connections?.mysql or {}) 
+    returnP do
+        connections: (config?.connections?.mysql or {})
             |> obj-to-pairs
             |> map ([name, value]) ->
                 label: (value?.label or name)
@@ -29,7 +29,7 @@ export connections = ->
 
 # keywords :: (CancellablePromise cp) => [DataSource, String] -> cp [String]
 export keywords = ([data-source, transpilation-language]) ->
-    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns")    
+    results <- bindP (execute-sql data-source, "select table_schema, table_name, column_name from information_schema.columns")
     tables = results |> (group-by (-> "#{it.table_schema}.#{it.table_name}")) >> (Obj.map map (.column_name))
     returnP {
         keywords: <[SELECT GROUP BY TOP ORDER WITH DISTINCT INNER OUTER JOIN]>
@@ -44,14 +44,15 @@ export get-context = ->
 # execute :: (CancellablePromise cp) => OpsManager -> QueryStore -> DataSource -> String -> CompiledQueryParameters -> cp result
 export execute = (, , data-source, query, transpilation, parameters) -->
     (Obj.keys parameters) |> each (key) ->
-        query := query.replace "$#{key}$", parameters[key]
+        pattern = new RegExp "\\$#{key}\\$", \g
+        query := query.replace pattern, parameters[key]
     execute-sql data-source, query
 
 # default-document :: DataSourceCue -> String -> Document
-export default-document = (data-source-cue, transpilation-language) -> 
+export default-document = (data-source-cue, transpilation-language) ->
     query: """
-    select * 
-    from 
+    select *
+    from
     limit 10
     """
     transformation: "id"
