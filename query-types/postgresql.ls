@@ -56,7 +56,8 @@ export get-context = ->
 export compile-query = (query, transpilation, parameters) -->
 
     (Obj.keys parameters) |> each (key) ->
-        query := query.replace "$#{key}$", parameters[key]
+        reg = new RegExp "\\$#{key}\\$", 'g'
+        query := query.replace reg, parameters[key]
 
     query
 
