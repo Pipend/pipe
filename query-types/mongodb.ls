@@ -24,8 +24,9 @@ require! \JSONStream
 
 # parse-connection-string :: String -> DataSource
 export parse-connection-string = (connection-string) ->
+    [connection-string, collection] = connection-string.split '#'
     result = mongodb-uri.parse connection-string
-    return {_parsed: true} <<< result
+    return {_parsed: true, collection: collection or null} <<< result
     # [, host, , port, database, collection]:result? = connection-string.match /mongodb\:\/\/([a-zA-Z0-9\.]+)(\:(\d+))?\/(.*)?\/(.*)?/
     # {host, port, database, collection}
 
