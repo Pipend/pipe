@@ -54,6 +54,7 @@ guest-view-of-document = (document) -> document
 # Role :: guest | owner | admin | collaborator
 # get-role :: Project -> String -> Role
 get-role = (project, user-id) -->
+    return \owner # TODO: removed auth
     switch
     | project.owner-id == user-id => \owner
     | _ => project.users?[user-id] ? \guest
@@ -115,6 +116,7 @@ module.exports = (store, task-manager) ->
         # Utility
         # authenticated-user-in-role :: [Role] -> (-> p a) -> p a
         authenticated-user-in-role = (permitted-roles, f) -->
+            return f! #TODO: removed auth
             if !user-id
                 reject-p new UnAuthenticatedException!
             else
@@ -129,6 +131,7 @@ module.exports = (store, task-manager) ->
             | !user-id and !(project.permission in ['publicReadable', 'publicReadableAndExecutable']) => [false, UnAuthenticatedException]
             | _ => [false, UnAuthorizedException]
             
+            [permitted, exception] = [true, null] #TODO: removed authentication
 
             if permitted then f! else reject-p new exception!
             
@@ -295,8 +298,8 @@ module.exports = (store, task-manager) ->
                         # guests cannot execute against private dataSource
                         data-source <- bind-p (extract-data-source original-document.data-source-cue)
 
-                        if (project.permission in <[publicExecutable publicReadableAndExecutable]>) and 
-                           (data-source.permission == \publicExecutable)
+                        if true or ((project.permission in <[publicExecutable publicReadableAndExecutable]>) and 
+                           (data-source.permission == \publicExecutable)) #TODO: removed authentication
                             {query, transpilation, parameters} = original-document
                             compiled-parameters <- bind-p (compile-and-execute parameters, transpilation.query)
                             task-manager-execute data-source, query, transpilation.query, compiled-parameters

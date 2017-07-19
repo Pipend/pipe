@@ -165,7 +165,7 @@ module.exports = class TaskManager extends EventEmitter
                     # cancel the promise if execution takes longer than data-source.timeout milliseconds
                     cancel-timer = set-timeout do 
                         -> cancellable-promise.cancel!
-                        timeout ? 90000
+                        timeout ? 15 * 60000
 
                     # emit a change event on completion
                     cancellable-promise.finally ~> 

@@ -12,6 +12,7 @@ pg = require \pg
 execute-sql = ({user, password, host, port, database, connection-string, ssl = false}:connection, query) -->
     client = null
 
+    console.log <| if !!connection-string then connection-string else "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}" + (if ssl then "?ssl=true" else "")
     execute-sql-promise = new-promise (res, rej) ->
         client := new pg.Client do 
             if !!connection-string then connection-string else "postgres://" + (if !!user then "#{user}:#{password}@" else "") + "#{host}:#{port}/#{database}" + (if ssl then "?ssl=true" else "")
@@ -59,6 +60,15 @@ export compile-query = (query, transpilation, parameters) -->
         reg = new RegExp "\\$#{key}\\$", 'g'
         query := query.replace reg, parameters[key]
 
+    R = require \ramda
+
+    params = parameters
+    query := query.replace do 
+        /\$\[(.*)\]\$/ig
+        (_, m) -> 
+            console.log m
+            return eval m
+    console.log(query)
     query
 
 # for executing a single mongodb query POSTed from client

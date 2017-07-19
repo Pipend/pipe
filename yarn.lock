@@ -17,7 +17,7 @@ CSSwhat@0.4:
   version "0.4.7"
   resolved "https://registry.yarnpkg.com/CSSwhat/-/CSSwhat-0.4.7.tgz#867da0ff39f778613242c44cfea83f0aa4ebdf9b"
 
-JSONStream@^1.0.3, JSONStream@^1.0.4, JSONStream@^1.0.7:
+JSONStream@^1.0.3, JSONStream@^1.0.4, JSONStream@^1.0.7, JSONStream@^1.1.1:
   version "1.3.1"
   resolved "https://registry.yarnpkg.com/JSONStream/-/JSONStream-1.3.1.tgz#707f761e01dae9e16f1bcf93703b78c70966579a"
   dependencies:
@@ -314,6 +314,12 @@ async@^0.9.0:
 async@^1.3.0:
   version "1.5.2"
   resolved "https://registry.yarnpkg.com/async/-/async-1.5.2.tgz#ec6a61ae56480c0c3cb241c95618e20892f9672a"
+
+async@^2.0.1:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/async/-/async-2.2.0.tgz#c324eba010a237e4fbd55a12dee86367d5c0ef32"
+  dependencies:
+    lodash "^4.14.0"
 
 async@~0.2.6:
   version "0.2.10"
@@ -732,7 +738,7 @@ browserslist@^1.0.1, browserslist@^1.5.2, browserslist@^1.7.5:
     caniuse-db "^1.0.30000631"
     electron-to-chromium "^1.2.5"
 
-bson@~1.0.4:
+bson@^1.0.1, bson@~1.0.4:
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/bson/-/bson-1.0.4.tgz#93c10d39eaa5b58415cbc4052f3e53e562b0b72c"
 
@@ -1451,6 +1457,10 @@ cycle@1.0.x:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/cycle/-/cycle-1.0.3.tgz#21e80b2be8580f98b468f379430662b046c34ad2"
 
+d3-format@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/d3-format/-/d3-format-1.1.1.tgz#26e094e7b0fa925d3615aa6f43b265c5ca82b46e"
+
 d3-tip@^0.6.7:
   version "0.6.8"
   resolved "https://registry.yarnpkg.com/d3-tip/-/d3-tip-0.6.8.tgz#e5b4491ae8983fde646ea49008ff542a033c0a2c"
@@ -2072,7 +2082,7 @@ etag@~1.8.0:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/etag/-/etag-1.8.0.tgz#6f631aef336d6c46362b51764044ce216be3c051"
 
-event-stream@^3.2.1, event-stream@~3.3.0:
+event-stream@^3.2.1, event-stream@^3.3.1, event-stream@~3.3.0:
   version "3.3.4"
   resolved "https://registry.yarnpkg.com/event-stream/-/event-stream-3.3.4.tgz#4ab4c9a0f5a54db9338b4c34d86bfce8f4b35571"
   dependencies:
@@ -3987,6 +3997,10 @@ lodash.isequal@^4.0.0:
   version "4.5.0"
   resolved "https://registry.yarnpkg.com/lodash.isequal/-/lodash.isequal-4.5.0.tgz#415c4478f2bcc30120c22ce10ed3226f7d3e18e0"
 
+lodash.isfunction@^3.0.6:
+  version "3.0.8"
+  resolved "https://registry.yarnpkg.com/lodash.isfunction/-/lodash.isfunction-3.0.8.tgz#4db709fc81bc4a8fd7127a458a5346c5cdce2c6b"
+
 lodash.isobject@~2.4.1:
   version "2.4.1"
   resolved "https://registry.yarnpkg.com/lodash.isobject/-/lodash.isobject-2.4.1.tgz#5a2e47fe69953f1ee631a7eba1fe64d2d06558f5"
@@ -4093,6 +4107,10 @@ lodash.templatesettings@~2.4.1:
     lodash._reinterpolate "~2.4.1"
     lodash.escape "~2.4.1"
 
+lodash.transform@^4.6.0:
+  version "4.6.0"
+  resolved "https://registry.yarnpkg.com/lodash.transform/-/lodash.transform-4.6.0.tgz#12306422f63324aed8483d3f38332b5f670547a0"
+
 lodash.uniq@^4.3.0:
   version "4.5.0"
   resolved "https://registry.yarnpkg.com/lodash.uniq/-/lodash.uniq-4.5.0.tgz#d0225373aeb652adc1bc82e4945339a842754773"
@@ -4117,7 +4135,7 @@ lodash@^3.10.0, lodash@^3.10.1:
   version "3.10.1"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-3.10.1.tgz#5bf45e8e49ba4189e17d482789dfd15bd140b7b6"
 
-lodash@^4.17.2, lodash@^4.17.3:
+lodash@^4.14.0, lodash@^4.17.2, lodash@^4.17.3:
   version "4.17.4"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.4.tgz#78203a4d1c328ae1d86dca6460e369b57f4055ae"
 
@@ -4417,11 +4435,24 @@ mongodb-core@2.1.8:
     bson "~1.0.4"
     require_optional "~1.0.0"
 
+mongodb-extended-json@^1.9.0:
+  version "1.9.0"
+  resolved "https://registry.yarnpkg.com/mongodb-extended-json/-/mongodb-extended-json-1.9.0.tgz#a5275ccdf96dc7da55cf32a19c97ac8fb2ca88ec"
+  dependencies:
+    JSONStream "^1.1.1"
+    async "^2.0.1"
+    bson "^1.0.1"
+    event-stream "^3.3.1"
+    lodash.isfunction "^3.0.6"
+    lodash.transform "^4.6.0"
+    moment "^2.10.6"
+    raf "^3.1.0"
+
 mongodb-uri@^0.9.7:
   version "0.9.7"
   resolved "https://registry.yarnpkg.com/mongodb-uri/-/mongodb-uri-0.9.7.tgz#0f771ad16f483ae65f4287969428e9fbc4aa6181"
 
-mongodb@^2.0.26, mongodb@^2.1.0:
+mongodb@^2.0.26, mongodb@^2.2.24:
   version "2.2.24"
   resolved "https://registry.yarnpkg.com/mongodb/-/mongodb-2.2.24.tgz#80f40d6ec5bdec0ddecf0f9ce0144e794c46449a"
   dependencies:
@@ -4996,7 +5027,7 @@ pend@~1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/pend/-/pend-1.2.0.tgz#7a57eb550a6783f9115331fcf4663d5c8e007a50"
 
-performance-now@^0.2.0:
+performance-now@^0.2.0, performance-now@~0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/performance-now/-/performance-now-0.2.0.tgz#33ef30c5c77d4ea21c5a53869d91b56d8f2555e5"
 
@@ -5085,6 +5116,26 @@ pipe-transformation@^3.0.0:
 pipe-web-client@4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/pipe-web-client/-/pipe-web-client-4.0.0.tgz#aa692d23fde4c548a8dff11c2e86ff03361ec666"
+  dependencies:
+    base62 "^1.1.0"
+    d3 "^3.5.12"
+    d3-tip "^0.6.7"
+    es6-promise "^3.0.2"
+    heatmap.js "^2.0.1"
+    isomorphic-fetch "^2.2.0"
+    jquery-browserify "^1.8.1"
+    moment "^2.10.6"
+    nvd3 "^1.8.1"
+    pipe-transformation "^3.0.0"
+    prelude-extension "^0.0.13"
+    prelude-ls "^1.1.2"
+    radar-chart-d3 "git+https://github.com/roeierez/radar-chart-d3.git"
+    transpilation "^2.0.0"
+    whatwg-fetch "^0.10.1"
+
+"pipe-web-client@https://github.com/pipend/pipe-web-client.git":
+  version "4.0.1"
+  resolved "https://github.com/pipend/pipe-web-client.git#2be3afb06472ee3f584906eafc96170bc915e722"
   dependencies:
     base62 "^1.1.0"
     d3 "^3.5.12"
@@ -5545,6 +5596,12 @@ querystringify@0.0.x:
   resolved "git+https://github.com/roeierez/radar-chart-d3.git#22f57cc4b0e450de6d1852b59c9e49c26c1f258a"
   dependencies:
     d3 "~3.5.5"
+
+raf@^3.1.0:
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/raf/-/raf-3.3.0.tgz#93845eeffc773f8129039f677f80a36044eee2c3"
+  dependencies:
+    performance-now "~0.2.0"
 
 ramda@^0.22.1:
   version "0.22.1"

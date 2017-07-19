@@ -390,7 +390,7 @@ module.exports = (
 
             # set the req / res timeout from data-source
             {timeout}:data-source <- bind-p actions.extract-data-source data-source-cue
-            [req, res] |> each (.connection.set-timeout timeout ? 90000)
+            [req, res] |> each (.connection.set-timeout timeout ? 1000 * 60 * 3)
 
             actions.execute do
                 task-id
@@ -442,7 +442,7 @@ module.exports = (
 
             # req/res timeout
             {timeout}:data-source <- bind-p actions.extract-data-source {} <<< data-source-cue <<< data-source-cue-params
-            [req, res] |> each (.connection.set-timeout timeout ? 90000)
+            [req, res] |> each (.connection.set-timeout timeout ? 1000 * 60 * 3)
 
             # execute the query
             task-info = document
@@ -541,7 +541,7 @@ module.exports = (
 
             if format in text-formats
                 task-id = base62.encode Date.now!
-                [req, res] |> each (.connection.set-timeout data-source.timeout ? 90000)
+                [req, res] |> each (.connection.set-timeout data-source.timeout ? 1000 * 60 * 3)
                 {result} <- bind-p do
                     actions.execute do
                         task-id

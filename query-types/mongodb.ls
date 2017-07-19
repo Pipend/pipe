@@ -165,7 +165,7 @@ trim-babel-code = (query) ->
 # get-context :: a -> Context
 export get-context = ->
     bucketize = (bucket-size, field) --> $divide: [$subtract: [field, $mod: [field, bucket-size]], bucket-size]
-    # {date-from-object-id, object-id-from-date} = require \./../public/scripts/utils.ls
+    # {date-from-object-id, object-id-from-date} = require \./../public/lib/utils.ls
     {} <<< (require \./default-query-context.ls)! <<< {
 
         # dependent on mongo operations
@@ -307,6 +307,8 @@ export execute = (, , {collection, allow-disk-use}:data-source, query, transpila
                             | _ => "{\n#{query}\n}"
                         transpilation-language
                         query-context
+
+                    console.log('map-reduce-query', map-reduce-query)
 
                     result <- bind-p execute-mongo-database-query-function data-source, (db) ->
                         execute-aggregation-map-reduce (db.collection collection), map-reduce-query
